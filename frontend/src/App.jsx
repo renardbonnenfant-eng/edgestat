@@ -718,8 +718,9 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         <div style={{ fontSize:9, color:C.sidebarSection, textTransform:"uppercase", letterSpacing:2, marginBottom:6, paddingLeft:2 }}>Sport</div>
         <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
           {[
-            { id:"favs",    label:"Favoris",  icon:"⭐", color:"#d97706" },
-            { id:"home",    label:"Accueil",  icon:"🏠", color:"#032D60" },
+            { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
+            { id:"encyclopedia", label:"Encyclopédie", icon:"📖", color:"#7C3AED" },
+            { id:"home",         label:"Accueil",      icon:"🏠", color:"#032D60" },
             { id:"history", label:"Histoire", icon:"📚", color:"#7C3AED" },
             { id:"bracket", label:"Coupes",   icon:"🏆", color:"#0176D3" },
             { id:"foot",    label:"Football", icon:"⚽", color:"#0176D3" },
@@ -1419,6 +1420,22 @@ function TabDoubleChance({ m }) {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
         <Block team={m.home} color={C.accent} side="home" />
         <Block team={m.away} color={C.blue}   side="away" />
+      </div>
+      {/* Stats avancées parieurs */}
+      <SectionTitle>Données complémentaires</SectionTitle>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        {[
+          { label:"Domicile ne perd pas", val:`${m.home.doubleChance?.notLosing??0}%`, sub:"(Victoire ou nul à dom.)", color:C.accent },
+          { label:"Extérieur ne perd pas", val:`${m.away.doubleChance?.notLosing??0}%`, sub:"(Victoire ou nul à ext.)", color:C.blue },
+          { label:"Retour dom. après défaite", val:`${m.home.doubleChance?.afterLoss??"-"}`, sub:"% victoire après une défaite", color:"#16a34a" },
+          { label:"Marque en 2ème mi-temps", val:`${Math.round(((m.home.minuteGoals?.filter?.(mg=>mg.label==="76-90"||mg.label==="61-75")?.reduce?.((s,mg)=>s+(mg.total||0),0)||0)/Math.max(m.home.homeRecord?.played||1,1)*100))}%`, sub:"Buts 61-90e minute", color:"#d97706" },
+        ].map(item => (
+          <div key={item.label} style={{ background:C.panel2, borderRadius:10, padding:"10px 12px", borderLeft:`3px solid ${item.color}` }}>
+            <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.5, marginBottom:4 }}>{item.label}</div>
+            <div style={{ fontSize:18, fontWeight:700, color:item.color }}>{item.val}</div>
+            <div style={{ fontSize:9, color:C.dim }}>{item.sub}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -3554,6 +3571,127 @@ function BracketView() {
 }
 
 // ============================================================
+// EncyclopediaView — encyclopédie football pour les parieurs
+// ============================================================
+function EncyclopediaView() {
+  const TOPICS = [
+    {
+      id:"records", icon:"🏆", title:"Records footballistiques",
+      items:[
+        { q:"Plus grand score de l'histoire ?", a:"AS Adema 149-0 SO l'Emyrne (2002, Madagascar). Match officiel. En Europe : Arbroath 36-0 Bon Accord (1885, Écosse)." },
+        { q:"Plus cher transfert de l'histoire ?", a:"Neymar Jr : Barcelone → PSG pour 222M€ en 2017. Record mondial toujours imbattu." },
+        { q:"Plus de buts en une saison ?", a:"Lionel Messi : 91 buts en 2012 (dont 50 en Liga). Gerd Müller : 85 buts en 1972 (avec le Bayern + RFA)." },
+        { q:"Joueur le plus capé ?", a:"Bader Al-Mutawa (Koweït) : 196 sélections (record mondial). En Europe : Sergio Ramos 180 sélections (Espagne)." },
+        { q:"Meilleur buteur international ?", a:"Ali Daei (Iran) : 109 buts. Cristiano Ronaldo : 130+ buts (record actuel, 2024+)." },
+        { q:"Plus vieux buteur en CdM ?", a:"Roger Milla (Cameroun) à 42 ans contre la Russie en 1994." },
+        { q:"Plus vite buteur en Premier League ?", a:"Shane Long : 7,69 secondes (Southampton vs Watford, 2019)." },
+        { q:"Plus de Ballons d'Or ?", a:"Lionel Messi : 8 Ballons d'Or (2009,10,11,12,15,19,21,23). Cristiano Ronaldo : 5." },
+        { q:"Meilleur gardien de tous les temps ?", a:"Lev Yachine (URSS) : seul gardien Ballon d'Or (1963). Manuel Neuer révolutionne le poste de gardien moderne (2010s)." },
+        { q:"Plus grands stades du monde ?", a:"Rungrado (Corée du Nord) 114 000, Michigan Stadium USA 109 000, Narendra Modi (Inde) 132 000." },
+      ]
+    },
+    {
+      id:"rules", icon:"📋", title:"Règles du football",
+      items:[
+        { q:"Depuis quand les cartons rouges ?", a:"Depuis la CdM 1970 (Mexico). Premier rouge de l'histoire : Carlos Caszely (Chili) vs RFA le 14 juin 1974." },
+        { q:"Règle du hors-jeu", a:"Un joueur est hors-jeu si, au moment où le ballon lui est joué, une partie de son corps pouvant marquer se trouve plus près de la ligne de but que le ballon ET l'avant-dernier défenseur." },
+        { q:"Règle de la main et bras ?", a:"Main délibérée : faute. Main involontaire mais bras anormalement écarté ou position anormale : faute. Main involontaire dans le jeu normal : pas de faute (depuis 2019 IFAB)." },
+        { q:"Combien de joueurs pour continuer ?", a:"Minimum 7 joueurs. Si une équipe descend sous 7 (rouges), l'arbitre arrête le match." },
+        { q:"Durée d'un match officiel ?", a:"90 minutes + temps additionnel + potentiellement prolongations (2×15 min) + tirs au but. En CdM, chaque mi-temps peut avoir 10+ minutes d'arrêts de jeu." },
+        { q:"Règle du goal average ?", a:"Si deux équipes ont le même nombre de points, on regarde : 1) Confrontations directes, 2) Différence de buts, 3) Buts marqués, 4) Buts à l'extérieur (certaines compétitions), 5) Fair play, 6) Tirage au sort." },
+      ]
+    },
+    {
+      id:"history", icon:"📚", title:"Histoire du football",
+      items:[
+        { q:"Quand a été inventé le football ?", a:"Les règles modernes : Cambridge 1848, FA Rules 1863 (Angleterre). La FA (Football Association) est la plus ancienne fédération nationale (26 octobre 1863)." },
+        { q:"Première Coupe du Monde ?", a:"Uruguay 1930. 13 équipes participantes. Uruguay bat l'Argentine 4-2 en finale devant 68 000 spectateurs au Stade Centenario de Montevideo." },
+        { q:"Origine de la Ligue des Champions ?", a:"Créée en 1955 sous le nom de 'Coupe d'Europe des Clubs Champions'. Rebaptisée UEFA Champions League en 1992. Real Madrid champion lors de la 1ère édition (4-3 vs Stade de Reims)." },
+        { q:"Premier transfert de l'histoire ?", a:"Willie Groves : West Brom → Aston Villa pour 100£ en 1893. Premier transfert à £1000 : Alf Common (Sunderland→Middlesbrough, 1905)." },
+        { q:"Meilleurs entraîneurs de l'histoire ?", a:"Sir Alex Ferguson : 13 PL, 5 FA Cup, 2 UCL avec Man United. Giovanni Trapattoni : 7 championnats différents. Pep Guardiola : taux de victoire record." },
+      ]
+    },
+    {
+      id:"betting", icon:"💰", title:"Comprendre les paris",
+      items:[
+        { q:"Comment calculer une cote ?", a:"Cote décimale : la mise × la cote = retour total. Ex: 100€ × 1.80 = 180€ retour (80€ de profit). Cote = 1/(probabilité implicite). Cote 2.00 = 50% de probabilité implicite." },
+        { q:"Qu'est-ce que le handicap asiatique ?", a:"Système qui élimine le nul en donnant un avantage fictif à l'équipe faible. Ex: Équipe A -1.5 vs Équipe B +1.5 signifie que A doit gagner d'au moins 2 buts pour que le pari A gagne." },
+        { q:"Qu'est-ce que la valeur (value betting) ?", a:"Un pari a de la valeur si votre estimation de probabilité dépasse la probabilité implicite de la cote. Ex: vous estimez 60% pour X, mais la cote implique 45% → value bet." },
+        { q:"Qu'est-ce que le Kelly Criterion ?", a:"Formule pour calculer la mise optimale : f = (b×p - q) / b où b=cote-1, p=probabilité estimée, q=1-p. Permet de maximiser la croissance sur le long terme." },
+        { q:"BTTS expliqué", a:"Both Teams To Score (BTTS Oui/Non) : parie sur le fait que les deux équipes marquent chacune au moins un but dans le match. Ne dépend pas du résultat final." },
+        { q:"Over/Under expliqué", a:"Over 2.5 buts : le total de buts doit être ≥ 3. Under 2.5 : ≤ 2 buts au total. Les bookmakers proposent aussi Over/Under 1.5, 3.5, 4.5 etc." },
+      ]
+    },
+  ];
+
+  const [activeTopic, setActiveTopic] = useState("records");
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState({});
+
+  const topic = TOPICS.find(t=>t.id===activeTopic);
+  const filtered = topic?.items.filter(item =>
+    !search || item.q.toLowerCase().includes(search.toLowerCase()) || item.a.toLowerCase().includes(search.toLowerCase())
+  ) || [];
+
+  return (
+    <div style={{ display:"flex", gap:0, height:"calc(100vh - 110px)", overflow:"hidden" }}>
+      {/* Sidebar topics */}
+      <div style={{ width:200, flexShrink:0, borderRight:`1px solid ${C.line}`, overflowY:"auto", background:C.panel }}>
+        <div style={{ padding:"12px 14px 8px", fontSize:10, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, borderBottom:`1px solid ${C.line}` }}>
+          Catégories
+        </div>
+        {TOPICS.map(t => (
+          <button key={t.id} onClick={() => setActiveTopic(t.id)} style={{
+            width:"100%", display:"flex", alignItems:"center", gap:9, padding:"10px 14px",
+            background:activeTopic===t.id?C.accentBg:"none",
+            border:"none", borderLeft:`3px solid ${activeTopic===t.id?C.accent:"transparent"}`,
+            cursor:"pointer", textAlign:"left",
+          }}>
+            <span style={{ fontSize:16 }}>{t.icon}</span>
+            <span style={{ fontSize:12, color:activeTopic===t.id?C.accent:C.text, fontWeight:activeTopic===t.id?600:400 }}>{t.title}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Contenu */}
+      <div style={{ flex:1, overflowY:"auto", padding:"16px 20px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <span style={{ fontSize:20 }}>{topic?.icon}</span>
+          <span style={{ fontSize:16, fontWeight:700, color:C.text }}>{topic?.title}</span>
+          <div style={{ flex:1 }} />
+          {/* Recherche */}
+          <div style={{ display:"flex", alignItems:"center", gap:7, background:C.panel2, border:`1px solid ${C.line}`, borderRadius:8, padding:"6px 10px" }}>
+            <span style={{ fontSize:13, color:C.muted }}>🔍</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Chercher…"
+              style={{ background:"none", border:"none", outline:"none", fontSize:12, color:C.text, width:140 }}/>
+          </div>
+        </div>
+
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {filtered.map((item,i) => (
+            <div key={i} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, overflow:"hidden" }}>
+              <button onClick={() => setExpanded(prev=>({...prev, [`${activeTopic}-${i}`]:!prev[`${activeTopic}-${i}`]}))} style={{
+                width:"100%", display:"flex", alignItems:"center", gap:10, padding:"12px 16px",
+                background:"none", border:"none", cursor:"pointer", textAlign:"left",
+              }}>
+                <span style={{ fontSize:13, color:"#7C3AED", flexShrink:0 }}>❓</span>
+                <span style={{ fontSize:13, fontWeight:500, color:C.text, flex:1 }}>{item.q}</span>
+                <span style={{ color:C.dim, fontSize:12 }}>{expanded[`${activeTopic}-${i}`]?"▴":"▾"}</span>
+              </button>
+              {expanded[`${activeTopic}-${i}`] && (
+                <div style={{ padding:"0 16px 14px 39px", fontSize:12, color:C.dim, lineHeight:1.8, borderTop:`1px solid ${C.line}44` }}>
+                  <div style={{ paddingTop:10 }}>{item.a}</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // HomeView — page d'accueil avec matchs en direct et à venir
 // ============================================================
 // Compétitions "prestige" pour la section "Grosses affiches"
@@ -4372,6 +4510,34 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
           <div style={{ fontSize:20, color:"#C4B5FD" }}>→</div>
         </button>
       </div>
+
+      {/* === STAT DU JOUR === */}
+      {(() => {
+        const DAILY_STATS = [
+          { stat:"91", label:"buts en 2012 par Messi", sub:"Record absolu toutes compétitions (clubs + sélection)", color:"#d97706" },
+          { stat:"13", label:"buts de Just Fontaine en CdM 1958", sub:"Record de la Coupe du Monde en une édition, imbattu depuis 66 ans", color:"#16a34a" },
+          { stat:"7-1", label:"Allemagne vs Brésil, CdM 2014", sub:"Le Mineirazo — 5 buts en 18 minutes, plus grande humiliation de l'histoire", color:"#DC2626" },
+          { stat:"222M€", label:"Transfert Neymar en 2017", sub:"Record mondial absolu : Barcelone → PSG, imbattu depuis 7 ans", color:"#7C3AED" },
+          { stat:"11", label:"Ballons d'Or de Messi et Ronaldo combinés", sub:"Messi 8 + Ronaldo 5 dominent l'ère dorée du football (2008-2023)", color:"#0176D3" },
+          { stat:"49", label:"Matchs sans défaite pour Arsenal (2003-04)", sub:"Les Invincibles — record absolu de la Premier League", color:"#DC2626" },
+          { stat:"96", label:"Minutes jouées, finale LDC 1999", sub:"Man United 2-1 Bayern : Sheringham 91', Solskjaer 93' — 2 buts en 3 minutes", color:"#d97706" },
+        ];
+        const day = new Date().getDate();
+        const stat = DAILY_STATS[day % DAILY_STATS.length];
+        return (
+          <div style={{ background:`linear-gradient(135deg, ${stat.color}08, ${stat.color}18)`, border:`1px solid ${stat.color}33`, borderRadius:12, padding:"14px 18px", display:"flex", alignItems:"center", gap:16 }}>
+            <div style={{ textAlign:"center", flexShrink:0 }}>
+              <div style={{ fontSize:28, fontWeight:900, color:stat.color }}>{stat.stat}</div>
+              <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>stat du jour</div>
+            </div>
+            <div style={{ width:1, height:50, background:`${stat.color}33`, flexShrink:0 }} />
+            <div>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{stat.label}</div>
+              <div style={{ fontSize:11, color:C.dim, marginTop:4, lineHeight:1.5 }}>{stat.sub}</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* === COUPE DU MONDE 2026 === */}
       {onGoWC && (
@@ -5720,6 +5886,82 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
               awayName={m.away.name}
             />
           )}
+          {matchSelected && m && (() => {
+            const insights = [];
+
+            const homeForm = m.home?.form || [];
+            const awayForm = m.away?.form || [];
+            const h2h = m.h2h || [];
+
+            // BTTS insights
+            const h2hBtts = h2h.filter(h => {
+              const [gf,ga] = (h.score||"").split(" ").filter(x=>!isNaN(x)).map(Number);
+              return !isNaN(gf) && !isNaN(ga) && gf>0 && ga>0;
+            }).length;
+            if (h2hBtts >= 3 && h2h.length >= 4) {
+              insights.push({ icon:"⚽", color:"#7C3AED", text:`BTTS dans ${h2hBtts}/${h2h.length} confrontations directes`, tag:"H2H" });
+            }
+
+            // Both teams score bien
+            if ((m.home?.btts||0) > 60 && (m.away?.btts||0) > 60) {
+              insights.push({ icon:"🔥", color:"#16a34a", text:`Les deux équipes ont marqué dans +60% des matchs cette saison`, tag:"BTTS" });
+            }
+
+            // Clean sheet rare
+            if ((m.home?.cleanSheet||0) < 20 && (m.away?.cleanSheet||0) < 20) {
+              insights.push({ icon:"📈", color:"#d97706", text:`Peu de clean sheets des deux côtés — match ouvert probable`, tag:"Over" });
+            }
+
+            // Forme déséquilibrée
+            const homeWins = homeForm.filter(r=>r==="W").length;
+            const awayWins = awayForm.filter(r=>r==="W").length;
+            if (Math.abs(homeWins - awayWins) >= 3) {
+              const stronger = homeWins > awayWins ? m.home?.name : m.away?.name;
+              insights.push({ icon:"💪", color:"#0176D3", text:`${stronger} en nette supériorité de forme (${Math.max(homeWins,awayWins)}/5 victoires)`, tag:"Forme" });
+            }
+
+            // H2H : équipe qui domine
+            if (h2h.length >= 3) {
+              const homeWinsH2h = h2h.filter(h=>h.winner==="home").length;
+              const awayWinsH2h = h2h.filter(h=>h.winner==="away").length;
+              if (homeWinsH2h >= h2h.length * 0.7) {
+                insights.push({ icon:"🏆", color:"#d97706", text:`${m.home?.name} domine le H2H (${homeWinsH2h}/${h2h.length} victoires)`, tag:"H2H" });
+              } else if (awayWinsH2h >= h2h.length * 0.7) {
+                insights.push({ icon:"🏆", color:"#d97706", text:`${m.away?.name} domine le H2H (${awayWinsH2h}/${h2h.length} victoires)`, tag:"H2H" });
+              }
+            }
+
+            // Moyenne buts élevée
+            const avgTotalGoals = ((m.home?.avgGoalsScored||0) + (m.away?.avgGoalsScored||0));
+            if (avgTotalGoals > 3.0) {
+              insights.push({ icon:"⚡", color:"#16a34a", text:`Moyenne combinée de ${avgTotalGoals.toFixed(1)} buts/match — Under 2.5 risqué`, tag:"Buts" });
+            }
+
+            // Défense friable
+            if ((m.away?.avgGoalsConceded||0) > 2.0) {
+              insights.push({ icon:"🎯", color:"#DC2626", text:`${m.away?.name} concède en moyenne ${m.away.avgGoalsConceded.toFixed(1)} buts/match à l'extérieur`, tag:"Défense" });
+            }
+            if ((m.home?.avgGoalsConceded||0) > 1.8) {
+              insights.push({ icon:"🎯", color:"#DC2626", text:`${m.home?.name} concède en moyenne ${m.home.avgGoalsConceded.toFixed(1)} buts/match à domicile`, tag:"Défense" });
+            }
+
+            if (insights.length === 0) return null;
+
+            return (
+              <div style={{ marginBottom:12, background:`linear-gradient(135deg, #EFF6FF, #F0FDF4)`, border:`1px solid #BFDBFE`, borderRadius:12, padding:"12px 16px" }}>
+                <div style={{ fontSize:10, color:"#1e40af", fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:10 }}>💡 Insights pour les parieurs</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                  {insights.slice(0,5).map((ins,i) => (
+                    <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:9 }}>
+                      <span style={{ fontSize:14, flexShrink:0 }}>{ins.icon}</span>
+                      <span style={{ fontSize:12, color:"#1e3a5f", lineHeight:1.5, flex:1 }}>{ins.text}</span>
+                      <span style={{ fontSize:9, background:`${ins.color}18`, color:ins.color, borderRadius:20, padding:"2px 7px", fontWeight:700, flexShrink:0, alignSelf:"center" }}>{ins.tag}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           <div style={{ marginTop:20 }}>
             <TabBar tab={tab} setTab={setTab} />
             <div style={{ marginTop:20 }}>
@@ -5978,6 +6220,8 @@ export default function App() {
                 <InfoPanel tone="error">{error}</InfoPanel>
               ) : sport === "favs" ? (
                 <FavoritesView favorites={favorites} onToggleFavorite={toggleFavorite} />
+              ) : sport === "encyclopedia" ? (
+                <EncyclopediaView />
               ) : sport === "bracket" ? (
                 <BracketView />
               ) : sport === "home" ? (
