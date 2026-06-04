@@ -21,16 +21,22 @@ const API_ID_TO_COMP = Object.fromEntries(LEAGUES.map(l => [l.apiId, l.id]));
 const app = express();
 app.use(cors());
 
-// Login — mot de passe unique depuis .env (SITE_PASSWORD)
+// Login — si SITE_PASSWORD vide → accès libre (mode public)
 app.post("/api/login", express.json(), (req, res) => {
+  if (!SITE_PASSWORD) {
+    // Mode public : connexion automatique sans mot de passe
+    return res.json({ ok: true, token: Buffer.from("edgestat:open").toString("base64"), public: true });
+  }
   const { password } = req.body || {};
   if (!password || password.trim() !== SITE_PASSWORD) {
     return res.status(401).json({ error: "Mot de passe incorrect." });
   }
-  // Token simple : hash du mot de passe (pas de JWT pour un outil personnel)
   const token = Buffer.from(`edgestat:${SITE_PASSWORD}`).toString("base64");
   res.json({ ok: true, token });
 });
+
+// Ping de santé pour garder le serveur éveillé (Render free tier)
+app.get("/ping", (req, res) => res.send("ok"));
 
 // Liste des championnats (pour le sélecteur du frontend)
 app.get("/api/leagues", (req, res) => {

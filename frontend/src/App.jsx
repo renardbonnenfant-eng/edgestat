@@ -4911,6 +4911,17 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
 export default function App() {
   const [token,       setToken]      = useState(() => localStorage.getItem("es_token") || "");
   const [showLogin,   setShowLogin]  = useState(false);
+
+  // Mode public : connexion automatique au premier chargement si le serveur le permet
+  useEffect(() => {
+    if (token) return; // déjà connecté
+    login("").then(res => {
+      if (res?.public) { // serveur sans mot de passe
+        localStorage.setItem("es_token", res.token);
+        setToken(res.token);
+      }
+    }).catch(() => {}); // mode privé → laisser le modal apparaître normalement
+  }, []);
   const [sport,       setSport]      = useState("home");
   const [compId,      setCompId]     = useState("fr");
   const [favorites, setFavorites] = useState(() => {
