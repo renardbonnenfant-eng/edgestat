@@ -373,7 +373,7 @@ function NoDataBanner({ name }) {
 }
 
 // ============================================================
-// AuthModal — Authentification Verdikt (inscription / connexion)
+// AuthModal — Authentification FoxLab (inscription / connexion)
 // ============================================================
 function AuthModal({ mode, onSwitchMode, onClose, onSuccess }) {
   const [form, setForm]   = useState({ emailOrUsername:"", email:"", username:"", password:"", confirm:"" });
@@ -420,7 +420,7 @@ function AuthModal({ mode, onSwitchMode, onClose, onSuccess }) {
             <line x1="10" y1="19" x2="16" y2="19" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
             <circle cx="13" cy="23" r="1.8" fill="#00D4AA"/>
           </svg>
-          <span style={{ fontSize:16, fontWeight:800, color:C.text }}>Verdikt</span>
+          <span style={{ fontSize:16, fontWeight:800, color:C.text }}>FoxLab</span>
         </div>
 
         {/* Tabs */}
@@ -491,7 +491,7 @@ function LoginModal({ onClose, onLogin }) {
           <div style={{ width:44, height:44, borderRadius:10, background:C.accent, display:"grid", placeItems:"center", fontSize:22, color:"#fff" }}>⌁</div>
           <div style={{ textAlign:"center" }}>
             <div style={{ fontSize:18, fontWeight:900 }}>Connexion</div>
-            <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>Accès membres Verdikt</div>
+            <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>Accès membres FoxLab</div>
           </div>
         </div>
         <form onSubmit={handleSubmit}>
@@ -826,7 +826,7 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
           <line x1="10" y1="19" x2="16" y2="19" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
           <circle cx="13" cy="23" r="1.8" fill="#00D4AA"/>
         </svg>
-        <span style={{ color:"#D0E8F4", fontWeight:800, fontSize:16, letterSpacing:.5 }}>Verdikt</span>
+        <span style={{ color:"#D0E8F4", fontWeight:800, fontSize:16, letterSpacing:.5 }}>FoxLab</span>
       </button>
 
       {/* Recherche globale */}
@@ -2174,7 +2174,7 @@ function ChatWidget({ matchContext, teamDatabase = {} }) {
           <div style={{ padding:"10px 14px", background:C.accent, display:"flex", alignItems:"center", gap:8 }}>
             <span style={{ fontSize:15 }}>🤖</span>
             <div>
-              <div style={{ fontWeight:800, fontSize:12.5, color:"#fff" }}>Assistant Verdikt</div>
+              <div style={{ fontWeight:800, fontSize:12.5, color:"#fff" }}>Assistant FoxLab</div>
               <div style={{ fontSize:10, color:"#ffffff99" }}>{teamCount} équipe{teamCount>1?"s":""} · pas de prédiction</div>
             </div>
             <div style={{ marginLeft:"auto", fontSize:10, color:"#ffffff99", textAlign:"right" }}>
@@ -3595,7 +3595,7 @@ function FavoritesView({ favorites, onToggleFavorite }) {
     const perm = await Notification.requestPermission();
     setNotifPermission(perm);
     if (perm === "granted") {
-      new Notification("⭐ Verdikt Notifications activées", {
+      new Notification("⭐ FoxLab Notifications activées", {
         body: "Vous recevrez des alertes 24h, 1h et 5min avant les matchs de vos clubs favoris.",
         icon: "/favicon.ico",
       });
@@ -4144,7 +4144,7 @@ function LeaderboardView({ userAccount }) {
         <span style={{ fontSize:28 }}>🏆</span>
         <div>
           <div style={{ fontSize:18, fontWeight:800, color:C.text }}>Classement Mondial</div>
-          <div style={{ fontSize:11, color:C.dim }}>Les meilleurs joueurs de quiz Verdikt</div>
+          <div style={{ fontSize:11, color:C.dim }}>Les meilleurs joueurs de quiz FoxLab</div>
         </div>
       </div>
 
@@ -4453,7 +4453,7 @@ function BettingAdviceView() {
 
           {/* Footer disclaimer */}
           <div style={{ marginTop:24, padding:"12px 16px", background:"rgba(255,68,68,.06)", border:"1px solid #FF444433", borderRadius:10, fontSize:10, color:C.muted, lineHeight:1.6 }}>
-            ⚠️ <strong>Verdikt est un outil d'analyse statistique.</strong> Les données et conseils présentés ne constituent pas des recommandations d'investissement. Les paris sportifs comportent un risque de perte financière. Si vous ressentez une dépendance, appelez le <strong style={{color:"#FF4444"}}>09 74 75 13 13</strong> (gratuit, anonyme, 24h/24). <strong>Jouer doit rester un plaisir.</strong>
+            ⚠️ <strong>FoxLab est un outil d'analyse statistique.</strong> Les données et conseils présentés ne constituent pas des recommandations d'investissement. Les paris sportifs comportent un risque de perte financière. Si vous ressentez une dépendance, appelez le <strong style={{color:"#FF4444"}}>09 74 75 13 13</strong> (gratuit, anonyme, 24h/24). <strong>Jouer doit rester un plaisir.</strong>
           </div>
         </div>
       )}
@@ -9149,7 +9149,7 @@ export default function App() {
     }).catch(() => {}); // mode privé → laisser le modal apparaître normalement
   }, []);
 
-  // Vérifier le compte Verdikt au démarrage
+  // Vérifier le compte FoxLab au démarrage
   useEffect(() => {
     const savedToken = localStorage.getItem("vdk_jwt");
     if (savedToken) {
@@ -9418,7 +9418,7 @@ export default function App() {
               </button>
             <div style={{ fontSize:13, color:C.text, fontWeight:500 }}>
               {allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
-              {" "}{allData[compId]?.league || "Verdikt"}
+              {" "}{allData[compId]?.league || "FoxLab"}
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
