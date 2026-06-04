@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "EdgeStat — analyse statistique de paris sportifs",
   "scripts": {
-    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
-    "start": "node backend/src/server.js"
+    "build": "cd backend && npm install && cd ../frontend && npm install && npm run build",
+    "start": "node backend/src/server.js",
+    "install": "cd backend && npm install && cd ../frontend && npm install"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
