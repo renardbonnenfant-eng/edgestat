@@ -2010,10 +2010,213 @@ function PlayerBlock({ p, name, color }) {
   );
 }
 
+// ============================================================
+// Carte Joueur Tennis
+// ============================================================
+function TennisPlayerCard({ player, onClose }) {
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!player?.id) { setLoading(false); return; }
+    fetch(`/api/tennis/player/${player.id}`)
+      .then(r => r.json())
+      .then(d => { setDetail(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [player?.id]);
+
+  const flag = player?.countryCode ? `https://flagcdn.com/h40/${player.countryCode.toLowerCase()}.png` : null;
+  const rankDiff = player?.prevRank && player?.rank ? player.prevRank - player.rank : null;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}
+      onClick={onClose}>
+      <div style={{ width:380, background:"#182030", border:`1px solid ${C.line}`, borderRadius:16, overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,.5)" }}
+        onClick={e=>e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ background:`linear-gradient(135deg, #0d2e2a, #182030)`, padding:"20px 20px 16px", position:"relative" }}>
+          <button onClick={onClose} style={{ position:"absolute", top:12, right:12, background:"none", border:"none", cursor:"pointer", color:C.muted, fontSize:18 }}>✕</button>
+          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+            {/* Photo */}
+            <div style={{ width:72, height:72, borderRadius:12, overflow:"hidden", background:C.panel2, flexShrink:0, border:`2px solid ${C.accent}44` }}>
+              {detail?.photo
+                ? <img src={detail.photo} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top" }} onError={e=>e.target.style.display="none"}/>
+                : <div style={{ width:"100%", height:"100%", display:"grid", placeItems:"center", fontSize:28 }}>🎾</div>}
+            </div>
+            <div>
+              {/* Rang */}
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                <div style={{ background:C.accent, color:"#0A1428", borderRadius:8, padding:"2px 10px", fontSize:14, fontWeight:900 }}>#{player.rank}</div>
+                {rankDiff !== null && (
+                  <span style={{ fontSize:11, color:rankDiff>0?"#16a34a":rankDiff<0?"#DC2626":C.muted, fontWeight:600 }}>
+                    {rankDiff>0?`▲${rankDiff}`:rankDiff<0?`▼${Math.abs(rankDiff)}`:"—"}
+                  </span>
+                )}
+                <span style={{ fontSize:10, color:C.muted }}>· {player.points?.toLocaleString()} pts</span>
+              </div>
+              {/* Nom */}
+              <div style={{ fontSize:18, fontWeight:800, color:C.text, lineHeight:1.2 }}>{player.name}</div>
+              {/* Pays */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4 }}>
+                {flag && <img src={flag} height={12} style={{ borderRadius:2 }} onError={e=>e.target.style.display="none"}/>}
+                <span style={{ fontSize:12, color:C.dim }}>{player.country}</span>
+                <span style={{ fontSize:10, color:C.muted }}>· {player.type?.toUpperCase()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:10 }}>
+          {loading ? (
+            <div style={{ color:C.muted, fontSize:12, textAlign:"center", padding:"16px" }}>Chargement des détails…</div>
+          ) : (
+            <>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+                {[
+                  { label:"Âge",     val: detail?.age ? `${detail.age} ans` : "—" },
+                  { label:"Taille",  val: detail?.height ? `${detail.height} cm` : "—" },
+                  { label:"Poids",   val: detail?.weight ? `${detail.weight} kg` : "—" },
+                ].map(s => (
+                  <div key={s.label} style={{ background:C.panel2, borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+                    <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{s.val}</div>
+                    <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.5 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+                {[
+                  { label:"Tournois joués", val: player.tournamentsPlayed ?? "—" },
+                  { label:"Dominant", val: detail?.plays || "—" },
+                  { label:"Pro depuis", val: detail?.turnedPro || "—" },
+                  { label:"Naissance", val: detail?.birthPlace || "—" },
+                ].map(s => (
+                  <div key={s.label} style={{ background:C.panel2, borderRadius:8, padding:"8px 10px" }}>
+                    <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.5, marginBottom:2 }}>{s.label}</div>
+                    <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{s.val}</div>
+                  </div>
+                ))}
+              </div>
+              {(detail?.prizeCurrent || detail?.prizeTotal) && (
+                <div style={{ background:`${C.accent}10`, border:`1px solid ${C.accent}33`, borderRadius:8, padding:"10px 12px" }}>
+                  <div style={{ fontSize:10, color:C.accent, fontWeight:700, marginBottom:4 }}>💰 Gains</div>
+                  <div style={{ display:"flex", justifyContent:"space-between" }}>
+                    {detail.prizeCurrent && <div><div style={{ fontSize:12, fontWeight:700, color:C.text }}>{detail.prizeCurrent}</div><div style={{ fontSize:9, color:C.muted }}>Cette saison</div></div>}
+                    {detail.prizeTotal && <div style={{ textAlign:"right" }}><div style={{ fontSize:12, fontWeight:700, color:C.text }}>{detail.prizeTotal}</div><div style={{ fontSize:9, color:C.muted }}>Carrière</div></div>}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Classement Tennis Top 200
+// ============================================================
+function TennisRankingView({ type }) {
+  const [players, setPlayers]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [search,  setSearch]    = useState("");
+  const [selected,setSelected]  = useState(null);
+  const [error,   setError]     = useState("");
+
+  useEffect(() => {
+    setLoading(true); setError(""); setPlayers([]);
+    fetch(`/api/tennis/top200/${type}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) throw new Error(d.error);
+        setPlayers(Array.isArray(d) ? d : []);
+        setLoading(false);
+      })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [type]);
+
+  const filtered = players.filter(p =>
+    !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.country?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div style={{ padding:"16px 20px" }}>
+      {selected && <TennisPlayerCard player={selected} onClose={() => setSelected(null)} />}
+
+      {/* Barre de recherche */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"8px 12px", marginBottom:14 }}>
+        <span style={{ color:C.muted }}>🔍</span>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un joueur ou un pays…"
+          style={{ flex:1, background:"none", border:"none", outline:"none", color:C.text, fontSize:13 }}/>
+        {search && <button onClick={()=>setSearch("")} style={{ background:"none", border:"none", cursor:"pointer", color:C.muted, fontSize:14 }}>✕</button>}
+      </div>
+
+      {loading && <InfoPanel>Chargement du classement {type.toUpperCase()}…</InfoPanel>}
+      {error && <InfoPanel tone="error">{error}</InfoPanel>}
+
+      {!loading && !error && (
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          {filtered.map((p, i) => {
+            const flag = p.countryCode ? `https://flagcdn.com/h20/${p.countryCode.toLowerCase()}.png` : null;
+            const rankDiff = p.prevRank && p.rank ? p.prevRank - p.rank : null;
+            const top10 = p.rank <= 10;
+            const top50 = p.rank <= 50;
+            return (
+              <button key={p.id||i} onClick={() => setSelected(p)} style={{
+                display:"flex", alignItems:"center", gap:10,
+                background: top10 ? `${C.accent}08` : C.panel,
+                border:`1px solid ${top10?C.accent+"33":C.line}`,
+                borderRadius:10, padding:"10px 14px", cursor:"pointer", textAlign:"left",
+                transition:"all .1s",
+              }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background=C.accentBg;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=top10?C.accent+"33":C.line;e.currentTarget.style.background=top10?`${C.accent}08`:C.panel;}}
+              >
+                {/* Rang */}
+                <div style={{ width:36, textAlign:"center", flexShrink:0 }}>
+                  <div style={{ fontSize:14, fontWeight:900, color:top10?C.accent:top50?"#d97706":C.muted }}>#{p.rank}</div>
+                  {rankDiff !== null && rankDiff !== 0 && (
+                    <div style={{ fontSize:9, color:rankDiff>0?"#16a34a":"#DC2626", fontWeight:600 }}>
+                      {rankDiff>0?`▲${rankDiff}`:`▼${Math.abs(rankDiff)}`}
+                    </div>
+                  )}
+                </div>
+                {/* Drapeau */}
+                <div style={{ width:24, height:18, flexShrink:0, borderRadius:2, overflow:"hidden", background:C.panel2, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  {flag ? <img src={flag} height="14" style={{ objectFit:"cover" }} onError={e=>e.target.style.display="none"}/> : <span style={{ fontSize:10 }}>🌍</span>}
+                </div>
+                {/* Nom */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:top10?700:500, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
+                  <div style={{ fontSize:10, color:C.muted }}>{p.country}</div>
+                </div>
+                {/* Points */}
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:top10?C.accent:C.dim }}>{p.points?.toLocaleString()}</div>
+                  <div style={{ fontSize:9, color:C.muted }}>pts</div>
+                </div>
+                <span style={{ fontSize:11, color:C.muted }}>›</span>
+              </button>
+            );
+          })}
+          {filtered.length === 0 && !loading && (
+            <div style={{ color:C.muted, textAlign:"center", padding:"24px" }}>Aucun joueur trouvé pour "{search}"</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Vue Tennis principale
+// ============================================================
 function TennisView({ tennisId }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
+  const [tennisTab, setTennisTab] = useState("match"); // match | atp | wta
   const tournaments = [
     { id:"atp",          name:"ATP Tour",         surface:"hard",  flag:"🎾" },
     { id:"wta",          name:"WTA Tour",         surface:"hard",  flag:"🎾" },
@@ -2032,15 +2235,40 @@ function TennisView({ tennisId }) {
       .catch(e => { setError(e.message); setLoading(false); });
   }, [tennisId]);
 
-  if (!tennisId) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"60px 20px", textAlign:"center", color:C.dim }}>
-      <div style={{ fontSize:48, marginBottom:16 }}>🎾</div>
-      <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:8 }}>Tennis — Sélectionne un tournoi</div>
-      <div style={{ fontSize:13 }}>Clique sur un tournoi dans la sidebar pour charger l'analyse.</div>
+  // Onglets tennis
+  const TennisTabs = () => (
+    <div style={{ display:"flex", gap:6, padding:"10px 16px", borderBottom:`1px solid ${C.line}`, background:C.panel, flexShrink:0 }}>
+      {[
+        { id:"match", label:"🎾 Match / Analyse" },
+        { id:"atp",   label:"🏆 ATP Top 200" },
+        { id:"wta",   label:"👑 WTA Top 200" },
+      ].map(t => (
+        <button key={t.id} onClick={() => setTennisTab(t.id)} style={{
+          padding:"7px 16px", borderRadius:20, border:`1px solid ${tennisTab===t.id?C.accent:C.line}`,
+          background: tennisTab===t.id ? C.accentBg : "none",
+          color: tennisTab===t.id ? C.accent : C.dim,
+          cursor:"pointer", fontSize:12, fontWeight: tennisTab===t.id?700:400,
+        }}>{t.label}</button>
+      ))}
     </div>
   );
 
-  if (loading) return <InfoPanel>Chargement du match tennis… (première consultation ~20 s)</InfoPanel>;
+  // Onglets classements
+  if (tennisTab === "atp") return <div style={{ display:"flex", flexDirection:"column", height:"100%" }}><TennisTabs /><div style={{ flex:1, overflowY:"auto" }}><TennisRankingView type="atp" /></div></div>;
+  if (tennisTab === "wta") return <div style={{ display:"flex", flexDirection:"column", height:"100%" }}><TennisTabs /><div style={{ flex:1, overflowY:"auto" }}><TennisRankingView type="wta" /></div></div>;
+
+  if (!tennisId) return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
+      <TennisTabs />
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flex:1, padding:"40px 20px", textAlign:"center", color:C.dim }}>
+        <div style={{ fontSize:48, marginBottom:16 }}>🎾</div>
+        <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:8 }}>Tennis — Sélectionne un tournoi</div>
+        <div style={{ fontSize:13 }}>Clique sur un tournoi dans la sidebar pour charger l'analyse.</div>
+      </div>
+    </div>
+  );
+
+  if (loading) return <div style={{ display:"flex", flexDirection:"column", height:"100%" }}><TennisTabs /><InfoPanel>Chargement du match tennis… (première consultation ~20 s)</InfoPanel></div>;
   if (error) {
     const isKeyError = error.includes("TENNIS_NON_CONFIGURÉ") || error.includes("HTML");
     return (
@@ -2067,12 +2295,13 @@ function TennisView({ tennisId }) {
       </div>
     );
   }
-  if (!data)   return <InfoPanel>Sélectionne un tournoi dans la sidebar.</InfoPanel>;
+  if (!data)   return <div style={{ display:"flex", flexDirection:"column", height:"100%" }}><TennisTabs /><InfoPanel>Sélectionne un tournoi dans la sidebar.</InfoPanel></div>;
 
   const SURF_COLOR_MATCH = { clay:"#c2692d55", grass:`${C.green}33`, hard:`${C.blue}33` };
 
   return (
     <div>
+      <TennisTabs />
       {/* Header du match */}
       <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, overflow:"hidden", marginBottom:2 }}>
         <div style={{ background:C.sidebar, borderBottom:`1px solid ${C.line}`, padding:"8px 16px", display:"flex", alignItems:"center", gap:8 }}>

@@ -84,32 +84,39 @@ app.get("/api/news/football", async (req, res) => {
     const TOP_LEAGUES = new Set([39, 61, 78, 135, 140, 94, 2, 3, 848, 1, 4, 9, 6, 11, 13]);
     const recentResults = [];
 
-    try {
-      const payload = await readCache("payload:football:v2", 24 * 60 * 60 * 1000);
-      if (payload?.value) {
-        for (const [, lg] of Object.entries(payload.value.leagues || {})) {
-          for (const f of (lg.recentFixtures || [])) {
-            const d = new Date(f.date).getTime();
-            if (d > h48 && d <= now && f.score && (f.status === "FT" || f.status === "AET" || f.status === "PEN")) {
-              const [h, a] = (f.score||"").split(" - ").map(Number);
-              if (!isNaN(h) && !isNaN(a)) {
-                const ageH = Math.round((now - d) / 3600000);
-                recentResults.push({
-                  id: String(f.id || ""),
-                  home: f.home?.name || "?",
-                  away: f.away?.name || "?",
-                  score: f.score,
-                  league: lg.league || "",
-                  leagueId: lg.apiId,
-                  diff: Math.abs(h - a),
-                  total: h + a,
-                  ageH,
-                  date: f.date,
-                });
-              }
-            }
+    // Scanner le payload principal ET tous les caches competition:v2
+    const { promises: fs } = await import("node:fs");
+    const { default: pathMod } = await import("node:path");
+    const { fileURLToPath: furl } = await import("node:url");
+    const cDir = pathMod.join(pathMod.dirname(furl(import.meta.url)), "..", "cache");
+    const scanLeague = (lg) => {
+      for (const f of (lg.recentFixtures || [])) {
+        const d = new Date(f.date).getTime();
+        if (d > h48 && d <= now && f.score && (f.status === "FT" || f.status === "AET" || f.status === "PEN")) {
+          const [h, a] = (f.score||"").split(" - ").map(Number);
+          if (!isNaN(h) && !isNaN(a)) {
+            const ageH = Math.round((now - d) / 3600000);
+            recentResults.push({ id:String(f.id||""), home:f.home?.name||"?", away:f.away?.name||"?", score:f.score, league:lg.league||"", leagueId:lg.apiId, diff:Math.abs(h-a), total:h+a, ageH, date:f.date });
           }
         }
+      }
+    };
+    try {
+      // 1. Payload principal
+      const payload = await readCache("payload:football:v2", 24*60*60*1000);
+      if (payload?.value) Object.values(payload.value.leagues||{}).forEach(scanLeague);
+      // 2. Tous les caches competition:v2 (amicaux, coupes, etc.)
+      const files = await fs.readdir(cDir);
+      for (const file of files) {
+        if (!file.endsWith(".json")) continue;
+        try {
+          const raw = JSON.parse(await fs.readFile(pathMod.join(cDir, file), "utf8"));
+          if ((raw.key||"").includes("competition:v2")) {
+            const val = raw.value;
+            if (val?.recentFixtures) scanLeague(val);
+            else if (val?.leagues) Object.values(val.leagues).forEach(scanLeague);
+          }
+        } catch {}
       }
     } catch {}
 
@@ -309,6 +316,86 @@ app.get("/api/tennis/test", async (req, res) => {
 // Liste des tournois tennis configurés
 app.get("/api/tennis/tournaments", (req, res) => {
   res.json(TENNIS_TOURNAMENTS);
+});
+
+// Top 200 ATP ou WTA — classement complet avec infos joueur
+app.get("/api/tennis/top200/:type", async (req, res) => {
+  const { type } = req.params; // "atp" ou "wta"
+  const rankType = type === "wta" ? "wta" : "atp";
+  const cacheKey = `tennis:top200:${rankType}`;
+  try {
+    const cached = await readCache(cacheKey, 12 * 60 * 60 * 1000); // 12h
+    if (cached?.fresh) return res.json(cached.value);
+
+    const { default: tennisGet } = await import("./tennis.js").then(m => ({ default: m }));
+    const KEY  = (process.env.TENNIS_RAPIDAPI_KEY || "").trim();
+    const HOST = (process.env.TENNIS_HOST || "tennisapi1.p.rapidapi.com").trim();
+    if (!KEY) return res.status(500).json({ error: "TENNIS_RAPIDAPI_KEY manquante" });
+
+    const url = `https://${HOST}/api/tennis/rankings/${rankType}`;
+    const r = await fetch(url, { headers: { "x-rapidapi-key": KEY, "x-rapidapi-host": HOST }, signal: AbortSignal.timeout(15000) });
+    const data = await r.json();
+    const rankings = data.rankings || [];
+
+    // Formater les données
+    const players = rankings.slice(0, 200).map((entry, idx) => {
+      const t = entry.team || {};
+      return {
+        rank:        entry.ranking || idx + 1,
+        prevRank:    entry.previousRanking || null,
+        points:      entry.points || 0,
+        tournamentsPlayed: entry.tournamentsPlayed || null,
+        id:          t.id,
+        name:        t.fullName || t.name || "—",
+        shortName:   t.shortName || t.name || "—",
+        country:     t.country?.name || "",
+        countryCode: t.country?.alpha2 || "",
+        photo:       "",  // chargé à la demande
+        type:        rankType,
+      };
+    });
+
+    await writeCache(cacheKey, players);
+    res.json(players);
+  } catch (err) {
+    console.error(`[tennis/top200/${type}]`, err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// Détail d'un joueur tennis (photo, stats, âge)
+app.get("/api/tennis/player/:playerId", async (req, res) => {
+  const { playerId } = req.params;
+  const cacheKey = `tennis:player:${playerId}`;
+  try {
+    const cached = await readCache(cacheKey, 24 * 60 * 60 * 1000);
+    if (cached?.fresh) return res.json(cached.value);
+
+    const KEY  = (process.env.TENNIS_RAPIDAPI_KEY || "").trim();
+    const HOST = (process.env.TENNIS_HOST || "tennisapi1.p.rapidapi.com").trim();
+    if (!KEY) return res.json({});
+
+    const url = `https://${HOST}/api/tennis/player/${playerId}`;
+    const r   = await fetch(url, { headers: { "x-rapidapi-key": KEY, "x-rapidapi-host": HOST }, signal: AbortSignal.timeout(8000) });
+    const data = await r.json();
+    const d = data?.team || {};
+    const ptInfo = d.playerTeamInfo || {};
+    const birthTs = ptInfo.birthDateTimestamp;
+
+    const result = {
+      photo:      d.playerPhoto || d.strCutout || d.strThumb || "",
+      height:     ptInfo.height || null,
+      weight:     ptInfo.weight || null,
+      age:        birthTs ? Math.floor((Date.now()/1000 - birthTs) / (365.25*24*3600)) : null,
+      birthPlace: ptInfo.birthplace || "",
+      plays:      ptInfo.plays || "",
+      turnedPro:  ptInfo.turnedPro || null,
+      prizeCurrent: ptInfo.prizeCurrent || null,
+      prizeTotal:   ptInfo.prizeTotal || null,
+    };
+    await writeCache(cacheKey, result);
+    res.json(result);
+  } catch (err) { res.json({}); }
 });
 
 // Découverte des tournois depuis l'API (debug)
