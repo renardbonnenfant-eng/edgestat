@@ -856,6 +856,67 @@ app.get("/api/match-stats/:fixtureId", async (req, res) => {
   }
 });
 
+// Génération de questions de quiz via Groq
+app.post("/api/quiz/generate", express.json(), async (req, res) => {
+  const { category, difficulty, count = 10, exclude = [] } = req.body || {};
+  const groqKey = process.env.GROQ_KEY;
+  if (!groqKey) return res.status(500).json({ error: "GROQ_KEY manquante" });
+
+  const cacheKey = `quiz-gen:${category}:${difficulty}:${Math.floor(Date.now()/3600000)}`; // renouvelle chaque heure
+  try {
+    const cached = await readCache(cacheKey, 60 * 60 * 1000);
+    if (cached?.fresh && cached.value?.length >= count) {
+      return res.json(cached.value.slice(0, count));
+    }
+
+    const { default: Groq } = await import("groq-sdk");
+    const groq = new Groq({ apiKey: groqKey });
+
+    const difficultyMap = { facile:"débutant (faits connus de tous)", moyen:"connaisseur", difficile:"expert passionné", expert:"statisticien professionnel" };
+    const prompt = `Génère exactement ${count} questions de quiz sur le football pour niveau ${difficultyMap[difficulty]||"moyen"}, catégorie: ${category}.
+
+Chaque question DOIT être différente des précédentes. Les questions doivent être précises, vérifiables et intéressantes.
+
+Format JSON strict:
+[
+  {
+    "q": "Question précise?",
+    "options": ["Réponse correcte", "Mauvaise 1", "Mauvaise 2", "Mauvaise 3"],
+    "correct": 0,
+    "explanation": "Explication courte et intéressante (1-2 phrases)",
+    "year": 2023
+  }
+]
+
+L'index "correct" indique la position (0-3) de la bonne réponse dans "options".
+Mélange l'ordre des réponses correctes (pas toujours en position 0).
+Réponds UNIQUEMENT avec le JSON, sans texte autour.`;
+
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role:"user", content:prompt }],
+      max_tokens: 2000,
+      temperature: 0.8,
+      response_format: { type:"json_object" },
+    });
+
+    let questions = [];
+    try {
+      const raw = completion.choices[0]?.message?.content || "[]";
+      const parsed = JSON.parse(raw);
+      questions = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.quiz || []);
+    } catch { questions = []; }
+
+    if (questions.length > 0) {
+      await writeCache(cacheKey, questions);
+    }
+    res.json(questions);
+  } catch (err) {
+    console.error("[quiz/generate]", err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // Matchs en direct (TTL 2 min)
 app.get("/api/live", async (req, res) => {
   const cacheKey = "live:all";

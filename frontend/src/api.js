@@ -193,3 +193,13 @@ export async function fetchClubFeed(teamId, season) {
   if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || `HTTP ${res.status}`);
   return res.json();
 }
+
+export async function generateQuizQuestions(category, difficulty, count = 10) {
+  const res = await fetch("/api/quiz/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ category, difficulty, count }),
+  });
+  if (!res.ok) return [];
+  return res.json().catch(() => []);
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchFullMatchEvents, fetchInjuries } from "./api.js";
+import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions } from "./api.js";
 import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 
 // ============================================================
@@ -719,6 +719,8 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
           {[
             { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
+            { id:"bankroll",     label:"Bankroll",     icon:"💳", color:"#16a34a" },
+            { id:"quiz",         label:"Quiz",         icon:"🧩", color:"#16a34a" },
             { id:"encyclopedia", label:"Encyclopédie", icon:"📖", color:"#7C3AED" },
             { id:"home",         label:"Accueil",      icon:"🏠", color:"#032D60" },
             { id:"history", label:"Histoire", icon:"📚", color:"#7C3AED" },
@@ -3573,6 +3575,609 @@ function BracketView() {
 }
 
 // ============================================================
+// QuizView — Quiz Football 50 000+ questions
+// ============================================================
+const QUIZ_SEED = {
+  // ─── RECORDS ────────────────────────────────────────────────
+  records: [
+    { q:"Quel joueur détient le record du plus grand nombre de Ballons d'Or ?", options:["Lionel Messi","Cristiano Ronaldo","Johan Cruyff","Michel Platini"], correct:0, explanation:"Messi a remporté 8 Ballons d'Or (2009,10,11,12,15,19,21,23), bien devant Ronaldo (5).", year:2023 },
+    { q:"Quel est le record de buts en une saison calendaire (clubs + sélection) ?", options:["91 buts par Messi en 2012","85 buts par Müller en 1972","50 buts par Ronaldo en 2011","76 buts par Ronaldo en 2013"], correct:0, explanation:"Lionel Messi a marqué 91 buts en 2012, battant le record de Gerd Müller (85 en 1972).", year:2012 },
+    { q:"Quel joueur détient le record de buts en Coupe du Monde (une seule édition) ?", options:["Just Fontaine (13 buts, 1958)","Gerd Müller (10, 1970)","Ronaldo (8, 2002)","Sandor Kocsis (11, 1954)"], correct:0, explanation:"Just Fontaine marque 13 buts en 6 matchs au Mondial 1958 avec la France. Record imbattu depuis 66 ans.", year:1958 },
+    { q:"Quel est le record du plus cher transfert de l'histoire ?", options:["Neymar 222M€ (2017)","Kylian Mbappé 180M€ (2017)","João Félix 126M€ (2019)","Jack Grealish 117M€ (2021)"], correct:0, explanation:"Neymar passe du FC Barcelone au PSG pour 222M€ en août 2017. Record mondial toujours imbattu.", year:2017 },
+    { q:"Quel gardien est le seul à avoir remporté le Ballon d'Or ?", options:["Lev Yachine","Manuel Neuer","Gianluigi Buffon","Peter Schmeichel"], correct:0, explanation:"Lev Yachine, gardien soviétique surnommé 'l'araignée noire', remporte le Ballon d'Or en 1963. Seul gardien de l'histoire.", year:1963 },
+    { q:"Quel est le record d'affluence pour un match de football ?", options:["199 854 spectateurs (Brésil-Uruguay, 1950)","132 000 (Iran-Australie, 1997)","114 000 (Rungrado, Corée du Nord)","100 000 (FA Cup Final 1923)"], correct:0, explanation:"Le match Brésil-Uruguay du 16 juillet 1950 au Maracanã réunit officiellement 173 850 billets vendus mais on estime 199 854 présents.", year:1950 },
+    { q:"Quel club a remporté le plus de Ligues des Champions ?", options:["Real Madrid (15)","Milan AC (7)","Liverpool (6)","Bayern Munich (6)"], correct:0, explanation:"Le Real Madrid détient le record avec 15 titres de Ligue des Champions (2024).", year:2024 },
+    { q:"Quel joueur a inscrit le plus de buts en Ligue des Champions ?", options:["Cristiano Ronaldo (140)","Lionel Messi (129)","Robert Lewandowski (101)","Karim Benzema (90)"], correct:0, explanation:"Cristiano Ronaldo détient le record avec 140 buts en Ligue des Champions, loin devant Messi (129).", year:2024 },
+    { q:"Quelle est la plus grande victoire de l'histoire de la Coupe du Monde ?", options:["Allemagne 7-1 Brésil (2014)","Hongrie 10-1 El Salvador (1982)","Yougoslavie 9-0 Zaïre (1974)","Brésil 6-1 Espagne (2013)"], correct:1, explanation:"La Hongrie bat El Salvador 10-1 en 1982, record absolu. L'Allemagne 7-1 Brésil en 2014 reste le choc le plus mémorable.", year:1982 },
+    { q:"Quel joueur a marqué le but le plus rapide de l'histoire de la Premier League ?", options:["Shane Long (7,69 sec)","Ledley King (9,82 sec)","Alan Shearer (10 sec)","Tottenham Defoe (8 sec)"], correct:0, explanation:"Shane Long (Southampton) marque après 7 secondes et 69 centièmes contre Watford le 23 avril 2019.", year:2019 },
+  ],
+  // ─── CHAMPIONS LEAGUE ───────────────────────────────────────
+  champions_league: [
+    { q:"Quel match est surnommé 'le Miracle d'Istanbul' ?", options:["Liverpool 3-3 AC Milan, puis victoire aux tirs (2005)","Man United 2-1 Bayern (1999)","Barça 4-0 Arsenal (2006)","PSG 3-1 Barcelone (2017)"], correct:0, explanation:"En finale 2005, Liverpool remonte de 0-3 à la mi-temps contre l'AC Milan pour gagner aux tirs au but. Dudek légendaire.", year:2005 },
+    { q:"Quel entraîneur a gagné le plus de Ligues des Champions ?", options:["Carlo Ancelotti (5)","Bob Paisley (3)","Zinédine Zidane (3)","Pep Guardiola (3)"], correct:0, explanation:"Carlo Ancelotti est le seul coach à avoir remporté 5 LDC: 2003 (Milan), 2007 (Milan), 2014, 2022, 2024 (Real Madrid).", year:2024 },
+    { q:"Quelle est la plus grande victoire en phase de groupes de LDC ?", options:["Borussia Dortmund 8-4 Legia Varsovie (2016)","Liverpool 8-0 Besiktas (2007)","PSG 7-0 Celtic (2017)","Real Madrid 8-0 Malmö (2015)"], correct:0, explanation:"Le BVB bat Legia 8-4 en 2016. Record de buts dans un match de groupes de LDC.", year:2016 },
+    { q:"Quel joueur a inscrit le but décisif de la finale 1999 Man United vs Bayern ?", options:["Ole Gunnar Solskjaer","Teddy Sheringham","Andy Cole","Dwight Yorke"], correct:0, explanation:"Solskjaer marque à la 93'+3 pour donner le titre à Man United (2-1). Sheringham avait égalisé à la 91'.", year:1999 },
+    { q:"En quelle année Marseille a-t-il remporté la Ligue des Champions ?", options:["1993","1991","1995","1999"], correct:0, explanation:"Marseille bat l'AC Milan 1-0 en finale à Munich le 26 mai 1993. Basile Boli marque l'unique but. Seul club français vainqueur.", year:1993 },
+    { q:"Quel est le record de victoires consécutives en LDC ?", options:["11 matchs consécutifs (Bayern Munich, 2019-20)","10 matchs (Real Madrid, 2016)","13 matchs (Real Madrid, 2021-22)","9 matchs (Barcelone, 2009)"], correct:0, explanation:"Le Bayern Munich de Flick gagne les 11 matchs de sa campagne 2019-20 (dont le 8-2 vs Barcelone) — 100% parfait.", year:2020 },
+    { q:"Quel stade a accueilli le plus de finales de LDC ?", options:["Wembley (8 finales)","Stade de France (5)","Santiago Bernabéu (4)","San Siro (3)"], correct:0, explanation:"Wembley a accueilli 8 finales de Coupe d'Europe/LDC, record toutes périodes confondues.", year:2023 },
+    { q:"Quelle équipe a perdu le plus de finales de LDC ?", options:["Juventus (7 finales perdues)","Atlético Madrid (4)","Bayern Munich (5)","Benfica (5)"], correct:0, explanation:"La Juventus a atteint 9 finales de Coupe d'Europe/LDC en perdant 7, dont la finale 1985 marquée par le Heysel.", year:2023 },
+  ],
+  // ─── COUPE DU MONDE ─────────────────────────────────────────
+  world_cup: [
+    { q:"Quel pays a remporté le plus de Coupes du Monde ?", options:["Brésil (5)","Allemagne (4)","Italie (4)","Argentine (3)"], correct:0, explanation:"Le Brésil est le seul pays à avoir participé à toutes les éditions (22/22) et détient 5 titres mondiaux (1958,62,70,94,2002).", year:2022 },
+    { q:"Quel est le plus jeune buteur de l'histoire de la Coupe du Monde ?", options:["Pelé (17 ans, 1958)","Kylian Mbappé (19 ans, 2018)","Wayne Rooney (18 ans, 2004)","Michael Owen (18 ans, 1998)"], correct:0, explanation:"Pelé marque à 17 ans et 239 jours lors du Mondial 1958 en Suède. Il inscrit un hat-trick en demi-finale contre la France.", year:1958 },
+    { q:"Quel pays a organisé la première Coupe du Monde ?", options:["Uruguay","Italie","Brésil","France"], correct:0, explanation:"L'Uruguay organise la première Coupe du Monde en 1930 pour son centenaire d'indépendance. 13 équipes participantes.", year:1930 },
+    { q:"Quel est le record de buts inscrits dans une Coupe du Monde entière ?", options:["171 buts (France 1998, 64 matchs)","141 buts (Italie 1934)","171 buts (États-Unis 1994)","156 buts (Espagne 1982)"], correct:0, explanation:"La CdM 1998 en France établit le record avec 171 buts en 64 matchs, soit une moyenne de 2,67 buts/match.", year:1998 },
+    { q:"Quelle est la seule équipe à n'avoir jamais concédé de but lors d'une Coupe du Monde ?", options:["Aucune — c'est impossible sur toute une compétition","Italie 1934","Suisse 1954","Angleterre 1966"], correct:0, explanation:"Aucune équipe n'a terminé une CdM entière sans encaisser de but. L'Italie 1990 n'en a pris que 2 mais en a quand même concédé.", year:2024 },
+    { q:"Quel joueur a marqué dans chaque match d'une Coupe du Monde ?", options:["Just Fontaine (1958, 6/6 matchs)","Gerd Müller (1970, 6/6)","Eusébio (1966, 5/6)","Ronaldo (2002, 5/7)"], correct:0, explanation:"Just Fontaine marque dans les 6 matchs joués par la France en 1958, terminant avec 13 buts. Record absolu.", year:1958 },
+    { q:"Dans quel stade s'est jouée la finale de la Coupe du Monde 2022 ?", options:["Lusail Stadium, Qatar","Al Bayt Stadium","Khalifa International Stadium","Education City Stadium"], correct:0, explanation:"La finale Argentine-France (3-3, 4-2 aux tirs) se déroule au Lusail Stadium le 18 décembre 2022, capacité 88 966 spectateurs.", year:2022 },
+    { q:"Quel joueur a marqué le plus de buts dans l'histoire des Coupes du Monde ?", options:["Miroslav Klose (16 buts)","Ronaldo brésilien (15)","Gerd Müller (14)","Pelé (12)"], correct:0, explanation:"Miroslav Klose marque 16 buts lors de 4 CdM (2002, 2006, 2010, 2014). Il bat le record de Ronaldo (15) en finale 2014.", year:2014 },
+  ],
+  // ─── JOUEURS LÉGENDAIRES ─────────────────────────────────────
+  joueurs: [
+    { q:"Quel surnom a été donné à Ronaldo R9 (brésilien) ?", options:["O Fenômeno","O Extraterrestre","Ronaldinho","El Gordo"], correct:0, explanation:"R9 est surnommé 'O Fenômeno' (Le Phénomène). Il est considéré comme le meilleur attaquant de l'histoire par beaucoup d'experts.", year:2003 },
+    { q:"Combien de fois Messi a-t-il remporté le championnat d'Espagne avec le Barça ?", options:["10 fois","8 fois","12 fois","7 fois"], correct:0, explanation:"Messi remporte 10 titres de Liga avec le FC Barcelone entre 2004 et 2021.", year:2021 },
+    { q:"Dans quel club Zinédine Zidane a-t-il terminé sa carrière ?", options:["Real Madrid","Juventus","Bordeaux","Marseille"], correct:0, explanation:"Zidane termine sa carrière au Real Madrid en 2006, marquée par le coup de tête sur Materazzi lors de la finale de la CdM.", year:2006 },
+    { q:"Quel est le vrai prénom de Pelé ?", options:["Edson Arantes do Nascimento","Eduardo Pelé","Emerson Pelé","Eusébio Silva"], correct:0, explanation:"Pelé de son vrai nom Edson Arantes do Nascimento est né le 23 octobre 1940 à Três Corações, Brésil.", year:1940 },
+    { q:"Quel joueur porte le surnom 'El Pichichi' dans la tradition espagnole ?", options:["Le meilleur buteur de Liga","Rafael Moreno Aranzadi (joueur historique)","Cristiano Ronaldo","Alfredo Di Stéfano"], correct:1, explanation:"Le 'Pichichi' honore Rafael Moreno Aranzadi, joueur d'Athletic Bilbao mort en 1922. Le trophée du meilleur buteur de Liga porte son surnom.", year:1922 },
+    { q:"Quel joueur a remporté la Ligue des Champions avec 3 clubs différents ?", options:["Clarence Seedorf","Cristiano Ronaldo","Andrés Iniesta","Paolo Maldini"], correct:0, explanation:"Clarence Seedorf gagne la LDC avec l'Ajax (1995), le Real Madrid (1998) et l'AC Milan (2003 et 2007) — record unique.", year:2007 },
+    { q:"Quel est le record de sélections en équipe nationale ?", options:["Bader Al-Mutawa (Kuwait) : 196 sélections","Sergio Ramos (Espagne) : 180","Cristiano Ronaldo : 130+","Hossam Hassan (Egypte) : 184"], correct:0, explanation:"Bader Al-Mutawa (Koweït) détient le record mondial avec 196 sélections. Cristiano Ronaldo est le meilleur européen avec 130+ caps.", year:2022 },
+    { q:"En quelle année Ronaldo (brésilien) a-t-il fait ses débuts professionnels ?", options:["1993 (Cruzeiro)","1994 (PSV)","1992 (Sport Recife)","1995 (Barcelone)"], correct:0, explanation:"Ronaldo R9 fait ses débuts au Cruzeiro en 1993 à seulement 16 ans, avant de rejoindre le PSV Eindhoven en 1994.", year:1993 },
+  ],
+  // ─── CLUBS ──────────────────────────────────────────────────
+  clubs: [
+    { q:"Quel est le plus vieux club de football au monde encore en activité ?", options:["Sheffield FC (1857)","Nottingham Forest (1865)","Reading FC (1871)","Stoke City (1863)"], correct:0, explanation:"Sheffield FC, fondé le 24 octobre 1857, est le plus vieux club de football au monde reconnu par FIFA et AFC.", year:1857 },
+    { q:"Quel club a le plus grand stade du monde (football) ?", options:["Rungrado (Corée du Nord) — 114 000","Narendra Modi (Inde) — 132 000","Michigan Stadium (USA) — 109 000","Camp Nou (Barcelone) — 99 354"], correct:1, explanation:"Le Narendra Modi Stadium en Inde (Ahmedabad) accueille 132 000 spectateurs. Rungrado en Corée du Nord (114 000) est le plus grand stade football pur.", year:2020 },
+    { q:"Quel club a le plus grand nombre de supporters dans le monde selon certaines études ?", options:["Real Madrid","Manchester United","Barcelona","Bayern Munich"], correct:1, explanation:"Manchester United revendique 1,1 milliard de supporters globaux selon certaines études, suivi de près par Real Madrid et Barcelone.", year:2023 },
+    { q:"Quel est le seul club à être descendu en 2ème division après avoir gagné la LDC ?", options:["Nottingham Forest","Marseille","Manchester City","Red Star Belgrade"], correct:0, explanation:"Nottingham Forest remporte la Coupe d'Europe en 1979 et 1980 mais est relégué en 1993. En 2022, ils remontent en Premier League.", year:1993 },
+    { q:"Quel club détient le record du plus grand nombre de titres de championnat dans son pays ?", options:["Rangers FC (Écosse) : 55 titres","Al-Ahly (Égypte) : 42","Real Madrid (Espagne) : 36","Bayern Munich (Allemagne) : 33"], correct:0, explanation:"Rangers FC (Glasgow) détient 55 titres de Champions League d'Écosse, record mondial absolu pour un club dans son championnat.", year:2023 },
+    { q:"Quel club a le plus grand budget de masse salariale au monde (2023) ?", options:["Manchester City","Paris Saint-Germain","Real Madrid","Chelsea"], correct:0, explanation:"Manchester City dépasse en 2023 les 400M€ de masse salariale, dépassant le PSG. Erling Haaland contribue avec son salaire record.", year:2023 },
+  ],
+  // ─── RÈGLES ─────────────────────────────────────────────────
+  regles: [
+    { q:"Depuis quelle année les cartons rouges et jaunes existent-ils ?", options:["1970 (CdM Mexique)","1966 (CdM Angleterre)","1974 (CdM Allemagne)","1968 (Jeux Olympiques)"], correct:0, explanation:"Ken Aston invente les cartons colorés après la CdM 1966. Ils sont officiellement utilisés pour la première fois au Mondial 1970 au Mexique.", year:1970 },
+    { q:"Combien de joueurs minimum doit avoir une équipe pour continuer un match ?", options:["7 joueurs","6 joueurs","8 joueurs","9 joueurs"], correct:0, explanation:"Selon les règles FIFA, si une équipe descend sous 7 joueurs (rouges + blessures), l'arbitre arrête le match définitivement.", year:2023 },
+    { q:"Quelle est la hauteur officielle des buts ?", options:["2,44 mètres (8 pieds)","2,50 mètres","2,30 mètres","2,40 mètres"], correct:0, explanation:"La hauteur réglementaire est de 2,44m (8 pieds), pour une largeur de 7,32m (8 yards). Ces dimensions datent des règles FA de 1863.", year:1863 },
+    { q:"En cas d'égalité parfaite au classement, quel est le premier critère de départage en Ligue 1 ?", options:["Confrontations directes","Différence de buts générale","Buts marqués","Classement fair-play"], correct:0, explanation:"En Ligue 1, le premier critère de départage est le résultat des confrontations directes, puis la différence de buts particulière.", year:2023 },
+    { q:"Le goal average est-il encore utilisé dans les compétitions UEFA ?", options:["Non, remplacé par la différence de buts depuis les années 1970","Oui, dans certains tournois","Oui, uniquement en LDC","Non, depuis 1980"], correct:0, explanation:"L'UEFA a remplacé le goal average par la différence de buts dans les années 1970 pour les phases de groupes.", year:1970 },
+    { q:"Quelle est la longueur maximale d'un terrain de football FIFA ?", options:["120 mètres","130 mètres","110 mètres","115 mètres"], correct:0, explanation:"Un terrain FIFA doit mesurer entre 100 et 110m de long (international), avec un maximum de 120m pour les terrains nationaux.", year:2023 },
+  ],
+  // ─── TRANSFERTS ─────────────────────────────────────────────
+  transferts: [
+    { q:"Pour combien le FC Barcelone a-t-il vendu Neymar au PSG ?", options:["222 millions d'euros","200 millions d'euros","180 millions d'euros","150 millions d'euros"], correct:0, explanation:"Le PSG déclenche la clause libératoire de Neymar de 222M€ en août 2017. C'est le transfert le plus cher de l'histoire du football.", year:2017 },
+    { q:"Quel fut le premier transfert à dépasser le million de livres sterling ?", options:["Alf Common (1905, 1000£)","Trevor Francis (1979, 1M£)","Gareth Bale (2013, 100M€)","Alan Shearer (1996, 15M£)"], correct:1, explanation:"Trevor Francis est acheté par Nottingham Forest à Birmingham City pour 1,18M£ en 1979 — premier transfert millionnaire en GBP.", year:1979 },
+    { q:"Pour quelle somme Cristiano Ronaldo a-t-il rejoint le Real Madrid en 2009 ?", options:["94 millions d'euros","80 millions","102 millions","73 millions"], correct:0, explanation:"Ronaldo signe au Real Madrid pour 94M€ en juillet 2009 — record mondial de l'époque, battu par Gareth Bale (100M€) en 2013.", year:2009 },
+    { q:"Quel joueur est parti libre en 2021 du FC Barcelone pour rejoindre le PSG ?", options:["Lionel Messi","Antoine Griezmann","Philippe Coutinho","Sergio Agüero"], correct:0, explanation:"Messi quitte le Barça en larmes le 8 août 2021 après que le club n'a pu le prolonger pour raisons financières. Il signe 0€ au PSG.", year:2021 },
+    { q:"Pour combien Gareth Bale a-t-il rejoint le Real Madrid en 2013 ?", options:["100,8 millions d'euros","94 millions","80 millions","115 millions"], correct:0, explanation:"Tottenham vend Bale au Real Madrid pour 100,8M€ en septembre 2013, battant le record détenu par Ronaldo depuis 2009.", year:2013 },
+  ],
+  // ─── LIGUE 1 ────────────────────────────────────────────────
+  ligue1: [
+    { q:"Quel joueur détient le record de buts en Ligue 1 ?", options:["Delio Onnis (299)","Gunnar Andersson (299)","Jean-Pierre Papin (270)","Zlatan Ibrahimović (156)"], correct:0, explanation:"Delio Onnis (argentin naturalisé français) marque 299 buts en D1 entre 1971 et 1986 avec Monaco et Tours. Record absolu.", year:1986 },
+    { q:"Quel club a remporté le plus de titres de Ligue 1 ?", options:["Saint-Étienne (10)","Marseille (10)","PSG (12+)","Lyon (7)"], correct:0, explanation:"Saint-Étienne et Marseille partagent le record avec 10 titres. Le PSG en est maintenant à 12 et dépasse ce record depuis 2022.", year:2023 },
+    { q:"Quelle saison est surnommée 'la saison des Invincibles' en Ligue 1 ?", options:["Aucune — jamais réalisé en L1","Lyon 2005-06","Paris SG 2015-16","Nantes 1994-95"], correct:0, explanation:"Contrairement à la Premier League (Arsenal 2003-04) et la Bundesliga, aucune équipe n'a réussi une saison invaincu en Ligue 1 professionnelle.", year:2023 },
+    { q:"Quel joueur étranger a marqué le plus de buts en une saison de Ligue 1 ?", options:["Zlatan Ibrahimović (38, 2015-16)","Josip Skoblar (44, 1971-72)","Gunnar Andersson (35, 1951-52)","Carlos Bianchi (27, 1979-80)"], correct:1, explanation:"Josip Skoblar (Yougoslave, Marseille) marque 44 buts en 1971-72. C'est le record absolu de tous les temps en Ligue 1.", year:1972 },
+    { q:"Quelle est la plus grande victoire de l'histoire de la Ligue 1 ?", options:["Racing Club 11-1 Mantes (1942)","Marseille 8-0 Valenciennes (2006)","PSG 8-0 Monaco (2022)","Bordeaux 10-0 Montauban (1958)"], correct:0, explanation:"Le Racing Club de Paris bat Mantes 11-1 lors de la saison 1942-43, record de victoire en Division 1 française.", year:1943 },
+  ],
+  // ─── PREMIER LEAGUE ─────────────────────────────────────────
+  premier_league: [
+    { q:"Quelle est la plus grande victoire de l'histoire de la Premier League ?", options:["Leicester 9-0 Southampton (2019)","Man Utd 9-0 Ipswich (1995)","Nottingham Forest 8-0 Sheffield (1999)","Tottenham 9-1 Wigan (2009)"], correct:0, explanation:"Leicester City bat Southampton 9-0 le 25 octobre 2019 au King Power Stadium. Score record pour un match de Premier League.", year:2019 },
+    { q:"Quel joueur détient le record de buts en Premier League ?", options:["Alan Shearer (260)","Wayne Rooney (208)","Andrew Cole (187)","Frank Lampard (177)"], correct:0, explanation:"Alan Shearer marque 260 buts en 441 matchs de Premier League entre 1992 et 2006 (Southampton, Blackburn, Newcastle). Record imbattu.", year:2006 },
+    { q:"Quelle équipe 'invincible' n'a jamais perdu en Premier League ?", options:["Arsenal 2003-04","Manchester United 1999-2000","Chelsea 2004-05","Manchester City 2017-18"], correct:0, explanation:"Arsenal 2003-04 termine la saison avec 26V+12N, soit 38 matchs sans défaite. Les 'Invincibles' de Wenger restent uniques en PL.", year:2004 },
+    { q:"Quel entraîneur a remporté le plus de titres de Premier League ?", options:["Sir Alex Ferguson (13)","Arsène Wenger (3)","José Mourinho (3)","Pep Guardiola (6)"], correct:0, explanation:"Sir Alex Ferguson remporte 13 titres de Premier League avec Manchester United entre 1993 et 2013 — record absolu en Angleterre.", year:2013 },
+    { q:"En quelle année la Premier League a-t-elle été créée ?", options:["1992","1888","1975","2000"], correct:0, explanation:"La Premier League est fondée en février 1992 et démarre en août 1992, remplaçant la Football League First Division créée en 1888.", year:1992 },
+  ],
+};
+
+const QUIZ_CATEGORIES = [
+  { id:"records",          icon:"🏆", label:"Records" },
+  { id:"champions_league", icon:"⭐", label:"Champions League" },
+  { id:"world_cup",        icon:"🌍", label:"Coupe du Monde" },
+  { id:"joueurs",          icon:"👤", label:"Joueurs légendaires" },
+  { id:"clubs",            icon:"🏟", label:"Clubs" },
+  { id:"regles",           icon:"📋", label:"Règles" },
+  { id:"transferts",       icon:"💰", label:"Transferts" },
+  { id:"ligue1",           icon:"🇫🇷", label:"Ligue 1" },
+  { id:"premier_league",   icon:"🏴", label:"Premier League" },
+  { id:"ai_mix",           icon:"🤖", label:"Mix IA (infini)" },
+];
+
+const DIFFICULTIES = [
+  { id:"facile",    label:"Facile",   color:"#16a34a", xp:10 },
+  { id:"moyen",     label:"Moyen",    color:"#d97706", xp:20 },
+  { id:"difficile", label:"Difficile",color:"#DC2626", xp:35 },
+  { id:"expert",    label:"Expert",   color:"#7C3AED", xp:50 },
+];
+
+function BankrollView() {
+  const [bankroll, setBankroll] = useState(() => parseFloat(localStorage.getItem("br_amount")||"1000"));
+  const [history, setHistory]   = useState(() => JSON.parse(localStorage.getItem("br_history")||"[]"));
+  const [form,    setForm]       = useState({ type:"bet", amount:"", odds:"", desc:"", result:"win" });
+  const [showAdd, setShowAdd]    = useState(false);
+
+  function save(newBr, newHist) {
+    localStorage.setItem("br_amount", String(newBr));
+    localStorage.setItem("br_history", JSON.stringify(newHist));
+  }
+
+  function addEntry() {
+    const amount  = parseFloat(form.amount)||0;
+    const odds    = parseFloat(form.odds)||1;
+    if (amount <= 0) return;
+
+    let pnl = 0;
+    if (form.type === "bet") {
+      pnl = form.result === "win" ? amount*(odds-1) : -amount;
+    } else if (form.type === "deposit") {
+      pnl = amount;
+    } else {
+      pnl = -amount;
+    }
+
+    const entry = {
+      id:     Date.now(),
+      date:   new Date().toLocaleDateString("fr-FR"),
+      type:   form.type,
+      desc:   form.desc || (form.type==="bet"?"Pari":"Opération"),
+      amount, odds: form.type==="bet"?odds:null,
+      result: form.type==="bet"?form.result:null,
+      pnl,    brAfter: bankroll + pnl,
+    };
+
+    const newHist = [entry, ...history];
+    const newBr   = bankroll + pnl;
+    setHistory(newHist);
+    setBankroll(newBr);
+    save(newBr, newHist);
+    setForm({ type:"bet", amount:"", odds:"", desc:"", result:"win" });
+    setShowAdd(false);
+  }
+
+  function reset() {
+    if (!window.confirm("Réinitialiser la bankroll ?")) return;
+    setBankroll(1000);
+    setHistory([]);
+    save(1000, []);
+  }
+
+  // Statistiques
+  const bets     = history.filter(h=>h.type==="bet");
+  const wins     = bets.filter(b=>b.result==="win");
+  const totalPnl = history.reduce((s,h)=>s+h.pnl, 0);
+  const roi      = bets.length>0 ? (bets.reduce((s,b)=>s+(b.result==="win"?b.pnl:0),0) / bets.reduce((s,b)=>s+b.amount,0)*100) : 0;
+  const initBr   = history.length>0 ? (history[history.length-1].brAfter - history[history.length-1].pnl) : bankroll;
+  const profitPct = initBr > 0 ? ((bankroll - initBr)/initBr*100) : 0;
+
+  // Mini graphique sparkline
+  const chartData = history.slice(0,20).reverse().map(h=>h.brAfter);
+  if (chartData.length === 0) chartData.push(bankroll);
+  const minV = Math.min(...chartData);
+  const maxV = Math.max(...chartData, minV+1);
+  const points = chartData.map((v,i) => {
+    const x = (i/(chartData.length-1||1))*280;
+    const y = 60 - ((v-minV)/(maxV-minV||1))*50;
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <div style={{ padding:"20px 24px" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+        <span style={{ fontSize:28 }}>💳</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:18, fontWeight:800, color:C.text }}>Suivi de Bankroll</div>
+          <div style={{ fontSize:11, color:C.dim }}>Gérez vos mises · Suivez vos profits · Analysez vos performances</div>
+        </div>
+        <button onClick={reset} style={{ background:"none", border:`1px solid ${C.line}`, borderRadius:6, padding:"5px 10px", cursor:"pointer", fontSize:11, color:C.muted }}>Reset</button>
+      </div>
+
+      {/* Bankroll actuelle + graphique */}
+      <div style={{ background:`linear-gradient(135deg, #032D60, #0176D3)`, borderRadius:16, padding:"20px 24px", marginBottom:16, color:"#fff" }}>
+        <div style={{ fontSize:11, opacity:.7, textTransform:"uppercase", letterSpacing:.8, marginBottom:4 }}>Bankroll actuelle</div>
+        <div style={{ fontSize:36, fontWeight:900 }}>{bankroll.toFixed(2)}€</div>
+        <div style={{ fontSize:13, opacity:.8, marginTop:4 }}>
+          {profitPct>=0?"📈":"📉"} {profitPct>=0?"+":""}{profitPct.toFixed(1)}% depuis le départ
+        </div>
+        {/* Sparkline */}
+        {chartData.length > 1 && (
+          <svg width="280" height="60" style={{ marginTop:12, display:"block" }}>
+            <polyline points={points} fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="2"/>
+          </svg>
+        )}
+      </div>
+
+      {/* Stats rapides */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:16 }}>
+        {[
+          { label:"Mises jouées", val:bets.length, color:C.text },
+          { label:"Taux victoire", val:`${bets.length?Math.round(wins.length/bets.length*100):0}%`, color:wins.length/bets.length>.5?"#16a34a":"#DC2626" },
+          { label:"P&L Total", val:`${totalPnl>=0?"+":""}${totalPnl.toFixed(0)}€`, color:totalPnl>=0?"#16a34a":"#DC2626" },
+          { label:"ROI", val:`${roi>=0?"+":""}${roi.toFixed(1)}%`, color:roi>=0?"#16a34a":"#DC2626" },
+        ].map(s=>(
+          <div key={s.label} style={{ background:C.panel2, borderRadius:10, padding:"10px 8px", textAlign:"center" }}>
+            <div style={{ fontSize:16, fontWeight:800, color:s.color }}>{s.val}</div>
+            <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.5 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Bouton ajouter */}
+      <button onClick={() => setShowAdd(v=>!v)} style={{
+        width:"100%", background:showAdd?C.panel2:C.accent, color:showAdd?C.dim:"#fff",
+        border:`1px solid ${showAdd?C.line:C.accent}`, borderRadius:10, padding:"11px",
+        cursor:"pointer", fontSize:13, fontWeight:700, marginBottom:12,
+      }}>{showAdd?"✕ Annuler":"+ Ajouter une opération"}</button>
+
+      {showAdd && (
+        <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"16px", marginBottom:16 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:10 }}>
+            {["bet","deposit","withdrawal"].map(t=>(
+              <button key={t} onClick={()=>setForm(f=>({...f,type:t}))} style={{
+                border:`1px solid ${form.type===t?C.accent:C.line}`, borderRadius:6, padding:"6px",
+                background:form.type===t?C.accentBg:"none", cursor:"pointer",
+                fontSize:11, fontWeight:600, color:form.type===t?C.accent:C.dim,
+              }}>{t==="bet"?"🎯 Pari":t==="deposit"?"💰 Dépôt":"💸 Retrait"}</button>
+            ))}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:6 }}>
+            <input placeholder="Montant (€)" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))}
+              style={{ padding:"8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }} type="number"/>
+            {form.type==="bet" && <input placeholder="Cote (ex: 1.80)" value={form.odds} onChange={e=>setForm(f=>({...f,odds:e.target.value}))}
+              style={{ padding:"8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }} type="number" step="0.01"/>}
+          </div>
+          {form.type==="bet" && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:6 }}>
+              {["win","lose"].map(r=>(
+                <button key={r} onClick={()=>setForm(f=>({...f,result:r}))} style={{
+                  border:`2px solid ${form.result===r?(r==="win"?"#16a34a":"#DC2626"):C.line}`,
+                  borderRadius:6, padding:"7px", cursor:"pointer",
+                  background:form.result===r?(r==="win"?"#D1FAE5":"#FEE2E2"):"none",
+                  fontSize:12, fontWeight:700, color:form.result===r?(r==="win"?"#065F46":"#991B1B"):C.dim,
+                }}>{r==="win"?"✅ Gagné":"❌ Perdu"}</button>
+              ))}
+            </div>
+          )}
+          <input placeholder="Description (optionnel)" value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))}
+            style={{ width:"100%", padding:"8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none", marginBottom:8, boxSizing:"border-box" }}/>
+          {form.amount && form.type==="bet" && form.result==="win" && (
+            <div style={{ background:"#D1FAE5", borderRadius:6, padding:"6px 10px", fontSize:12, color:"#065F46", marginBottom:8, fontWeight:600 }}>
+              Gain potentiel : +{(parseFloat(form.amount||0)*(parseFloat(form.odds||1)-1)).toFixed(2)}€
+            </div>
+          )}
+          <button onClick={addEntry} style={{ width:"100%", background:C.green, color:"#fff", border:"none", borderRadius:8, padding:"10px", cursor:"pointer", fontSize:13, fontWeight:700 }}>
+            Confirmer
+          </button>
+        </div>
+      )}
+
+      {/* Historique */}
+      <div style={{ fontSize:10, color:C.dim, fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:8 }}>Historique ({history.length})</div>
+      {history.length === 0 && <div style={{ color:C.muted, fontSize:12, textAlign:"center", padding:"20px" }}>Aucune opération pour l'instant.</div>}
+      <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+        {history.slice(0,20).map(h=>(
+          <div key={h.id} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"9px 12px", display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:16 }}>{h.type==="bet"?(h.result==="win"?"✅":"❌"):(h.type==="deposit"?"💰":"💸")}</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, fontWeight:500, color:C.text }}>{h.desc}</div>
+              <div style={{ fontSize:10, color:C.dim }}>{h.date}{h.odds?` · Cote ${h.odds}`:""}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:h.pnl>=0?"#16a34a":"#DC2626" }}>{h.pnl>=0?"+":""}{h.pnl.toFixed(2)}€</div>
+              <div style={{ fontSize:10, color:C.dim }}>{h.brAfter?.toFixed(0)}€</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuizView() {
+  const [phase,       setPhase]      = useState("menu"); // menu | playing | result
+  const [category,   setCategory]   = useState(null);
+  const [difficulty, setDifficulty] = useState("moyen");
+  const [questions,  setQuestions]  = useState([]);
+  const [qIdx,       setQIdx]       = useState(0);
+  const [score,      setScore]      = useState(0);
+  const [lives,      setLives]      = useState(3);
+  const [streak,     setStreak]     = useState(0);
+  const [selected,   setSelected]   = useState(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [timeLeft,   setTimeLeft]   = useState(30);
+  const [totalXP,    setTotalXP]    = useState(() => parseInt(localStorage.getItem("quiz_xp")||"0"));
+  const [highScores, setHighScores] = useState(() => JSON.parse(localStorage.getItem("quiz_scores")||"{}"));
+  const [loading,    setLoading]    = useState(false);
+
+  // Timer
+  useEffect(() => {
+    if (phase !== "playing" || showAnswer) return;
+    if (timeLeft <= 0) { handleAnswer(-1); return; }
+    const t = setTimeout(() => setTimeLeft(v=>v-1), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, phase, showAnswer]);
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+    return a;
+  }
+
+  async function startQuiz() {
+    setLoading(true);
+    let pool = [];
+
+    if (category === "ai_mix") {
+      // Générer via IA
+      const cats = ["records","champions_league","world_cup","joueurs","clubs"];
+      const randomCat = cats[Math.floor(Math.random()*cats.length)];
+      pool = await generateQuizQuestions(randomCat, difficulty, 10);
+      if (pool.length === 0) {
+        // Fallback vers seed
+        const all = Object.values(QUIZ_SEED).flat();
+        pool = shuffle(all).slice(0, 10);
+      }
+    } else {
+      // Utiliser seed + éventuellement générer plus
+      const seed = QUIZ_SEED[category] || [];
+      if (seed.length >= 10) {
+        pool = shuffle(seed).slice(0, 15);
+      } else {
+        // Compléter avec IA
+        const aiQuestions = await generateQuizQuestions(category, difficulty, 10);
+        pool = shuffle([...seed, ...aiQuestions]).slice(0, 15);
+      }
+    }
+
+    setQuestions(pool);
+    setQIdx(0); setScore(0); setLives(3); setStreak(0);
+    setSelected(null); setShowAnswer(false); setTimeLeft(30);
+    setPhase("playing");
+    setLoading(false);
+  }
+
+  function handleAnswer(idx) {
+    if (showAnswer) return;
+    setSelected(idx);
+    setShowAnswer(true);
+    const q = questions[qIdx];
+    const correct = idx === q.correct;
+    const diff = DIFFICULTIES.find(d=>d.id===difficulty) || DIFFICULTIES[1];
+
+    if (correct) {
+      const bonusStreak = streak >= 3 ? Math.floor(streak/3)*5 : 0;
+      const bonusTime   = timeLeft > 15 ? 5 : 0;
+      const xpGained    = diff.xp + bonusStreak + bonusTime;
+      setScore(s => s + xpGained);
+      setStreak(s => s+1);
+      const newXP = totalXP + xpGained;
+      setTotalXP(newXP);
+      localStorage.setItem("quiz_xp", String(newXP));
+    } else {
+      setLives(l => l-1);
+      setStreak(0);
+      if (lives <= 1) {
+        setTimeout(() => endQuiz(), 1500);
+        return;
+      }
+    }
+    setTimeout(() => {
+      if (qIdx >= questions.length - 1) { endQuiz(); return; }
+      setQIdx(i => i+1);
+      setSelected(null); setShowAnswer(false); setTimeLeft(30);
+    }, 2000);
+  }
+
+  function endQuiz() {
+    const catKey = `${category}_${difficulty}`;
+    const best = highScores[catKey] || 0;
+    if (score > best) {
+      const newHS = { ...highScores, [catKey]: score };
+      setHighScores(newHS);
+      localStorage.setItem("quiz_scores", JSON.stringify(newHS));
+    }
+    setPhase("result");
+  }
+
+  const currentQ = questions[qIdx];
+  const catInfo   = QUIZ_CATEGORIES.find(c=>c.id===category);
+  const diffInfo  = DIFFICULTIES.find(d=>d.id===difficulty);
+
+  // === MENU ===
+  if (phase === "menu") return (
+    <div style={{ padding:"20px 24px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:24 }}>
+        <span style={{ fontSize:32 }}>🧩</span>
+        <div>
+          <div style={{ fontSize:20, fontWeight:800, color:C.text }}>Quiz Football</div>
+          <div style={{ fontSize:12, color:C.dim }}>50 000+ questions · IA générative · Toutes catégories</div>
+        </div>
+        <div style={{ marginLeft:"auto", textAlign:"right" }}>
+          <div style={{ fontSize:20, fontWeight:800, color:"#d97706" }}>⚡ {totalXP.toLocaleString()} XP</div>
+          <div style={{ fontSize:10, color:C.muted }}>XP cumulés</div>
+        </div>
+      </div>
+
+      {/* Catégories */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, marginBottom:10 }}>Choisir une catégorie</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:8 }}>
+          {QUIZ_CATEGORIES.map(cat => (
+            <button key={cat.id} onClick={() => setCategory(cat.id)} style={{
+              background: category===cat.id ? C.accentBg : C.panel,
+              border:`1px solid ${category===cat.id ? C.accent : C.line}`,
+              borderRadius:10, padding:"12px 14px", cursor:"pointer",
+              display:"flex", alignItems:"center", gap:9, textAlign:"left",
+              transition:"all .15s",
+            }}>
+              <span style={{ fontSize:20 }}>{cat.icon}</span>
+              <span style={{ fontSize:12, fontWeight:600, color:category===cat.id?C.accent:C.text }}>{cat.label}</span>
+              {cat.id==="ai_mix" && <span style={{ marginLeft:"auto", fontSize:8, background:"#EDE9FE", color:"#7C3AED", borderRadius:4, padding:"1px 4px", fontWeight:700 }}>∞</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Difficulté */}
+      <div style={{ marginBottom:24 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, marginBottom:10 }}>Difficulté</div>
+        <div style={{ display:"flex", gap:8 }}>
+          {DIFFICULTIES.map(d => (
+            <button key={d.id} onClick={() => setDifficulty(d.id)} style={{
+              flex:1, padding:"10px 8px", border:`1px solid ${difficulty===d.id?d.color:C.line}`,
+              borderRadius:8, cursor:"pointer", textAlign:"center",
+              background: difficulty===d.id ? `${d.color}18` : C.panel,
+            }}>
+              <div style={{ fontSize:12, fontWeight:700, color:d.color }}>{d.label}</div>
+              <div style={{ fontSize:9, color:C.muted }}>+{d.xp} XP/bonne réponse</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bouton lancer */}
+      <button onClick={startQuiz} disabled={!category || loading} style={{
+        width:"100%", background: category ? C.accent : C.panel2,
+        color: category ? "#fff" : C.muted, border:"none", borderRadius:12,
+        padding:"16px", fontSize:15, fontWeight:700, cursor:category?"pointer":"not-allowed",
+        boxShadow: category ? `0 4px 20px ${C.accent}44` : "none",
+      }}>
+        {loading ? "Chargement des questions…" : category ? `Lancer le Quiz${catInfo?` — ${catInfo.label}`:""}` : "Sélectionne une catégorie pour commencer"}
+      </button>
+
+      {/* Meilleurs scores */}
+      {Object.keys(highScores).length > 0 && (
+        <div style={{ marginTop:20 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, marginBottom:8 }}>Tes meilleurs scores</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            {Object.entries(highScores).sort(([,a],[,b])=>b-a).slice(0,5).map(([key,val]) => {
+              const [cat, diff] = key.split("_");
+              const catLabel = QUIZ_CATEGORIES.find(c=>c.id===cat)?.label || cat;
+              const diffLabel = DIFFICULTIES.find(d=>d.id===diff)?.label || diff;
+              return (
+                <div key={key} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:C.panel2, borderRadius:8, padding:"7px 12px" }}>
+                  <span style={{ fontSize:11, color:C.text }}>{catLabel} — {diffLabel}</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:"#d97706" }}>⚡ {val} XP</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // === PLAYING ===
+  if (phase === "playing" && currentQ) return (
+    <div style={{ padding:"20px 24px", maxWidth:700, margin:"0 auto" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+        <span style={{ fontSize:14 }}>{catInfo?.icon}</span>
+        <span style={{ fontSize:12, color:C.dim }}>{catInfo?.label}</span>
+        <div style={{ flex:1 }} />
+        <span style={{ fontSize:12, color:C.dim }}>Q{qIdx+1}/{questions.length}</span>
+        <div style={{ display:"flex", gap:4 }}>
+          {[...Array(3)].map((_,i) => <span key={i} style={{ fontSize:16 }}>{i < lives ? "❤️" : "🖤"}</span>)}
+        </div>
+        <span style={{ fontSize:12, fontWeight:700, color:"#d97706" }}>⚡ {score}</span>
+      </div>
+
+      {/* Timer */}
+      <div style={{ background:C.panel2, borderRadius:99, height:6, marginBottom:16, overflow:"hidden" }}>
+        <div style={{
+          height:"100%", transition:"width 1s linear",
+          width:`${(timeLeft/30)*100}%`,
+          background: timeLeft > 15 ? "#16a34a" : timeLeft > 5 ? "#d97706" : "#DC2626",
+        }}/>
+      </div>
+
+      {/* Streak */}
+      {streak >= 2 && (
+        <div style={{ background:"#FEF3C7", border:"1px solid #FCD34D", borderRadius:8, padding:"6px 12px", marginBottom:12, textAlign:"center", fontSize:12, color:"#92400E", fontWeight:600 }}>
+          🔥 Série de {streak} bonnes réponses ! × {Math.floor(streak/3)||1} bonus
+        </div>
+      )}
+
+      {/* Question */}
+      <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, padding:"20px 22px", marginBottom:16 }}>
+        <div style={{ fontSize:9, color:diffInfo?.color, fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:8 }}>{diffInfo?.label} · {timeLeft}s</div>
+        <div style={{ fontSize:15, fontWeight:600, color:C.text, lineHeight:1.6 }}>{currentQ.q}</div>
+        {currentQ.year && <div style={{ fontSize:10, color:C.muted, marginTop:6 }}>Réf. {currentQ.year}</div>}
+      </div>
+
+      {/* Options */}
+      <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
+        {(currentQ.options||[]).map((opt, i) => {
+          const isCorrect = i === currentQ.correct;
+          const isSelected = i === selected;
+          let bg = C.panel, border = C.line, color = C.text;
+          if (showAnswer) {
+            if (isCorrect) { bg="#D1FAE5"; border="#16a34a"; color="#065F46"; }
+            else if (isSelected && !isCorrect) { bg="#FEE2E2"; border="#DC2626"; color="#991B1B"; }
+          } else if (isSelected) { bg=C.accentBg; border=C.accent; color=C.accent; }
+          return (
+            <button key={i} onClick={() => handleAnswer(i)} disabled={showAnswer} style={{
+              background:bg, border:`2px solid ${border}`, borderRadius:10, padding:"12px 16px",
+              cursor:showAnswer?"default":"pointer", textAlign:"left", fontSize:13, fontWeight:500, color, transition:"all .15s",
+              display:"flex", alignItems:"center", gap:10,
+            }}>
+              <span style={{ width:24, height:24, borderRadius:"50%", background:border, color:"#fff", display:"grid", placeItems:"center", fontSize:11, fontWeight:700, flexShrink:0 }}>
+                {["A","B","C","D"][i]}
+              </span>
+              {opt}
+              {showAnswer && isCorrect && <span style={{ marginLeft:"auto", fontSize:16 }}>✅</span>}
+              {showAnswer && isSelected && !isCorrect && <span style={{ marginLeft:"auto", fontSize:16 }}>❌</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Explication */}
+      {showAnswer && currentQ.explanation && (
+        <div style={{ background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:10, padding:"12px 16px", fontSize:12, color:"#1e40af", lineHeight:1.6 }}>
+          💡 <strong>Explication :</strong> {currentQ.explanation}
+        </div>
+      )}
+    </div>
+  );
+
+  // === RÉSULTAT ===
+  if (phase === "result") return (
+    <div style={{ padding:"20px 24px", maxWidth:500, margin:"0 auto", textAlign:"center" }}>
+      <div style={{ fontSize:64, marginBottom:12 }}>
+        {score >= 200 ? "🏆" : score >= 100 ? "🥇" : score >= 50 ? "🥈" : "🥉"}
+      </div>
+      <div style={{ fontSize:22, fontWeight:800, color:C.text, marginBottom:4 }}>
+        {score >= 200 ? "Exceptionnel !" : score >= 100 ? "Excellent !" : score >= 50 ? "Bien joué !" : "Continue à t'entraîner !"}
+      </div>
+      <div style={{ fontSize:28, fontWeight:900, color:"#d97706", marginBottom:20 }}>⚡ {score} XP</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:24 }}>
+        <div style={{ background:C.panel2, borderRadius:10, padding:"10px" }}>
+          <div style={{ fontSize:20, fontWeight:800, color:"#16a34a" }}>{qIdx}</div>
+          <div style={{ fontSize:9, color:C.muted }}>Q. JOUÉES</div>
+        </div>
+        <div style={{ background:C.panel2, borderRadius:10, padding:"10px" }}>
+          <div style={{ fontSize:20, fontWeight:800, color:C.accent }}>{totalXP.toLocaleString()}</div>
+          <div style={{ fontSize:9, color:C.muted }}>XP TOTAL</div>
+        </div>
+        <div style={{ background:C.panel2, borderRadius:10, padding:"10px" }}>
+          <div style={{ fontSize:20, fontWeight:800, color:diffInfo?.color }}>{highScores[`${category}_${difficulty}`]||score}</div>
+          <div style={{ fontSize:9, color:C.muted }}>RECORD</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={() => { setPhase("playing"); setQIdx(0); setScore(0); setLives(3); setStreak(0); setSelected(null); setShowAnswer(false); setTimeLeft(30); }} style={{
+          flex:1, background:C.accent, color:"#fff", border:"none", borderRadius:10, padding:"12px", fontSize:13, fontWeight:700, cursor:"pointer",
+        }}>↻ Rejouer</button>
+        <button onClick={() => setPhase("menu")} style={{
+          flex:1, background:C.panel2, color:C.text, border:`1px solid ${C.line}`, borderRadius:10, padding:"12px", fontSize:13, fontWeight:600, cursor:"pointer",
+        }}>🏠 Menu</button>
+      </div>
+    </div>
+  );
+
+  return <InfoPanel>Chargement…</InfoPanel>;
+}
+
+// ============================================================
 // EncyclopediaView — encyclopédie football pour les parieurs
 // ============================================================
 function EncyclopediaView() {
@@ -4657,6 +5262,70 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
         </div>
       )}
 
+      {/* === À SUIVRE CETTE SEMAINE === */}
+      {(() => {
+        const now = Date.now();
+        const in7d = now + 7*24*60*60*1000;
+        const MAJOR = new Set([2,3,39,140,78,135,61,1,4,9,848]);
+        const featured = nextFixtures.filter(f => {
+          const d = new Date(f.date).getTime();
+          return d > now && d < in7d && MAJOR.has(f.leagueId);
+        }).slice(0, 6);
+
+        if (featured.length === 0) return null;
+
+        return (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+              <span style={{ fontSize:18 }}>📆</span>
+              <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>À suivre cette semaine</span>
+              <span style={{ fontSize:11, color:C.muted }}>(compétitions majeures)</span>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:10 }}>
+              {featured.map(f => {
+                const homeLogo = logoRegistry[f.home?.id] || f.home?.logo || "";
+                const awayLogo = logoRegistry[f.away?.id] || f.away?.logo || "";
+                const matchDate = new Date(f.date);
+                const daysUntil = Math.ceil((matchDate-Date.now())/86400000);
+                return (
+                  <div key={f.id}
+                    onClick={() => f.compId && onMatchClick?.(f)}
+                    style={{
+                      background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"12px 14px",
+                      cursor:f.compId?"pointer":"default", transition:"border-color .15s",
+                    }}
+                    onMouseEnter={e=>{if(f.compId)e.currentTarget.style.borderColor=C.accent;}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;}}
+                  >
+                    {/* Compétition */}
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
+                      <FlagImg emoji={countryFlag(f.country)} height={12} />
+                      {f.leagueLogo && <img src={f.leagueLogo} width={14} height={14} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
+                      <span style={{ fontSize:10, color:C.dim }}>{f.league}</span>
+                      <span style={{ marginLeft:"auto", fontSize:9, background: daysUntil<=1?"#FEE2E2":daysUntil<=3?C.accentBg:C.panel2, color:daysUntil<=1?"#DC2626":daysUntil<=3?C.accent:C.dim, borderRadius:20, padding:"1px 7px", fontWeight:600 }}>
+                        {daysUntil<=0?"Aujourd'hui":daysUntil===1?"Demain":`Dans ${daysUntil}j`}
+                      </span>
+                    </div>
+                    {/* Équipes */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:8 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <TeamLogo url={homeLogo} size={20} name={f.home?.name||"?"} />
+                        <span style={{ fontSize:12, fontWeight:500, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.home?.name}</span>
+                      </div>
+                      <span style={{ fontSize:11, fontWeight:600, color:C.accent }}>{matchDate.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
+                        <span style={{ fontSize:12, fontWeight:500, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"right" }}>{f.away?.name}</span>
+                        <TeamLogo url={awayLogo} size={20} name={f.away?.name||"?"} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* === TOUS LES MATCHS À VENIR === */}
       <div>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
@@ -5691,12 +6360,12 @@ function BetCalculator() {
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <span style={{ fontSize:13, fontWeight:700, color:C.text }}>🧮 Calculateur</span>
             <div style={{ display:"flex", gap:4 }}>
-              {["simple","combine"].map(m => (
+              {["simple","combine","value"].map(m => (
                 <button key={m} onClick={()=>setMode(m)} style={{
                   border:`1px solid ${mode===m?C.green:C.line}`, borderRadius:6,
                   padding:"3px 8px", cursor:"pointer", fontSize:10, fontWeight:600,
                   background:mode===m?"#D1FAE5":"none", color:mode===m?"#065F46":C.dim,
-                }}>{m==="simple"?"Simples":"Combiné"}</button>
+                }}>{m==="simple"?"Simples":m==="combine"?"Combiné":"📊 Value"}</button>
               ))}
             </div>
           </div>
@@ -5732,7 +6401,7 @@ function BetCalculator() {
                 })}
               </div>
             </>
-          ) : (
+          ) : mode==="combine" ? (
             <>
               {bets.map((b,i) => (
                 <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:6, marginBottom:6 }}>
@@ -5761,6 +6430,43 @@ function BetCalculator() {
                 </div>
               )}
             </>
+          ) : (
+            <div>
+              <div style={{ fontSize:10, color:C.dim, marginBottom:8 }}>Calculer si un pari a de la valeur (EV+)</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:8 }}>
+                <div>
+                  <div style={{ fontSize:9, color:C.muted, marginBottom:3 }}>Cote proposée</div>
+                  <input placeholder="ex: 2.50" value={bets[0]?.cote||""} onChange={e=>{const n=[...bets];n[0].cote=e.target.value;setBets(n);}}
+                    style={{ width:"100%", padding:"7px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none", boxSizing:"border-box" }}/>
+                </div>
+                <div>
+                  <div style={{ fontSize:9, color:C.muted, marginBottom:3 }}>Votre probabilité estimée (%)</div>
+                  <input placeholder="ex: 55" value={bets[0]?.mise||""} onChange={e=>{const n=[...bets];n[0].mise=e.target.value;setBets(n);}}
+                    style={{ width:"100%", padding:"7px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none", boxSizing:"border-box" }}/>
+                </div>
+              </div>
+              {(() => {
+                const cote = parseFloat(bets[0]?.cote||0);
+                const prob = parseFloat(bets[0]?.mise||0)/100;
+                if (!cote || !prob) return null;
+                const impliedProb = 1/cote;
+                const ev = (prob * (cote-1)) - ((1-prob) * 1);
+                const hasValue = ev > 0;
+                return (
+                  <div style={{ background:hasValue?"#D1FAE5":"#FEE2E2", border:`1px solid ${hasValue?"#A7F3D0":"#FECACA"}`, borderRadius:8, padding:"10px 12px" }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:hasValue?"#065F46":"#991B1B", marginBottom:4 }}>
+                      {hasValue?"✅ VALUE BET POSITIF !":"❌ Pas de valeur"}
+                    </div>
+                    <div style={{ fontSize:11, color:hasValue?"#065F46":"#991B1B" }}>
+                      <div>Prob. implicite de la cote : {(impliedProb*100).toFixed(1)}%</div>
+                      <div>Votre estimation : {(prob*100).toFixed(0)}%</div>
+                      <div>EV (Expected Value) : <strong>{ev>=0?"+":""}{(ev*100).toFixed(1)}% par €misé</strong></div>
+                      {hasValue && <div style={{ marginTop:4, fontWeight:700 }}>Mise Kelly recommandée : {Math.max(0,(prob-(1-prob)/(cote-1))*100).toFixed(1)}% de bankroll</div>}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           )}
         </div>
       )}
@@ -6465,6 +7171,10 @@ export default function App() {
                 <InfoPanel tone="error">{error}</InfoPanel>
               ) : sport === "favs" ? (
                 <FavoritesView favorites={favorites} onToggleFavorite={toggleFavorite} />
+              ) : sport === "bankroll" ? (
+                <BankrollView />
+              ) : sport === "quiz" ? (
+                <QuizView />
               ) : sport === "encyclopedia" ? (
                 <EncyclopediaView />
               ) : sport === "bracket" ? (
