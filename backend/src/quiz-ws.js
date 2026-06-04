@@ -17,7 +17,7 @@ const SERVER_QUESTIONS = [
     fact:"Le Real Madrid cumule 15 titres de LDC (2024), bien devant l'AC Milan (7)." },
 
   { id:"q3",  q:"Qui détient le record de buts en CdM en une seule édition ?",
-    options:["Just Fontaine (13 buts)","Gerd Müller (10)","Ronaldo (8)","Pelé (6)"], correct:0, pts:100,
+    options:["Just Fontaine","Gerd Müller","Ronaldo","Pelé"], correct:0, pts:100,
     img:"https://flagcdn.com/h80/fr.png",
     fact:"Just Fontaine marque 13 buts avec la France en 6 matchs au Mondial 1958 en Suède." },
 
@@ -37,7 +37,7 @@ const SERVER_QUESTIONS = [
     fact:"Seedorf : Ajax 1995, Real Madrid 1998, AC Milan 2003 et 2007. Record unique." },
 
   { id:"q7",  q:"Quel est le record de buts en une saison calendaire ?",
-    options:["91 buts (Messi, 2012)","85 buts (Müller, 1972)","76 buts (Ronaldo, 2013)","69 buts (Mbappé, 2023)"], correct:0, pts:150,
+    options:["91 buts en 2012","85 buts en 1972","76 buts en 2013","69 buts en 2023"], correct:0, pts:150,
     img:"https://media.api-sports.io/football/teams/529.png",
     fact:"Messi marque 91 buts en 2012 (clubs + sélection), battant le record de Müller de 1972." },
 
@@ -52,7 +52,7 @@ const SERVER_QUESTIONS = [
     fact:"L'Uruguay organise la CdM inaugurale pour son centenaire. 13 équipes. Uruguay champion." },
 
   { id:"q10", q:"Quel joueur détient le record de buts en Premier League ?",
-    options:["Alan Shearer (260)","Wayne Rooney (208)","Andrew Cole (187)","Thierry Henry (175)"], correct:0, pts:100,
+    options:["Alan Shearer","Wayne Rooney","Andrew Cole","Thierry Henry"], correct:0, pts:100,
     img:"https://media.api-sports.io/football/teams/34.png",
     fact:"Alan Shearer marque 260 buts en PL entre 1992 et 2006 (Southampton, Blackburn, Newcastle)." },
 
@@ -62,7 +62,7 @@ const SERVER_QUESTIONS = [
     fact:"38 matchs sans défaite (26V+12N). Les Invincibles d'Arsène Wenger, record de PL." },
 
   { id:"q12", q:"Quel entraîneur a remporté le plus de titres de Premier League ?",
-    options:["Sir Alex Ferguson (13)","Arsène Wenger (3)","José Mourinho (3)","Pep Guardiola (6)"], correct:0, pts:100,
+    options:["Sir Alex Ferguson","Arsène Wenger","José Mourinho","Pep Guardiola"], correct:0, pts:100,
     img:"https://media.api-sports.io/football/teams/33.png",
     fact:"Ferguson remporte 13 titres de PL avec Man United entre 1993 et 2013." },
 
@@ -142,17 +142,17 @@ const SERVER_QUESTIONS = [
     fact:"R9 est surnommé 'O Fenômeno' (Le Phénomène), considéré comme le meilleur avant-centre." },
 
   { id:"q28", q:"Quel entraîneur a remporté le plus de Ligues des Champions en carrière ?",
-    options:["Carlo Ancelotti (5)","Bob Paisley (3)","Zinédine Zidane (3)","Alex Ferguson (2)"], correct:0, pts:150,
+    options:["Carlo Ancelotti","Bob Paisley","Zinédine Zidane","Alex Ferguson"], correct:0, pts:150,
     img:"https://media.api-sports.io/football/teams/541.png",
     fact:"Ancelotti : AC Milan 2003 et 2007, Real Madrid 2014, 2022 et 2024. Seul à 5 titres." },
 
   { id:"q29", q:"Quelle nation a remporté le plus de Coupes d'Afrique des Nations ?",
-    options:["Égypte (7)","Cameroun (5)","Ghana (4)","Sénégal (1)"], correct:0, pts:150,
+    options:["Égypte","Cameroun","Ghana","Sénégal"], correct:0, pts:150,
     img:"https://flagcdn.com/h80/eg.png",
     fact:"L'Égypte est la nation la plus titrée de la CAN avec 7 titres (dernier en 2010)." },
 
   { id:"q30", q:"Quel joueur détient le record mondial de sélections internationales ?",
-    options:["Bader Al-Mutawa (Koweït, 196)","Sergio Ramos (Espagne, 180)","Cristiano Ronaldo (185+)","Messi (175+)"], correct:0, pts:200,
+    options:["Bader Al-Mutawa (Koweït)","Sergio Ramos","Cristiano Ronaldo","Lionel Messi"], correct:0, pts:200,
     img:"https://flagcdn.com/h80/kw.png",
     fact:"Bader Al-Mutawa (Koweït) détient le record avec 196 sélections (2024)." },
 
@@ -162,7 +162,7 @@ const SERVER_QUESTIONS = [
     fact:"Messi dépasse Dani Alves avec 44 trophées collectifs. Record mondial absolu." },
 
   { id:"q32", q:"Qui détient le record de buts internationaux toutes nations confondues ?",
-    options:["Cristiano Ronaldo (130+)","Ali Daei (109)","Ferran Torres","Romelu Lukaku"], correct:0, pts:100,
+    options:["Cristiano Ronaldo","Ali Daei","Ferran Torres","Romelu Lukaku"], correct:0, pts:100,
     img:"https://media.api-sports.io/football/players/874.png",
     fact:"Ronaldo dépasse Ali Daei (109 buts) en 2021 et continue d'augmenter son record." },
 
@@ -212,11 +212,12 @@ function genCode() {
 const rooms = new Map();
 
 class Room {
-  constructor({ code, creatorId, creatorName, targetScore, maxQuestions, category, difficulty }) {
+  constructor({ code, creatorId, creatorName, targetScore, maxQuestions, gameMode, category, difficulty }) {
     this.code         = code;
     this.creatorId    = creatorId;
-    this.targetScore  = targetScore;
-    this.maxQuestions = maxQuestions || 999; // 0 = illimité
+    this.gameMode     = gameMode || "points"; // "points" | "questions"
+    this.targetScore  = targetScore || 2000;
+    this.maxQuestions = maxQuestions || 20;
     this.category     = category;
     this.difficulty   = difficulty;
     this.status       = "waiting";
@@ -354,15 +355,25 @@ class Room {
       maxQuestions:  this.maxQuestions,
     });
 
-    const winner = [...this.players.entries()].find(([, p]) => p.score >= this.targetScore);
-    const reachedMax = (this.qIdx + 1) >= this.maxQuestions;
+    // Vérifier si la partie est terminée
+    let winner = null;
+    let reachedMax = false;
+
+    if (this.gameMode === "points") {
+      const w = [...this.players.entries()].find(([, p]) => p.score >= this.targetScore);
+      if (w) winner = w[0];
+    } else {
+      // mode questions
+      reachedMax = (this.qIdx + 1) >= this.maxQuestions;
+      if (reachedMax) {
+        // Le gagnant est celui avec le meilleur score
+        const sorted = [...this.players.entries()].sort(([,a],[,b]) => b.score - a.score);
+        winner = sorted[0]?.[0] || null;
+      }
+    }
 
     if (winner || reachedMax) {
-      // Trouver le meilleur score si pas de cible atteinte
-      const leaderId = reachedMax && !winner
-        ? [...this.players.entries()].sort(([,a],[,b]) => b.score - a.score)[0]?.[0]
-        : winner?.[0];
-      setTimeout(() => this.endGame(leaderId), 7000); // 7s pour voir les résultats
+      setTimeout(() => this.endGame(winner), 7000); // 7s pour voir les résultats
       return;
     }
 
@@ -420,15 +431,16 @@ export function initQuizWS(server) {
         let code; do { code = genCode(); } while (rooms.has(code));
         const room = new Room({
           code, creatorId: userId, creatorName: username,
-          targetScore:  Math.min(Math.max(parseInt(payload.targetScore)||200, 50), 5000),
+          targetScore:  Math.min(Math.max(parseInt(payload.targetScore)||2000, 500), 10000),
           maxQuestions: Math.min(Math.max(parseInt(payload.maxQuestions)||20, 5), 100),
+          gameMode:     payload.gameMode || "points",
           category:     payload.category  || "mix",
           difficulty:   payload.difficulty || "moyen",
         });
         room.addPlayer(userId, username, avatarColor, ws);
         rooms.set(code, room);
         currentRoom = room;
-        ws.send(JSON.stringify({ type:"room_created", roomCode: code, targetScore: room.targetScore, maxQuestions: room.maxQuestions, players: room.playersState() }));
+        ws.send(JSON.stringify({ type:"room_created", roomCode: code, targetScore: room.targetScore, maxQuestions: room.maxQuestions, gameMode: room.gameMode, players: room.playersState() }));
         return;
       }
 
@@ -439,7 +451,7 @@ export function initQuizWS(server) {
         if (room.players.size >= 8)   { ws.send(JSON.stringify({ type:"error", message:"Salle pleine (8 joueurs max)." })); return; }
         room.addPlayer(userId, username, avatarColor, ws);
         currentRoom = room;
-        ws.send(JSON.stringify({ type:"room_joined", roomCode: room.code, targetScore: room.targetScore, maxQuestions: room.maxQuestions, players: room.playersState() }));
+        ws.send(JSON.stringify({ type:"room_joined", roomCode: room.code, targetScore: room.targetScore, maxQuestions: room.maxQuestions, gameMode: room.gameMode, players: room.playersState() }));
         room.broadcast({ type:"player_joined", player:{ id:userId, username, avatarColor }, players: room.playersState() });
         return;
       }

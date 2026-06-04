@@ -3864,14 +3864,14 @@ const QUIZ_SEED = {
     { q:"Quel gardien est le seul à avoir remporté le Ballon d'Or ?", options:["Lev Yachine","Manuel Neuer","Gianluigi Buffon","Peter Schmeichel"], correct:0, explanation:"Lev Yachine, gardien soviétique surnommé 'l'araignée noire', remporte le Ballon d'Or en 1963. Seul gardien de l'histoire.", year:1963 },
     { q:"Quel est le record d'affluence pour un match de football ?", options:["199 854 spectateurs (Brésil-Uruguay, 1950)","132 000 (Iran-Australie, 1997)","114 000 (Rungrado, Corée du Nord)","100 000 (FA Cup Final 1923)"], correct:0, explanation:"Le match Brésil-Uruguay du 16 juillet 1950 au Maracanã réunit officiellement 173 850 billets vendus mais on estime 199 854 présents.", year:1950 },
     { q:"Quel club a remporté le plus de Ligues des Champions ?", options:["Real Madrid (15)","Milan AC (7)","Liverpool (6)","Bayern Munich (6)"], correct:0, explanation:"Le Real Madrid détient le record avec 15 titres de Ligue des Champions (2024).", year:2024 },
-    { q:"Quel joueur a inscrit le plus de buts en Ligue des Champions ?", options:["Cristiano Ronaldo (140)","Lionel Messi (129)","Robert Lewandowski (101)","Karim Benzema (90)"], correct:0, explanation:"Cristiano Ronaldo détient le record avec 140 buts en Ligue des Champions, loin devant Messi (129).", year:2024 },
+    { q:"Quel joueur a inscrit le plus de buts en Ligue des Champions ?", options:["Cristiano Ronaldo","Lionel Messi","Robert Lewandowski","Karim Benzema"], correct:0, explanation:"Cristiano Ronaldo détient le record avec 140 buts en Ligue des Champions, loin devant Messi (129).", year:2024 },
     { q:"Quelle est la plus grande victoire de l'histoire de la Coupe du Monde ?", options:["Allemagne 7-1 Brésil (2014)","Hongrie 10-1 El Salvador (1982)","Yougoslavie 9-0 Zaïre (1974)","Brésil 6-1 Espagne (2013)"], correct:1, explanation:"La Hongrie bat El Salvador 10-1 en 1982, record absolu. L'Allemagne 7-1 Brésil en 2014 reste le choc le plus mémorable.", year:1982 },
     { q:"Quel joueur a marqué le but le plus rapide de l'histoire de la Premier League ?", options:["Shane Long (7,69 sec)","Ledley King (9,82 sec)","Alan Shearer (10 sec)","Tottenham Defoe (8 sec)"], correct:0, explanation:"Shane Long (Southampton) marque après 7 secondes et 69 centièmes contre Watford le 23 avril 2019.", year:2019 },
   ],
   // ─── CHAMPIONS LEAGUE ───────────────────────────────────────
   champions_league: [
     { q:"Quel match est surnommé 'le Miracle d'Istanbul' ?", options:["Liverpool 3-3 AC Milan, puis victoire aux tirs (2005)","Man United 2-1 Bayern (1999)","Barça 4-0 Arsenal (2006)","PSG 3-1 Barcelone (2017)"], correct:0, explanation:"En finale 2005, Liverpool remonte de 0-3 à la mi-temps contre l'AC Milan pour gagner aux tirs au but. Dudek légendaire.", year:2005 },
-    { q:"Quel entraîneur a gagné le plus de Ligues des Champions ?", options:["Carlo Ancelotti (5)","Bob Paisley (3)","Zinédine Zidane (3)","Pep Guardiola (3)"], correct:0, explanation:"Carlo Ancelotti est le seul coach à avoir remporté 5 LDC: 2003 (Milan), 2007 (Milan), 2014, 2022, 2024 (Real Madrid).", year:2024 },
+    { q:"Quel entraîneur a gagné le plus de Ligues des Champions ?", options:["Carlo Ancelotti","Bob Paisley","Zinédine Zidane","Pep Guardiola"], correct:0, explanation:"Carlo Ancelotti est le seul coach à avoir remporté 5 LDC: 2003 (Milan), 2007 (Milan), 2014, 2022, 2024 (Real Madrid).", year:2024 },
     { q:"Quelle est la plus grande victoire en phase de groupes de LDC ?", options:["Borussia Dortmund 8-4 Legia Varsovie (2016)","Liverpool 8-0 Besiktas (2007)","PSG 7-0 Celtic (2017)","Real Madrid 8-0 Malmö (2015)"], correct:0, explanation:"Le BVB bat Legia 8-4 en 2016. Record de buts dans un match de groupes de LDC.", year:2016 },
     { q:"Quel joueur a inscrit le but décisif de la finale 1999 Man United vs Bayern ?", options:["Ole Gunnar Solskjaer","Teddy Sheringham","Andy Cole","Dwight Yorke"], correct:0, explanation:"Solskjaer marque à la 93'+3 pour donner le titre à Man United (2-1). Sheringham avait égalisé à la 91'.", year:1999 },
     { q:"En quelle année Marseille a-t-il remporté la Ligue des Champions ?", options:["1993","1991","1995","1999"], correct:0, explanation:"Marseille bat l'AC Milan 1-0 en finale à Munich le 26 mai 1993. Basile Boli marque l'unique but. Seul club français vainqueur.", year:1993 },
@@ -3938,9 +3938,9 @@ const QUIZ_SEED = {
   // ─── PREMIER LEAGUE ─────────────────────────────────────────
   premier_league: [
     { q:"Quelle est la plus grande victoire de l'histoire de la Premier League ?", options:["Leicester 9-0 Southampton (2019)","Man Utd 9-0 Ipswich (1995)","Nottingham Forest 8-0 Sheffield (1999)","Tottenham 9-1 Wigan (2009)"], correct:0, explanation:"Leicester City bat Southampton 9-0 le 25 octobre 2019 au King Power Stadium. Score record pour un match de Premier League.", year:2019 },
-    { q:"Quel joueur détient le record de buts en Premier League ?", options:["Alan Shearer (260)","Wayne Rooney (208)","Andrew Cole (187)","Frank Lampard (177)"], correct:0, explanation:"Alan Shearer marque 260 buts en 441 matchs de Premier League entre 1992 et 2006 (Southampton, Blackburn, Newcastle). Record imbattu.", year:2006 },
+    { q:"Quel joueur détient le record de buts en Premier League ?", options:["Alan Shearer","Wayne Rooney","Andrew Cole","Frank Lampard"], correct:0, explanation:"Alan Shearer marque 260 buts en 441 matchs de Premier League entre 1992 et 2006 (Southampton, Blackburn, Newcastle). Record imbattu.", year:2006 },
     { q:"Quelle équipe 'invincible' n'a jamais perdu en Premier League ?", options:["Arsenal 2003-04","Manchester United 1999-2000","Chelsea 2004-05","Manchester City 2017-18"], correct:0, explanation:"Arsenal 2003-04 termine la saison avec 26V+12N, soit 38 matchs sans défaite. Les 'Invincibles' de Wenger restent uniques en PL.", year:2004 },
-    { q:"Quel entraîneur a remporté le plus de titres de Premier League ?", options:["Sir Alex Ferguson (13)","Arsène Wenger (3)","José Mourinho (3)","Pep Guardiola (6)"], correct:0, explanation:"Sir Alex Ferguson remporte 13 titres de Premier League avec Manchester United entre 1993 et 2013 — record absolu en Angleterre.", year:2013 },
+    { q:"Quel entraîneur a remporté le plus de titres de Premier League ?", options:["Sir Alex Ferguson","Arsène Wenger","José Mourinho","Pep Guardiola"], correct:0, explanation:"Sir Alex Ferguson remporte 13 titres de Premier League avec Manchester United entre 1993 et 2013 — record absolu en Angleterre.", year:2013 },
     { q:"En quelle année la Premier League a-t-elle été créée ?", options:["1992","1888","1975","2000"], correct:0, explanation:"La Premier League est fondée en février 1992 et démarre en août 1992, remplaçant la Football League First Division créée en 1888.", year:1992 },
   ],
   // ─── STADES ─────────────────────────────────────────────────
@@ -3957,7 +3957,7 @@ const QUIZ_SEED = {
   entraineurs: [
     { q:"Combien de titres de Premier League Sir Alex Ferguson a-t-il remportés avec Man United ?", options:["13","10","8","15"], correct:0, explanation:"Ferguson remporte 13 titres de PL entre 1993 et 2013, record absolu en Angleterre.", year:2013 },
     { q:"Quel entraîneur a inventé le jeu de possession 'tiki-taka' moderne ?", options:["Pep Guardiola","Johan Cruyff","Arrigo Sacchi","Louis van Gaal"], correct:0, explanation:"Pep Guardiola perfectionne le tiki-taka avec le Barça B puis le FC Barcelone (2008-2012).", year:2010 },
-    { q:"Quel entraîneur a remporté le plus de Ligues des Champions ?", options:["Carlo Ancelotti (5)","Bob Paisley (3)","Zinédine Zidane (3)","Ottmar Hitzfeld (2)"], correct:0, explanation:"Ancelotti : AC Milan 2003, 2007 + Real Madrid 2014, 2022, 2024. Seul entraîneur à 5 LDC.", year:2024 },
+    { q:"Quel entraîneur a remporté le plus de Ligues des Champions ?", options:["Carlo Ancelotti","Bob Paisley","Zinédine Zidane","Ottmar Hitzfeld"], correct:0, explanation:"Ancelotti : AC Milan 2003, 2007 + Real Madrid 2014, 2022, 2024. Seul entraîneur à 5 LDC.", year:2024 },
     { q:"Quel est le surnom de José Mourinho ?", options:["The Special One","The Chosen One","The One","The Genius"], correct:0, explanation:"Mourinho se surnomme lui-même 'The Special One' lors de sa présentation à Chelsea en 2004.", year:2004 },
     { q:"Quel entraîneur a dirigé la France lors de sa victoire en Coupe du Monde 1998 ?", options:["Aimé Jacquet","Roger Lemerre","Gérard Houllier","Didier Deschamps"], correct:0, explanation:"Aimé Jacquet dirige les Bleus en 1998, malgré les critiques de la presse. Il prend sa retraite après le titre.", year:1998 },
     { q:"Dans quel club Jürgen Klopp a-t-il remporté la Ligue des Champions ?", options:["Liverpool (2019)","Borussia Dortmund (2012)","Mayence (2005)","Bayern Munich (2013)"], correct:0, explanation:"Klopp remporte la LDC avec Liverpool en 2019 face à Tottenham (2-0) à Madrid.", year:2019 },
@@ -3976,7 +3976,7 @@ const QUIZ_SEED = {
   euros: [
     { q:"Combien de fois l'Allemagne a-t-elle remporté l'Euro ?", options:["3 fois (1972,1980,1996)","2 fois","4 fois","1 fois"], correct:0, explanation:"L'Allemagne (et l'Allemagne de l'Ouest) remporte l'Euro en 1972, 1980 et 1996.", year:2021 },
     { q:"Quel pays a organisé l'Euro 2024 ?", options:["Allemagne","France","Angleterre","Espagne"], correct:0, explanation:"L'Allemagne organise l'Euro 2024. L'Espagne remporte le titre face à l'Angleterre (2-1).", year:2024 },
-    { q:"Quel joueur détient le record de buts en phases finales de l'Euro ?", options:["Cristiano Ronaldo (14)","Michel Platini (9)","Nuno Gomes (6)","Antoine Griezmann (7)"], correct:0, explanation:"Cristiano Ronaldo marque 14 buts dans les phases finales de l'Euro, record absolu.", year:2021 },
+    { q:"Quel joueur détient le record de buts en phases finales de l'Euro ?", options:["Cristiano Ronaldo","Michel Platini","Nuno Gomes","Antoine Griezmann"], correct:0, explanation:"Cristiano Ronaldo marque 14 buts dans les phases finales de l'Euro, record absolu.", year:2021 },
     { q:"Quel était le score de la finale de l'Euro 2020 (2021) ?", options:["Italie 1-1 Angleterre, 3-2 aux tirs","Italie 2-0 Angleterre","Angleterre 2-1 Italie","Italie 1-0 Angleterre"], correct:0, explanation:"Après 1-1 ap (Shaw 2', Bonucci 67'), l'Italie gagne aux tirs au but 3-2 à Wembley.", year:2021 },
     { q:"En quelle année la France a-t-elle remporté son seul titre de champion d'Europe ?", options:["2000 (Euro aux Pays-Bas/Belgique)","1984 (Euro en France)","1992","2016"], correct:0, explanation:"La France remporte l'Euro 2000 avec une victoire en finale contre l'Italie grâce à un golden goal de Trezeguet.", year:2000 },
     { q:"Quel pays a remporté l'Euro 2016 en France ?", options:["Portugal","France","Allemagne","Galles"], correct:0, explanation:"Le Portugal bat la France 1-0 en finale grâce à Eder (109'). Ronaldo sort blessé mais encourage ses coéquipiers.", year:2016 },
@@ -3984,10 +3984,10 @@ const QUIZ_SEED = {
   // ─── LIGUE DES CHAMPIONS — RECORDS ──────────────────────────
   ucl_records: [
     { q:"Quel club a remporté 3 LDC consécutives dans l'ère moderne (2016-2018) ?", options:["Real Madrid","Bayern Munich","Barcelone","Juventus"], correct:0, explanation:"Le Real Madrid de Zidane remporte 3 LDC de suite en 2016, 2017 et 2018. Record unique dans l'ère moderne.", year:2018 },
-    { q:"Quel est le record de buts en une saison de LDC ?", options:["17 buts (Cristiano Ronaldo, 2013-14)","14 buts (Messi, 2011-12)","10 buts (Lewandowski)","11 buts (Shevchenko)"], correct:0, explanation:"Cristiano Ronaldo marque 17 buts lors de la saison 2013-14 de LDC, record absolu.", year:2014 },
+    { q:"Quel est le record de buts en une saison de LDC ?", options:["17 buts en une saison","14 buts en une saison","10 buts en une saison","11 buts en une saison"], correct:0, explanation:"Cristiano Ronaldo marque 17 buts lors de la saison 2013-14 de LDC, record absolu.", year:2014 },
     { q:"En quelle année le format actuel de la Ligue des Champions a-t-il été lancé ?", options:["1992","1988","1999","2003"], correct:0, explanation:"La Ligue des Champions remplace la Coupe d'Europe des Clubs Champions en 1992, avec introduction de la phase de groupes.", year:1992 },
     { q:"Quel est le record de victoires consécutives en phase de groupes de LDC ?", options:["Bayern Munich 11/11 en 2019-20","Real Madrid 8/8 en 2013-14","Barcelone 8/8 en 2008-09","PSG 6/6 en 2021-22"], correct:0, explanation:"Le Bayern Munich est parfait en 2019-20 : 11 victoires en 11 matchs, dont 8-2 contre le Barça.", year:2020 },
-    { q:"Qui est le meilleur buteur de l'histoire de la Ligue des Champions ?", options:["Cristiano Ronaldo (140)","Lionel Messi (129)","Robert Lewandowski (101)","Karim Benzema (90)"], correct:0, explanation:"Ronaldo mène avec 140 buts en LDC, suivi de Messi (129) et Lewandowski (101).", year:2024 },
+    { q:"Qui est le meilleur buteur de l'histoire de la Ligue des Champions ?", options:["Cristiano Ronaldo","Lionel Messi","Robert Lewandowski","Karim Benzema"], correct:0, explanation:"Ronaldo mène avec 140 buts en LDC, suivi de Messi (129) et Lewandowski (101).", year:2024 },
     { q:"Quel match est surnommé la 'Remontada' en référence au retour du Barça ?", options:["PSG 4-0 Barça → Barça 6-1 PSG (2017)","Barça 3-0 Roma → Roma 3-0 Barça (2018)","Man City 2-1 Dortmund → Dortmund 4-2 Man City (2023)","Chelsea 3-0 Napoli → Napoli 4-1 Chelsea (2012)"], correct:0, explanation:"PSG 4-0 Barça au match aller. Barça 6-1 PSG au retour le 8 mars 2017 : 3 buts dans les 7 dernières minutes.", year:2017 },
   ],
   // ─── TRANSFERTS RECORDS ─────────────────────────────────────
@@ -4001,8 +4001,8 @@ const QUIZ_SEED = {
   ],
   // ─── FOOTBALL FÉMININ ────────────────────────────────────────
   foot_feminin: [
-    { q:"Quelle nation domine le football féminin avec le plus de titres mondiaux ?", options:["États-Unis (4)","Allemagne (2)","Norvège (1)","Japon (1)"], correct:0, explanation:"Les USA remportent la Coupe du Monde féminine en 1991, 1999, 2015 et 2019. Leaders incontestés.", year:2019 },
-    { q:"Qui est la meilleure buteuse de l'histoire du football féminin ?", options:["Abby Wambach (USA, 184 buts)","Christine Sinclair (Canada, 190)","Marta (Brésil, 115)","Birgit Prinz (Allemagne, 128)"], correct:1, explanation:"Christine Sinclair (Canada) détient le record absolu avec 190 buts internationaux, hommes et femmes compris.", year:2023 },
+    { q:"Quelle nation domine le football féminin avec le plus de titres mondiaux ?", options:["États-Unis","Allemagne","Norvège","Japon"], correct:0, explanation:"Les USA remportent la Coupe du Monde féminine en 1991, 1999, 2015 et 2019. Leaders incontestés.", year:2019 },
+    { q:"Qui est la meilleure buteuse de l'histoire du football féminin ?", options:["Abby Wambach (USA)","Christine Sinclair (Canada)","Marta (Brésil)","Birgit Prinz (Allemagne)"], correct:1, explanation:"Christine Sinclair (Canada) détient le record absolu avec 190 buts internationaux, hommes et femmes compris.", year:2023 },
     { q:"En quelle année la Ligue des Champions féminine a-t-elle été créée ?", options:["2001","1999","2009","1995"], correct:0, explanation:"La Ligue des Champions féminine UEFA est créée en 2001-02, remplaçant la Coupe d'Europe féminine.", year:2001 },
     { q:"Quel club détient le record de titres en LDC féminine ?", options:["Olympique Lyonnais (8)","FFC Frankfurt (4)","Arsenal (1)","Barcelona (2)"], correct:0, explanation:"L'Olympique Lyonnais remporte 8 LDC féminines (2011,2012,2016,2017,2018,2019,2020,2022). Domination absolue.", year:2022 },
     { q:"Qui est la première joueuse à avoir remporté le Ballon d'Or féminin ?", options:["Marta (Brésil, 2006)","Birgit Prinz (Allemagne, 2003)","Hanna Ljungberg","Formiga"], correct:0, explanation:"Marta est la première et a remporté le Ballon d'Or féminin France Football 6 fois (2006-2010, 2018).", year:2006 },
@@ -4568,7 +4568,8 @@ function MultiplayerQuiz({ userAccount, onBack }) {
   const [roomCode, setRoomCode]   = useState("");
   const [joinCode, setJoinCode]   = useState("");
   const [guestName, setGuestName] = useState("");
-  const [targetScore, setTargetScore] = useState(200);
+  const [targetScore, setTargetScore] = useState(2000);
+  const [gameMode, setGameMode]       = useState("points"); // "points" | "questions"
   const [players, setPlayers]     = useState([]);
   const [isCreator, setIsCreator] = useState(false);
   const [question, setQuestion]   = useState(null);
@@ -4627,6 +4628,7 @@ function MultiplayerQuiz({ userAccount, onBack }) {
       setPlayers(msg.players);
       setIsCreator(true);
       setMaxQuestions(msg.maxQuestions || 20);
+      setGameMode(msg.gameMode || "points");
       setPhase("room");
       return;
     }
@@ -4635,6 +4637,7 @@ function MultiplayerQuiz({ userAccount, onBack }) {
       setPlayers(msg.players);
       setIsCreator(false);
       setMaxQuestions(msg.maxQuestions || 20);
+      setGameMode(msg.gameMode || "points");
       setPhase("room");
       return;
     }
@@ -4679,7 +4682,7 @@ function MultiplayerQuiz({ userAccount, onBack }) {
   function createRoom() {
     if (!effectiveName) { setErr("Entre un pseudo pour jouer en invité."); return; }
     connect(sock => {
-      sock.send(JSON.stringify({ type:"create_room", payload:{ targetScore, maxQuestions } }));
+      sock.send(JSON.stringify({ type:"create_room", payload:{ targetScore, maxQuestions, gameMode } }));
     });
   }
 
@@ -4748,29 +4751,66 @@ function MultiplayerQuiz({ userAccount, onBack }) {
       {/* Créer */}
       <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"16px", marginBottom:12 }}>
         <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:12 }}>🆕 Créer une salle</div>
-        <div style={{ fontSize:11, color:C.muted, marginBottom:8 }}>Score cible (premier à atteindre ce score gagne)</div>
-        <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
-          {[100,200,500,1000].map(s => (
-            <button key={s} onClick={() => setTargetScore(s)} style={{
-              flex:1, minWidth:60, padding:"8px 4px", border:`1px solid ${targetScore===s?C.accent:C.line}`,
-              borderRadius:8, cursor:"pointer", background: targetScore===s?C.accentBg:"none",
-              color:targetScore===s?C.accent:C.dim, fontSize:12, fontWeight:600,
-            }}>{s} pts</button>
+
+        {/* Toggle mode de fin */}
+        <div style={{ fontSize:11, color:C.muted, marginBottom:8 }}>Condition de victoire</div>
+        <div style={{ display:"flex", background:"#0E1A28", borderRadius:8, padding:3, marginBottom:14 }}>
+          {[
+            { id:"points",    label:"🎯 Score cible",      desc:"Premier à atteindre X points" },
+            { id:"questions", label:"❓ Nb de questions",   desc:"Le meilleur score après N questions" },
+          ].map(m => (
+            <button key={m.id} onClick={() => setGameMode(m.id)} style={{
+              flex:1, padding:"8px 6px", border:"none", borderRadius:6, cursor:"pointer",
+              background: gameMode===m.id ? C.accent : "none",
+              color: gameMode===m.id ? "#0A1428" : C.muted,
+              fontSize:11, fontWeight:gameMode===m.id?700:500, transition:"all .15s",
+            }}>{m.label}</button>
           ))}
         </div>
-        <div style={{ fontSize:11, color:C.muted, marginBottom:6, marginTop:10 }}>Nombre de questions</div>
-        <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
-          {[10,20,30,50].map(n => (
-            <button key={n} onClick={() => setMaxQuestions(n)} style={{
-              flex:1, minWidth:50, padding:"7px 4px",
-              border:`1px solid ${maxQuestions===n ? C.accent : C.line}`,
-              borderRadius:8, cursor:"pointer",
-              background: maxQuestions===n ? C.accentBg : "none",
-              color: maxQuestions===n ? C.accent : C.dim,
-              fontSize:12, fontWeight:600,
-            }}>{n}Q</button>
-          ))}
-        </div>
+
+        {/* Mode POINTS — jauge 500-10000 */}
+        {gameMode === "points" && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+              <span style={{ fontSize:11, color:C.muted }}>Score cible</span>
+              <span style={{ fontSize:16, fontWeight:800, color:C.accent }}>{targetScore.toLocaleString()} pts</span>
+            </div>
+            <input type="range" min="500" max="10000" step="500" value={targetScore}
+              onChange={e => setTargetScore(parseInt(e.target.value))}
+              style={{ width:"100%", accentColor:C.accent, cursor:"pointer", height:6 }}
+            />
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:9, color:C.muted, marginTop:3 }}>
+              <span>500</span><span>2 500</span><span>5 000</span><span>7 500</span><span>10 000</span>
+            </div>
+            {/* Estimation durée */}
+            <div style={{ marginTop:8, fontSize:10, color:C.dim, background:C.panel2, borderRadius:6, padding:"5px 10px", textAlign:"center" }}>
+              ⏱ Durée estimée : {Math.round(targetScore / 100 * 0.5)} – {Math.round(targetScore / 100)} min selon les joueurs
+            </div>
+          </div>
+        )}
+
+        {/* Mode QUESTIONS */}
+        {gameMode === "questions" && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, color:C.muted, marginBottom:8 }}>Nombre de questions</div>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {[5, 10, 20, 30, 50].map(n => (
+                <button key={n} onClick={() => setMaxQuestions(n)} style={{
+                  flex:1, minWidth:50, padding:"8px 4px",
+                  border:`1px solid ${maxQuestions===n ? C.accent : C.line}`,
+                  borderRadius:8, cursor:"pointer",
+                  background: maxQuestions===n ? C.accentBg : "none",
+                  color: maxQuestions===n ? C.accent : C.dim,
+                  fontSize:13, fontWeight:600,
+                }}>{n}</button>
+              ))}
+            </div>
+            <div style={{ marginTop:8, fontSize:10, color:C.dim, background:C.panel2, borderRadius:6, padding:"5px 10px", textAlign:"center" }}>
+              ⏱ Durée estimée : ~{Math.ceil(maxQuestions * 0.5)} – {maxQuestions} min
+            </div>
+          </div>
+        )}
+
         <button onClick={createRoom} style={{
           width:"100%", background:C.accent, color:"#0A1428", border:"none", borderRadius:8,
           padding:"11px", fontSize:13, fontWeight:700, cursor:"pointer",
@@ -4798,7 +4838,11 @@ function MultiplayerQuiz({ userAccount, onBack }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
         <div>
           <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Salle d'attente</div>
-          <div style={{ fontSize:11, color:C.dim }}>Score cible : {targetScore} pts · {maxQuestions === 999 ? "∞" : maxQuestions} questions</div>
+          <div style={{ fontSize:11, color:C.dim }}>
+            {gameMode === "points"
+              ? `Premier à ${targetScore.toLocaleString()} pts`
+              : `${maxQuestions} questions · meilleur score gagne`}
+          </div>
         </div>
         <div style={{ background:C.accentBg, border:`1px solid ${C.accent}44`, borderRadius:8, padding:"8px 14px", textAlign:"center" }}>
           <div style={{ fontSize:20, fontWeight:900, color:C.accent, letterSpacing:2 }}>{roomCode}</div>
