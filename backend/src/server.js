@@ -583,7 +583,9 @@ app.get("/api/club-card/:teamId", async (req, res) => {
           tsdbFetch(`lookuphonors.php?id=${tsdbTeam.idTeam}`),
           tsdbFetch(`lookupteam.php?id=${tsdbTeam.idTeam}`),
         ]);
-        tsdbHonors = (honorsRes.value?.honours || []).slice(0,20);
+        // TheSportsDB peut retourner honours ou honors (les deux orthographes)
+        const honorsRaw = honorsRes.value?.honours || honorsRes.value?.honors || [];
+        tsdbHonors = (Array.isArray(honorsRaw) ? honorsRaw : []).slice(0, 30);
         const td = infoRes.value?.teams?.[0] || {};
         tsdbInfo = {
           description: td.strDescriptionEN?.slice(0,500) || "",
@@ -594,6 +596,39 @@ app.get("/api/club-card/:teamId", async (req, res) => {
         };
       }
     } catch {}
+
+    // Si TheSportsDB ne retourne rien → générer le palmarès via Groq
+    const groqKeyLocal = process.env.GROQ_KEY;
+    if (tsdbHonors.length === 0 && groqKeyLocal && team.name) {
+      try {
+        const { default: Groq } = await import("groq-sdk");
+        const groq = new Groq({ apiKey: groqKeyLocal });
+        const honorsCompletion = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [{
+            role: "user",
+            content: `Liste les principaux trophées du club de football "${team.name}" (${team.country || "pays inconnu"}).
+Inclure : championnats nationaux, coupes nationales, compétitions européennes, titres internationaux.
+Format JSON strict:
+{
+  "honours": [
+    { "strHonour": "Nom exact du trophée", "strSeason": "année ou période (ex: 2023 ou 2015-2020)", "strTeam": "${team.name}" }
+  ]
+}
+Maximum 25 trophées, du plus récent au plus ancien. Seulement les titres réels et vérifiables.
+Réponds UNIQUEMENT avec le JSON.`,
+          }],
+          max_tokens: 600,
+          temperature: 0.2,
+          response_format: { type: "json_object" },
+        });
+        const parsed = JSON.parse(honorsCompletion.choices[0]?.message?.content || "{}");
+        const aiHonors = parsed.honours || [];
+        if (Array.isArray(aiHonors) && aiHonors.length > 0) {
+          tsdbHonors = aiHonors.map(h => ({ ...h, aiGenerated: true }));
+        }
+      } catch(e) { console.warn("[club-card/honors-groq]", e.message); }
+    }
 
     // Groq : records historiques du club
     let aiRecords = "";
@@ -1722,6 +1757,7 @@ app.get("/api/events/:fixtureId", async (req, res) => {
 
 // Trophées via TheSportsDB (gratuit, sans clé)
 async function fetchTrophies(playerName) {
+  // 1. Essayer TheSportsDB
   try {
     const search = await fetch(
       `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(playerName)}`,
@@ -1729,18 +1765,51 @@ async function fetchTrophies(playerName) {
     );
     const sd = await search.json();
     const tsdbId = sd.player?.[0]?.idPlayer;
-    if (!tsdbId) return [];
-    const honors = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/3/lookuphonors.php?id=${tsdbId}`,
-      { signal: AbortSignal.timeout(6000) }
-    );
-    const hd = await honors.json();
-    return (hd.honours || []).map(h => ({
-      league: h.strHonour,
-      season: h.strSeason,
-      team:   h.strTeam,
-    }));
-  } catch { return []; }
+    if (tsdbId) {
+      const honors = await fetch(
+        `https://www.thesportsdb.com/api/v1/json/3/lookuphonors.php?id=${tsdbId}`,
+        { signal: AbortSignal.timeout(6000) }
+      );
+      const hd = await honors.json();
+      const raw = hd.honours || hd.honors || [];
+      if (Array.isArray(raw) && raw.length > 0) {
+        return raw.map(h => ({ league: h.strHonour, season: h.strSeason, team: h.strTeam }));
+      }
+    }
+  } catch {}
+
+  // 2. Fallback : Groq génère le palmarès du joueur
+  const groqKey = process.env.GROQ_KEY;
+  if (!groqKey || !playerName) return [];
+  try {
+    const { default: Groq } = await import("groq-sdk");
+    const groq = new Groq({ apiKey: groqKey });
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{
+        role: "user",
+        content: `Liste les principaux trophées remportés par le footballeur "${playerName}" tout au long de sa carrière.
+Format JSON strict:
+{
+  "trophies": [
+    { "league": "Nom du trophée", "season": "Année ou saison (ex: 2021-22)", "team": "Club avec lequel il l'a remporté" }
+  ]
+}
+Maximum 20 trophées, du plus récent au plus ancien. Seulement les titres réels.
+Réponds UNIQUEMENT avec le JSON.`,
+      }],
+      max_tokens: 500,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+    });
+    const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+    const aiT = parsed.trophies || [];
+    if (Array.isArray(aiT) && aiT.length > 0) {
+      return aiT.map(t => ({ ...t, aiGenerated: true }));
+    }
+  } catch(e) { console.warn("[fetchTrophies/groq]", e.message); }
+
+  return [];
 }
 
 // Fiche joueur complète — stats multi-saisons + transferts + trophées

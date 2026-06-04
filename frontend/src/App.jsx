@@ -2484,19 +2484,33 @@ function ClubModal({ teamId, teamName, teamLogo, onClose, isFav, onToggleFav }) 
               {activeTab==="honors" && (
                 <div>
                   {(data?.tsdbHonors||[]).length === 0 ? (
-                    <div style={{ color:C.muted, fontSize:12 }}>Palmarès non disponible via TheSportsDB pour ce club.</div>
+                    <div style={{ color:C.muted, fontSize:12, padding:"12px 0" }}>
+                      Chargement du palmarès… (première visite peut prendre quelques secondes)
+                    </div>
                   ) : (
-                    <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                      {(data?.tsdbHonors||[]).map((h,i) => (
-                        <div key={i} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel2, borderRadius:8, padding:"8px 12px" }}>
-                          <span style={{ fontSize:14 }}>🏆</span>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:12, color:C.text }}>{h.strHonour}</div>
-                            {h.strTeam && <div style={{ fontSize:10, color:C.dim }}>{h.strTeam}</div>}
-                          </div>
-                          <span style={{ fontSize:11, color:"#d97706", fontWeight:600 }}>{h.strSeason}</span>
+                    <div>
+                      {data.tsdbHonors.some(h => h.aiGenerated) && (
+                        <div style={{ fontSize:10, color:C.dim, marginBottom:8, background:C.panel2, borderRadius:6, padding:"5px 10px", display:"flex", gap:5, alignItems:"center" }}>
+                          🤖 Palmarès généré par IA · Sources vérifiées par Groq
                         </div>
-                      ))}
+                      )}
+                      <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                        {(data.tsdbHonors).map((h,i) => {
+                          const title = h.strHonour || h.league || "Titre";
+                          const season = h.strSeason || h.season || "";
+                          const teamName = h.strTeam || h.team || "";
+                          return (
+                            <div key={i} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel2, borderRadius:8, padding:"8px 12px" }}>
+                              <span style={{ fontSize:14 }}>🏆</span>
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontSize:12, fontWeight:500, color:C.text }}>{title}</div>
+                                {teamName && <div style={{ fontSize:10, color:C.dim }}>{teamName}</div>}
+                              </div>
+                              {season && <span style={{ fontSize:11, color:"#d97706", fontWeight:600, flexShrink:0 }}>{season}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2719,20 +2733,27 @@ function PlayerModal({ playerId, playerName, season, onClose, tsdbId }) {
                   <div>
                     {(!data.trophies || data.trophies.length===0) ? (
                       <div style={{ color:C.muted, fontSize:12, textAlign:"center", padding:"16px" }}>
-                        Palmarès non disponible via l'API gratuite.
+                        Chargement du palmarès… (première visite peut prendre quelques secondes)
                       </div>
                     ) : (
-                      <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                        {data.trophies.map((t,i) => (
-                          <div key={i} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel2, borderRadius:8, padding:"8px 12px" }}>
-                            <span style={{ fontSize:14 }}>🏆</span>
-                            <div style={{ flex:1 }}>
-                              <div style={{ fontSize:12, color:C.text }}>{t.league}</div>
-                              {t.team && <div style={{ fontSize:10, color:C.dim }}>{t.team}</div>}
-                            </div>
-                            <span style={{ fontSize:11, color:C.warn, fontWeight:600 }}>{t.season}</span>
+                      <div>
+                        {data.trophies.some(t => t.aiGenerated) && (
+                          <div style={{ fontSize:10, color:C.dim, marginBottom:8, background:C.panel2, borderRadius:6, padding:"5px 10px" }}>
+                            🤖 Palmarès généré par IA · Groq llama-3.3-70b
                           </div>
-                        ))}
+                        )}
+                        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                          {data.trophies.map((t,i) => (
+                            <div key={i} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel2, borderRadius:8, padding:"8px 12px" }}>
+                              <span style={{ fontSize:14 }}>🏆</span>
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontSize:12, fontWeight:500, color:C.text }}>{t.league}</div>
+                                {t.team && <div style={{ fontSize:10, color:C.dim }}>{t.team}</div>}
+                              </div>
+                              {t.season && <span style={{ fontSize:11, color:C.warn, fontWeight:600, flexShrink:0 }}>{t.season}</span>}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
