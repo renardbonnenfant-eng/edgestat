@@ -7328,86 +7328,90 @@ export default function App() {
           }}>Déconnexion</button>
         </div>
 
-        {/* Zone centrale + colonne pub */}
-        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-          {/* Quick Nav — accès rapide aux sections */}
-          {sport === "foot" && !loading && (
-            <div style={{
-              display:"flex", gap:6, padding:"8px 20px", overflowX:"auto", scrollbarWidth:"none",
-              borderBottom:`1px solid ${C.line}`, background:C.panel, flexShrink:0,
-            }}>
-              <span style={{ fontSize:11, color:C.muted, alignSelf:"center", marginRight:4, flexShrink:0 }}>Aller à :</span>
-              {[
-                { icon:"📊", label:"Stats",      tab:"resultat" },
-                { icon:"⚔️",  label:"H2H",       tab:"h2h_deep" },
-                { icon:"🤖",  label:"Aperçu IA", tab:"preview" },
-                { icon:"📋",  label:"Timeline",  tab:"timeline" },
-                { icon:"🏟",  label:"Compo",     tab:"compo" },
-                { icon:"🌤",  label:"Météo",     tab:"meteo" },
-                { icon:"📊",  label:"Records",   tab:"records_comp" },
-                { icon:"📈",  label:"Classement",tab:"classement" },
-              ].map(nav => (
-                <button key={nav.tab} onClick={() => {
-                  window.dispatchEvent(new CustomEvent("edgestat:setTab", { detail: nav.tab }));
-                }} style={{
-                  background:"none", border:`1px solid ${C.line}`, borderRadius:20,
-                  padding:"4px 12px", cursor:"pointer", fontSize:11, color:C.dim,
-                  display:"flex", alignItems:"center", gap:4, flexShrink:0, transition:"all .15s",
-                  whiteSpace:"nowrap",
-                }}
-                  onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
-                  onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.line; e.currentTarget.style.color=C.dim; }}
-                >
-                  <span>{nav.icon}</span>{nav.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {/* Zone d'analyse — scrollable */}
-          <div style={{ flex:1, overflowY:"auto", scrollbarWidth:"thin", scrollbarColor:`${C.line} transparent` }}>
-            <div style={{ padding:"20px 24px", maxWidth:860, width:"100%", boxSizing:"border-box" }}>
-              {loading ? (
-                <InfoPanel>Chargement des données football…</InfoPanel>
-              ) : error ? (
-                <InfoPanel tone="error">{error}</InfoPanel>
-              ) : sport === "favs" ? (
-                <FavoritesView favorites={favorites} onToggleFavorite={toggleFavorite} />
-              ) : sport === "bankroll" ? (
-                <BankrollView />
-              ) : sport === "quiz" ? (
-                <QuizView />
-              ) : sport === "encyclopedia" ? (
-                <EncyclopediaView />
-              ) : sport === "bracket" ? (
-                <BracketView />
-              ) : sport === "home" ? (
-                <HomeView
-                  logoRegistry={logoRegistry}
-                  onMatchClick={handleMatchClick}
-                  onGoHistory={() => setSport("history")}
-                  onGoWC={() => { setSport("foot"); setCompId("wc"); }}
-                />
-              ) : sport === "history" ? (
-                <HistoryView initialComp={historyInitComp} onConsumeInitComp={() => setHistoryInitComp(null)} />
-              ) : sport === "tennis" ? (
-                <TennisView tennisId={tennisId} />
-              ) : (
-                <AnalysisZone compId={compId} allData={allData} onDataLoaded={handleDataLoaded} logoRegistry={logoRegistry} pendingFixture={pendingFixture} onClearPending={() => setPendingFixture(null)} pendingTeam={pendingTeam} onClearPendingTeam={() => setPendingTeam(null)}
-                  onGoHistory={entry => { setHistoryInitComp(entry); setSport("history"); }}
-                  onOpenClub={club => setGlobalClub(club)}
-                  favorites={favorites} onToggleFavorite={toggleFavorite} isFavorite={isFavorite}
-                />
-              )}
+        {/* Zone centrale + colonne pub — ROW */}
+        <div style={{ flex:1, display:"flex", flexDirection:"row", overflow:"hidden" }}>
 
-              {/* Disclaimer */}
-              <div style={{ marginTop:24, padding:"10px 14px", background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, fontSize:11, color:C.muted, lineHeight:1.6 }}>
-                Outil d'analyse statistique — données historiques uniquement, aucune prédiction. Les paris comportent un risque de perte. Jouer comporte des risques : endettement, isolement, dépendance.
+          {/* Colonne principale : QuickNav + contenu scrollable */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            {/* Quick Nav — accès rapide aux sections */}
+            {sport === "foot" && !loading && (
+              <div style={{
+                display:"flex", gap:6, padding:"8px 20px", overflowX:"auto", scrollbarWidth:"none",
+                borderBottom:`1px solid ${C.line}`, background:C.panel, flexShrink:0,
+              }}>
+                <span style={{ fontSize:11, color:C.muted, alignSelf:"center", marginRight:4, flexShrink:0 }}>Aller à :</span>
+                {[
+                  { icon:"📊", label:"Stats",      tab:"resultat" },
+                  { icon:"⚔️",  label:"H2H",       tab:"h2h_deep" },
+                  { icon:"🤖",  label:"Aperçu IA", tab:"preview" },
+                  { icon:"📋",  label:"Timeline",  tab:"timeline" },
+                  { icon:"🏟",  label:"Compo",     tab:"compo" },
+                  { icon:"🌤",  label:"Météo",     tab:"meteo" },
+                  { icon:"📊",  label:"Records",   tab:"records_comp" },
+                  { icon:"📈",  label:"Classement",tab:"classement" },
+                ].map(nav => (
+                  <button key={nav.tab} onClick={() => {
+                    window.dispatchEvent(new CustomEvent("edgestat:setTab", { detail: nav.tab }));
+                  }} style={{
+                    background:"none", border:`1px solid ${C.line}`, borderRadius:20,
+                    padding:"4px 12px", cursor:"pointer", fontSize:11, color:C.dim,
+                    display:"flex", alignItems:"center", gap:4, flexShrink:0, transition:"all .15s",
+                    whiteSpace:"nowrap",
+                  }}
+                    onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.line; e.currentTarget.style.color=C.dim; }}
+                  >
+                    <span>{nav.icon}</span>{nav.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Zone d'analyse — scrollable */}
+            <div style={{ flex:1, overflowY:"auto", scrollbarWidth:"thin", scrollbarColor:`${C.line} transparent` }}>
+              <div style={{ padding:"20px 24px", maxWidth:860, width:"100%", boxSizing:"border-box" }}>
+                {loading ? (
+                  <InfoPanel>Chargement des données football…</InfoPanel>
+                ) : error ? (
+                  <InfoPanel tone="error">{error}</InfoPanel>
+                ) : sport === "favs" ? (
+                  <FavoritesView favorites={favorites} onToggleFavorite={toggleFavorite} />
+                ) : sport === "bankroll" ? (
+                  <BankrollView />
+                ) : sport === "quiz" ? (
+                  <QuizView />
+                ) : sport === "encyclopedia" ? (
+                  <EncyclopediaView />
+                ) : sport === "bracket" ? (
+                  <BracketView />
+                ) : sport === "home" ? (
+                  <HomeView
+                    logoRegistry={logoRegistry}
+                    onMatchClick={handleMatchClick}
+                    onGoHistory={() => setSport("history")}
+                    onGoWC={() => { setSport("foot"); setCompId("wc"); }}
+                  />
+                ) : sport === "history" ? (
+                  <HistoryView initialComp={historyInitComp} onConsumeInitComp={() => setHistoryInitComp(null)} />
+                ) : sport === "tennis" ? (
+                  <TennisView tennisId={tennisId} />
+                ) : (
+                  <AnalysisZone compId={compId} allData={allData} onDataLoaded={handleDataLoaded} logoRegistry={logoRegistry} pendingFixture={pendingFixture} onClearPending={() => setPendingFixture(null)} pendingTeam={pendingTeam} onClearPendingTeam={() => setPendingTeam(null)}
+                    onGoHistory={entry => { setHistoryInitComp(entry); setSport("history"); }}
+                    onOpenClub={club => setGlobalClub(club)}
+                    favorites={favorites} onToggleFavorite={toggleFavorite} isFavorite={isFavorite}
+                  />
+                )}
+                {/* Disclaimer */}
+                <div style={{ marginTop:24, padding:"10px 14px", background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, fontSize:11, color:C.muted, lineHeight:1.6 }}>
+                  Outil d'analyse statistique — données historiques uniquement, aucune prédiction. Les paris comportent un risque de perte. Jouer comporte des risques : endettement, isolement, dépendance.
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Colonne publicitaire droite */}
+          {/* Colonne publicitaire droite — fixée à droite */}
           <AdColumn />
+
         </div>
       </div>
 
