@@ -796,12 +796,15 @@ function SidebarSearch({ allData, logoRegistry, onSelectComp, onSelectTeam, onOp
 function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token, onLoginClick, onLogout, tennisId, onTennisSelect, tennisTournaments, allData, logoRegistry, onSelectTeam, onOpenPlayer, onOpenClub }) {
   const [openSections, setOpenSections] = useState({ clubs: true, national: false, world: false, tennis: true });
   const toggle = key => setOpenSections(s => ({ ...s, [key]: !s[key] }));
+  const mobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
     <div style={{
       width:220, flexShrink:0, background:C.sidebar,
       borderRight:`1px solid ${C.sidebarBorder}`,
-      height:"100vh", overflowY:"auto", position:"sticky", top:0,
+      height:"100vh", overflowY:"auto",
+      // Sur mobile : position fixed pour overlay
+      ...(mobile ? { position:"fixed", top:0, left:0, zIndex:199, boxShadow:"4px 0 24px rgba(0,0,0,.5)" } : { position:"sticky", top:0 }),
       display:"flex", flexDirection:"column",
     }}>
       {/* Logo */}
@@ -856,17 +859,19 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
             return (
               <button key={s.id} onClick={() => onSportChange(s.id)} style={{
                 display:"flex", alignItems:"center", gap:10,
-                padding:"10px 12px", borderRadius:8, cursor:"pointer",
-                background: active ? "#0176D320" : "transparent",
-                borderLeft: `3px solid ${active ? "#0176D3" : "transparent"}`,
+                padding: mobile ? "13px 12px" : "10px 12px", // 44px touch target sur mobile
+                borderRadius:8, cursor:"pointer",
+                background: active ? `${s.color}20` : "transparent",
+                borderLeft: `3px solid ${active ? s.color : "transparent"}`,
                 border: "none",
                 color: active ? "#ffffff" : C.sidebarText,
-                fontWeight: active ? 800 : 500, fontSize:13,
-                transition:"all .15s", textAlign:"left",
+                fontWeight: active ? 800 : 500, fontSize: mobile ? 14 : 13,
+                transition:"all .15s", textAlign:"left", width:"100%",
+                WebkitTapHighlightColor:"transparent",
               }}>
-                <span style={{ fontSize:17 }}>{s.icon}</span>
+                <span style={{ fontSize: mobile ? 20 : 17 }}>{s.icon}</span>
                 <span>{s.label}</span>
-                {active && <span style={{ marginLeft:"auto", fontSize:9, background:"#0176D3", color:"#ffffff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>ACTIF</span>}
+                {active && <span style={{ marginLeft:"auto", fontSize:9, background:s.color, color:"#fff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>ACTIF</span>}
               </button>
             );
           })}
@@ -8534,7 +8539,10 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem("vdk_user") || "null"); } catch { return null; }
   });
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState("login"); // "login" | "register"
+  const [authMode, setAuthMode] = useState("login");
+  // Mobile : sidebar fermée par défaut sur petit écran
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   // Mode public : connexion automatique au premier chargement si le serveur le permet
   useEffect(() => {
@@ -8751,13 +8759,24 @@ export default function App() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Overlay mobile pour fermer la sidebar */}
+      {isMobile && mobileSidebarOpen && (
+        <div onClick={() => setMobileSidebarOpen(false)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", zIndex:198 }}/>
+      )}
+
+      {/* Sidebar — masquée sur mobile sauf si ouverte */}
+      {(!isMobile || mobileSidebarOpen) && (
       <Sidebar
         activeId={compId}
-        onSelect={handleSelectComp}
+        onSelect={id => { handleSelectComp(id); if (isMobile) setMobileSidebarOpen(false); }}
         leagueLogos={leagueLogos}
         sport={sport}
-        onSportChange={id => { if (id === "foot") setFootHub(true); setSport(id); }}
+        onSportChange={id => {
+          if (id === "foot") setFootHub(true);
+          setSport(id);
+          if (isMobile) setMobileSidebarOpen(false);
+        }}
         token={token}
         onLoginClick={() => setShowLogin(true)}
         onLogout={() => { localStorage.removeItem("es_token"); setToken(""); }}
@@ -8775,18 +8794,33 @@ export default function App() {
         onOpenPlayer={(id, name, tsdbId) => setGlobalPlayer({ id, name, tsdbId })}
         onOpenClub={club => setGlobalClub(club)}
       />
+      )}
 
       {/* Contenu principal */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
         {/* Header — pleine largeur */}
         <div style={{
-          borderBottom:`1px solid ${C.line}`, padding:"10px 20px",
+          borderBottom:`1px solid ${C.line}`, padding:"8px 14px",
           display:"flex", alignItems:"center", justifyContent:"space-between",
-          background:C.panel, zIndex:10, flexShrink:0,
+          background:C.panel, zIndex:10, flexShrink:0, gap:8,
         }}>
-          <div style={{ fontSize:13, color:C.text, fontWeight:500 }}>
-            {allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
-            {" "}{allData[compId]?.league || "Chargement…"}
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            {/* Hamburger mobile */}
+            {isMobile && (
+              <button onClick={() => setMobileSidebarOpen(v => !v)} style={{
+                width:36, height:36, borderRadius:8, background:C.panel2,
+                border:`1px solid ${C.line}`, cursor:"pointer",
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, flexShrink:0,
+              }}>
+                <div style={{ width:16, height:2, background:mobileSidebarOpen?C.accent:C.text, borderRadius:1, transition:"all .2s" }}/>
+                <div style={{ width:16, height:2, background:mobileSidebarOpen?C.accent:C.text, borderRadius:1, transition:"all .2s" }}/>
+                <div style={{ width:16, height:2, background:mobileSidebarOpen?C.accent:C.text, borderRadius:1, transition:"all .2s" }}/>
+              </button>
+            )}
+            <div style={{ fontSize:13, color:C.text, fontWeight:500 }}>
+              {allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
+              {" "}{allData[compId]?.league || "Verdikt"}
+            </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             {userAccount ? (
@@ -8794,7 +8828,7 @@ export default function App() {
                 <div style={{ width:28, height:28, borderRadius:"50%", background:userAccount.avatar_color||"#00D4AA", display:"grid", placeItems:"center", fontSize:12, fontWeight:800, color:"#0A1428", flexShrink:0 }}>
                   {(userAccount.username||"?")[0].toUpperCase()}
                 </div>
-                <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{userAccount.username}</span>
+                {!isMobile && <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{userAccount.username}</span>}
                 <button onClick={handleAccountLogout} style={{
                   border:`1px solid ${C.line}`, color:C.dim, background:"none", fontSize:11,
                   borderRadius:6, padding:"4px 9px", cursor:"pointer",
@@ -8911,8 +8945,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Colonne publicitaire droite — fixée à droite */}
-          <AdColumn />
+          {/* Colonne publicitaire droite — masquée sur mobile */}
+          {!isMobile && <AdColumn />}
 
         </div>
       </div>
