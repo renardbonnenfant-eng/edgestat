@@ -14,6 +14,8 @@ import { buildTennisMatch, getTennisTournaments, testTennisApi } from "./tennis.
 import { chat } from "./chat.js";
 import { readCache, writeCache, getDailyCount } from "./cache.js";
 import { apiGet } from "./apiFootball.js";
+import { register, login as loginUser, verifyToken, getUserStats, getLeaderboard } from "./auth.js";
+import { initQuizWS } from "./quiz-ws.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Mapping apiId → compId (ex: 61 → "fr") pour le routing frontend
@@ -37,6 +39,37 @@ app.post("/api/login", express.json(), (req, res) => {
 
 // Ping de santé pour garder le serveur éveillé (Render free tier)
 app.get("/ping", (req, res) => res.send("ok"));
+
+// ── Comptes utilisateurs ─────────────────────────────────────
+app.post("/api/auth/register", express.json(), async (req, res) => {
+  try {
+    const { email, username, password } = req.body || {};
+    const result = await register(email, username, password);
+    res.json(result);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.post("/api/auth/login", express.json(), async (req, res) => {
+  try {
+    const { emailOrUsername, password } = req.body || {};
+    const result = await loginUser(emailOrUsername, password);
+    res.json(result);
+  } catch (err) { res.status(401).json({ error: err.message }); }
+});
+
+app.get("/api/auth/me", (req, res) => {
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  const decoded = verifyToken(token);
+  if (!decoded) return res.status(401).json({ error: "Non authentifié." });
+  const data = getUserStats(decoded.id);
+  if (!data) return res.status(404).json({ error: "Utilisateur introuvable." });
+  res.json(data);
+});
+
+app.get("/api/leaderboard", (req, res) => {
+  try { res.json(getLeaderboard(50)); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // Liste des championnats (pour le sélecteur du frontend)
 app.get("/api/leagues", (req, res) => {
@@ -1608,11 +1641,12 @@ if (existsSync(frontendDist)) {
   app.get("*", (req, res) => res.sendFile(path.join(frontendDist, "index.html")));
 }
 
-app.listen(PORT, () => {
-  console.log(`EdgeStat backend → http://localhost:${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`Verdikt backend → http://localhost:${PORT}`);
   if (!API.key) {
-    console.warn(
-      "⚠ API_FOOTBALL_KEY absente : copie backend/.env.example vers backend/.env et renseigne ta clé."
-    );
+    console.warn("⚠ API_FOOTBALL_KEY absente : copie backend/.env.example vers backend/.env");
   }
 });
+
+// WebSocket quiz multijoueur
+initQuizWS(server);

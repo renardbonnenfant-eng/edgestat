@@ -203,3 +203,36 @@ export async function generateQuizQuestions(category, difficulty, count = 10) {
   if (!res.ok) return [];
   return res.json().catch(() => []);
 }
+
+// ── Auth ────────────────────────────────────────────────────
+export async function apiRegister(email, username, password) {
+  const res = await fetch("/api/auth/register", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ email, username, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Erreur inscription");
+  return data;
+}
+
+export async function apiLogin(emailOrUsername, password) {
+  const res = await fetch("/api/auth/login", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ emailOrUsername, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Erreur connexion");
+  return data;
+}
+
+export async function apiGetMe(token) {
+  const res = await fetch("/api/auth/me", { headers:{ Authorization:`Bearer ${token}` } });
+  if (!res.ok) return null;
+  return res.json().catch(() => null);
+}
+
+export async function fetchLeaderboard() {
+  const res = await fetch("/api/leaderboard");
+  if (!res.ok) return [];
+  return res.json().catch(() => []);
+}

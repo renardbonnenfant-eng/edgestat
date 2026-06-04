@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions } from "./api.js";
+import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions, apiRegister, apiLogin, apiGetMe, fetchLeaderboard } from "./api.js";
 import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 
 // ============================================================
@@ -373,6 +373,97 @@ function NoDataBanner({ name }) {
 }
 
 // ============================================================
+// AuthModal — Authentification Verdikt (inscription / connexion)
+// ============================================================
+function AuthModal({ mode, onSwitchMode, onClose, onSuccess }) {
+  const [form, setForm]   = useState({ emailOrUsername:"", email:"", username:"", password:"", confirm:"" });
+  const [err,  setErr]    = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setErr(""); setLoading(true);
+    try {
+      let result;
+      if (mode === "register") {
+        if (form.password !== form.confirm) throw new Error("Les mots de passe ne correspondent pas.");
+        result = await apiRegister(form.email, form.username, form.password);
+      } else {
+        result = await apiLogin(form.emailOrUsername, form.password);
+      }
+      onSuccess(result.user, result.token);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  }
+
+  const inp = (field, placeholder, type="text") => (
+    <input
+      type={type} placeholder={placeholder} value={form[field]}
+      onChange={e => setForm(f => ({...f, [field]:e.target.value}))}
+      style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${err?"#FF4444":C.line}`,
+        background:"#0E1A28", color:C.text, fontSize:13, outline:"none", boxSizing:"border-box" }}
+    />
+  );
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}
+      onClick={onClose}>
+      <div style={{ width:360, background:"#182030", border:`1px solid ${C.line}`, borderRadius:16, padding:"28px 28px 24px" }}
+        onClick={e => e.stopPropagation()}>
+        {/* Logo */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
+          <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
+            <line x1="3" y1="3" x2="23" y2="3" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+            <line x1="4" y1="7" x2="22" y2="7" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+            <line x1="6" y1="11" x2="20" y2="11" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+            <line x1="8" y1="15" x2="18" y2="15" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+            <line x1="10" y1="19" x2="16" y2="19" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="13" cy="23" r="1.8" fill="#00D4AA"/>
+          </svg>
+          <span style={{ fontSize:16, fontWeight:800, color:C.text }}>Verdikt</span>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display:"flex", background:"#0E1A28", borderRadius:8, padding:3, marginBottom:20 }}>
+          {["login","register"].map(m => (
+            <button key={m} onClick={() => { onSwitchMode(m); setErr(""); }} style={{
+              flex:1, padding:"7px", border:"none", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:600,
+              background: mode===m ? C.accent : "none",
+              color: mode===m ? "#0A1428" : C.muted,
+            }}>{m==="login" ? "Connexion" : "Inscription"}</button>
+          ))}
+        </div>
+
+        <form onSubmit={submit} style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {mode === "login" ? (<>
+            {inp("emailOrUsername", "Email ou pseudo")}
+            {inp("password", "Mot de passe", "password")}
+          </>) : (<>
+            {inp("email", "Adresse email", "email")}
+            {inp("username", "Pseudo (3-20 caractères)")}
+            {inp("password", "Mot de passe (6 min)", "password")}
+            {inp("confirm", "Confirmer le mot de passe", "password")}
+          </>)}
+
+          {err && <div style={{ color:"#FF4444", fontSize:11, padding:"6px 10px", background:"#2A1010", borderRadius:6 }}>{err}</div>}
+
+          <button type="submit" disabled={loading} style={{
+            background:C.accent, color:"#0A1428", border:"none", borderRadius:8,
+            padding:"11px", fontSize:14, fontWeight:700, cursor:loading?"not-allowed":"pointer", marginTop:4,
+          }}>
+            {loading ? "..." : mode==="login" ? "Se connecter" : "Créer mon compte"}
+          </button>
+        </form>
+
+        <div style={{ marginTop:12, fontSize:10, color:C.muted, textAlign:"center", lineHeight:1.6 }}>
+          Tes stats de quiz sont sauvegardées sur ce compte.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Modal de login (optionnel — le site reste accessible sans connexion)
 // ============================================================
 function LoginModal({ onClose, onLogin }) {
@@ -731,6 +822,7 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
             { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
             { id:"bankroll",     label:"Bankroll",     icon:"💳", color:"#16a34a" },
             { id:"quiz",         label:"Quiz",         icon:"🧩", color:"#16a34a" },
+            { id:"leaderboard",  label:"Classement",   icon:"🏆", color:"#d97706" },
             { id:"encyclopedia", label:"Encyclopédie", icon:"📖", color:"#7C3AED" },
             { id:"home",         label:"Accueil",      icon:"🏠", color:"#032D60" },
             { id:"history", label:"Histoire", icon:"📚", color:"#7C3AED" },
@@ -3817,6 +3909,132 @@ const DIFFICULTIES = [
   { id:"expert",    label:"Expert",   color:"#7C3AED", xp:50 },
 ];
 
+function LeaderboardView({ userAccount }) {
+  const [data, setData]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab]       = useState("correct"); // correct | wins | speed
+
+  useEffect(() => {
+    fetchLeaderboard().then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  const sorted = [...data].sort((a,b) => {
+    if (tab === "correct") return b.total_correct - a.total_correct;
+    if (tab === "wins")    return b.total_wins - a.total_wins;
+    if (tab === "speed")   return (a.avg_response_ms||99999) - (b.avg_response_ms||99999);
+    return 0;
+  });
+
+  const MEDALS = ["🥇","🥈","🥉"];
+
+  return (
+    <div style={{ padding:"20px 24px" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+        <span style={{ fontSize:28 }}>🏆</span>
+        <div>
+          <div style={{ fontSize:18, fontWeight:800, color:C.text }}>Classement Mondial</div>
+          <div style={{ fontSize:11, color:C.dim }}>Les meilleurs joueurs de quiz Verdikt</div>
+        </div>
+      </div>
+
+      {/* Ton profil */}
+      {userAccount && (() => {
+        const me = data.find(d => d.id === userAccount.id);
+        const rank = sorted.findIndex(d => d.id === userAccount.id) + 1;
+        if (!me) return (
+          <div style={{ background:C.accentBg, border:`1px solid ${C.accent}44`, borderRadius:10, padding:"12px 16px", marginBottom:16, fontSize:12, color:C.accent }}>
+            🎯 Joue tes premiers quiz pour apparaître dans le classement !
+          </div>
+        );
+        return (
+          <div style={{ background:C.accentBg, border:`1px solid ${C.accent}33`, borderRadius:10, padding:"12px 16px", marginBottom:16, display:"flex", alignItems:"center", gap:14 }}>
+            <div style={{ width:36, height:36, borderRadius:"50%", background:me.avatar_color, display:"grid", placeItems:"center", fontSize:16, fontWeight:800, color:"#0A1428" }}>
+              {me.username[0].toUpperCase()}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{me.username} <span style={{ color:C.accent }}>— #{rank}</span></div>
+              <div style={{ fontSize:11, color:C.dim }}>{me.total_correct} bonnes rép. · {me.total_wins} victoires · {me.avg_response_ms ? `${(me.avg_response_ms/1000).toFixed(1)}s moy.` : "—"}</div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Tabs tri */}
+      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+        {[
+          { id:"correct", label:"⚽ Bonnes réponses" },
+          { id:"wins",    label:"🏆 Victoires" },
+          { id:"speed",   label:"⚡ Temps de réponse" },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            background: tab===t.id ? C.accent : C.panel,
+            color: tab===t.id ? "#0A1428" : C.dim,
+            border:`1px solid ${tab===t.id ? C.accent : C.line}`,
+            borderRadius:20, padding:"5px 12px", cursor:"pointer", fontSize:11, fontWeight:600,
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ color:C.muted, textAlign:"center", padding:"32px" }}>Chargement…</div>
+      ) : sorted.length === 0 ? (
+        <div style={{ color:C.muted, textAlign:"center", padding:"32px" }}>
+          <div style={{ fontSize:32, marginBottom:8 }}>🎯</div>
+          Sois le premier à jouer un quiz pour apparaître ici !
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          {sorted.map((player, i) => {
+            const isMe = player.id === userAccount?.id;
+            return (
+              <div key={player.id} style={{
+                background: isMe ? C.accentBg : C.panel,
+                border:`1px solid ${isMe ? C.accent+"44" : C.line}`,
+                borderRadius:10, padding:"12px 16px",
+                display:"flex", alignItems:"center", gap:12,
+              }}>
+                {/* Rang */}
+                <div style={{ width:28, textAlign:"center", flexShrink:0 }}>
+                  {i < 3 ? (
+                    <span style={{ fontSize:18 }}>{MEDALS[i]}</span>
+                  ) : (
+                    <span style={{ fontSize:13, fontWeight:700, color:C.muted }}>#{i+1}</span>
+                  )}
+                </div>
+                {/* Avatar */}
+                <div style={{ width:32, height:32, borderRadius:"50%", background:player.avatar_color, display:"grid", placeItems:"center", fontSize:13, fontWeight:800, color:"#0A1428", flexShrink:0 }}>
+                  {player.username[0].toUpperCase()}
+                </div>
+                {/* Infos */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:isMe?C.accent:C.text }}>{player.username}{isMe?" (toi)":""}</div>
+                  <div style={{ fontSize:10, color:C.muted }}>{player.total_games} parties</div>
+                </div>
+                {/* Stats */}
+                <div style={{ display:"flex", gap:16, flexShrink:0 }}>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:14, fontWeight:800, color:"#16a34a" }}>{player.total_correct}</div>
+                    <div style={{ fontSize:8, color:C.muted, textTransform:"uppercase" }}>Corrects</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:14, fontWeight:800, color:"#d97706" }}>{player.total_wins}</div>
+                    <div style={{ fontSize:8, color:C.muted, textTransform:"uppercase" }}>Victoires</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:14, fontWeight:800, color:C.accent }}>{player.avg_response_ms ? `${(player.avg_response_ms/1000).toFixed(1)}s` : "—"}</div>
+                    <div style={{ fontSize:8, color:C.muted, textTransform:"uppercase" }}>Temps moy.</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BankrollView() {
   const [bankroll, setBankroll] = useState(() => parseFloat(localStorage.getItem("br_amount")||"1000"));
   const [history, setHistory]   = useState(() => JSON.parse(localStorage.getItem("br_history")||"[]"));
@@ -4000,7 +4218,290 @@ function BankrollView() {
   );
 }
 
-function QuizView() {
+function MultiplayerQuiz({ userAccount, onBack }) {
+  const [phase, setPhase] = useState("lobby"); // lobby | room | playing | result
+  const [ws, setWs]       = useState(null);
+  const [roomCode, setRoomCode] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+  const [targetScore, setTargetScore] = useState(200);
+  const [players, setPlayers] = useState([]);
+  const [isCreator, setIsCreator] = useState(false);
+  const [question, setQuestion] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [showResult, setShowResult] = useState(false);
+  const [roundResult, setRoundResult] = useState(null);
+  const [gameOver, setGameOver] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [myScore, setMyScore] = useState(0);
+  const [err, setErr] = useState("");
+
+  const jwt = localStorage.getItem("vdk_jwt");
+
+  // Connexion WS
+  function connect(cb) {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const sock = new WebSocket(`${protocol}//${window.location.host}/ws/quiz`);
+    sock.onopen = () => {
+      sock.send(JSON.stringify({ type:"auth", payload:{ token:jwt, avatarColor:userAccount?.avatar_color||"#00D4AA" } }));
+    };
+    sock.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      handleWsMsg(msg, sock);
+    };
+    sock.onclose = () => { if (phase !== "result") setErr("Connexion perdue."); };
+    setWs(sock);
+    cb(sock);
+  }
+
+  function handleWsMsg(msg, sock) {
+    if (msg.type === "auth_ok")       return;
+    if (msg.type === "error")         { setErr(msg.message); return; }
+    if (msg.type === "room_created")  { setRoomCode(msg.roomCode); setPlayers(msg.players); setIsCreator(true); setPhase("room"); return; }
+    if (msg.type === "room_joined")   { setRoomCode(msg.roomCode); setPlayers(msg.players); setIsCreator(false); setPhase("room"); return; }
+    if (msg.type === "player_joined") { setPlayers(msg.players); return; }
+    if (msg.type === "player_left")   { setPlayers(msg.players); return; }
+    if (msg.type === "game_started")  { setPlayers(msg.players); setPhase("playing"); return; }
+    if (msg.type === "question")      {
+      setQuestion(msg.question); setSelected(null); setShowResult(false);
+      setRoundResult(null); setTimeLeft(msg.question.timeLimit);
+      return;
+    }
+    if (msg.type === "round_result") {
+      setRoundResult(msg); setShowResult(true);
+      setPlayers(msg.results.map(r => ({ id:r.userId, username:r.username, avatarColor:r.avatarColor, score:r.score })));
+      const me = msg.results.find(r => r.username === userAccount?.username);
+      if (me) setMyScore(me.score);
+      return;
+    }
+    if (msg.type === "game_over") { setGameOver(msg); setPhase("result"); return; }
+  }
+
+  // Timer
+  useEffect(() => {
+    if (phase !== "playing" || showResult || !question) return;
+    if (timeLeft <= 0) return;
+    const t = setTimeout(() => setTimeLeft(v => v-1), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, phase, showResult, question]);
+
+  function createRoom() {
+    connect(sock => {
+      setTimeout(() => sock.send(JSON.stringify({ type:"create_room", payload:{ targetScore } })), 300);
+    });
+  }
+
+  function joinRoom() {
+    if (!joinCode.trim()) return;
+    connect(sock => {
+      setTimeout(() => sock.send(JSON.stringify({ type:"join_room", payload:{ roomCode:joinCode.trim().toUpperCase() } })), 300);
+    });
+  }
+
+  function startGame() {
+    ws?.send(JSON.stringify({ type:"start_game" }));
+  }
+
+  function sendAnswer(idx) {
+    if (selected !== null || showResult) return;
+    setSelected(idx);
+    ws?.send(JSON.stringify({ type:"answer", payload:{ answerIdx:idx } }));
+  }
+
+  function leave() {
+    ws?.send(JSON.stringify({ type:"leave_room" }));
+    ws?.close();
+    onBack();
+  }
+
+  if (!userAccount) return (
+    <div style={{ padding:"40px 24px", textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>🔐</div>
+      <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:8 }}>Connexion requise</div>
+      <div style={{ fontSize:12, color:C.dim, marginBottom:16 }}>Crée un compte pour accéder au quiz multijoueur.</div>
+      <button onClick={onBack} style={{ background:C.accent, color:"#0A1428", border:"none", borderRadius:8, padding:"10px 24px", cursor:"pointer", fontWeight:700 }}>← Retour</button>
+    </div>
+  );
+
+  // LOBBY
+  if (phase === "lobby") return (
+    <div style={{ padding:"24px" }}>
+      <button onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer", color:C.dim, fontSize:12, marginBottom:16, display:"flex", alignItems:"center", gap:4 }}>← Retour au quiz solo</button>
+      <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>🎮 Quiz Multijoueur</div>
+      <div style={{ fontSize:12, color:C.dim, marginBottom:24 }}>Affronte d'autres joueurs en temps réel</div>
+
+      {err && <div style={{ color:"#FF4444", background:"#2A1010", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:12 }}>{err}</div>}
+
+      {/* Créer */}
+      <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"16px", marginBottom:12 }}>
+        <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:12 }}>🆕 Créer une salle</div>
+        <div style={{ fontSize:11, color:C.muted, marginBottom:8 }}>Score cible (premier à atteindre ce score gagne)</div>
+        <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
+          {[100,200,500,1000].map(s => (
+            <button key={s} onClick={() => setTargetScore(s)} style={{
+              flex:1, minWidth:60, padding:"8px 4px", border:`1px solid ${targetScore===s?C.accent:C.line}`,
+              borderRadius:8, cursor:"pointer", background: targetScore===s?C.accentBg:"none",
+              color:targetScore===s?C.accent:C.dim, fontSize:12, fontWeight:600,
+            }}>{s} pts</button>
+          ))}
+        </div>
+        <button onClick={createRoom} style={{
+          width:"100%", background:C.accent, color:"#0A1428", border:"none", borderRadius:8,
+          padding:"11px", fontSize:13, fontWeight:700, cursor:"pointer",
+        }}>Créer la salle</button>
+      </div>
+
+      {/* Rejoindre */}
+      <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"16px" }}>
+        <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:12 }}>🚪 Rejoindre une salle</div>
+        <div style={{ display:"flex", gap:8 }}>
+          <input value={joinCode} onChange={e=>setJoinCode(e.target.value.toUpperCase())} placeholder="Code de la salle (ex: ABC123)"
+            style={{ flex:1, padding:"9px 12px", borderRadius:8, border:`1px solid ${C.line}`, background:"#0E1A28", color:C.text, fontSize:13, outline:"none" }}/>
+          <button onClick={joinRoom} style={{
+            background:C.accent, color:"#0A1428", border:"none", borderRadius:8,
+            padding:"9px 16px", cursor:"pointer", fontSize:13, fontWeight:700,
+          }}>Rejoindre</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // SALLE D'ATTENTE
+  if (phase === "room") return (
+    <div style={{ padding:"24px" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+        <div>
+          <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Salle d'attente</div>
+          <div style={{ fontSize:11, color:C.dim }}>Score cible : {targetScore} pts</div>
+        </div>
+        <div style={{ background:C.accentBg, border:`1px solid ${C.accent}44`, borderRadius:8, padding:"8px 14px", textAlign:"center" }}>
+          <div style={{ fontSize:20, fontWeight:900, color:C.accent, letterSpacing:2 }}>{roomCode}</div>
+          <div style={{ fontSize:9, color:C.muted }}>CODE DE LA SALLE</div>
+        </div>
+      </div>
+
+      <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:8 }}>
+        Joueurs ({players.length}/8)
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:20 }}>
+        {players.map(p => (
+          <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"10px 12px" }}>
+            <div style={{ width:28, height:28, borderRadius:"50%", background:p.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:12, fontWeight:800, color:"#0A1428" }}>
+              {p.username[0].toUpperCase()}
+            </div>
+            <span style={{ fontSize:13, color:C.text }}>{p.username}</span>
+            {p.username === userAccount?.username && <span style={{ fontSize:10, color:C.accent, marginLeft:"auto" }}>Toi</span>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display:"flex", gap:8 }}>
+        {isCreator ? (
+          <button onClick={startGame} disabled={players.length < 1} style={{
+            flex:1, background: players.length >= 1 ? C.accent : C.panel2, color: players.length >= 1 ? "#0A1428" : C.muted,
+            border:"none", borderRadius:8, padding:"12px", fontSize:14, fontWeight:700,
+            cursor: players.length >= 1 ? "pointer" : "not-allowed",
+          }}>
+            🚀 Lancer la partie {players.length < 2 ? "(solo possible)" : ""}
+          </button>
+        ) : (
+          <div style={{ flex:1, textAlign:"center", color:C.muted, fontSize:12, padding:"12px" }}>En attente du créateur…</div>
+        )}
+        <button onClick={leave} style={{ background:"none", border:`1px solid ${C.line}`, borderRadius:8, padding:"12px 16px", cursor:"pointer", color:C.muted, fontSize:12 }}>Quitter</button>
+      </div>
+    </div>
+  );
+
+  // EN JEU
+  if (phase === "playing") return (
+    <div style={{ padding:"16px 20px" }}>
+      {/* Scores */}
+      <div style={{ display:"flex", gap:4, overflowX:"auto", marginBottom:12, paddingBottom:4, scrollbarWidth:"none" }}>
+        {[...players].sort((a,b)=>b.score-a.score).map((p,i) => (
+          <div key={p.id} style={{ flexShrink:0, background:p.username===userAccount?.username?C.accentBg:C.panel, border:`1px solid ${p.username===userAccount?.username?C.accent:C.line}`, borderRadius:8, padding:"6px 10px", textAlign:"center", minWidth:80 }}>
+            <div style={{ width:18, height:18, borderRadius:"50%", background:p.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:9, fontWeight:800, color:"#0A1428", margin:"0 auto 3px" }}>
+              {p.username[0].toUpperCase()}
+            </div>
+            <div style={{ fontSize:9, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:76 }}>{p.username}</div>
+            <div style={{ fontSize:13, fontWeight:800, color:i===0?"#d97706":C.accent }}>{p.score}</div>
+          </div>
+        ))}
+      </div>
+
+      {question && !showResult && (
+        <>
+          {/* Timer */}
+          <div style={{ background:C.panel2, borderRadius:99, height:6, marginBottom:12, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${(timeLeft/question.timeLimit)*100}%`, transition:"width 1s linear", background:timeLeft>10?"#16a34a":timeLeft>5?"#d97706":"#FF4444" }}/>
+          </div>
+          <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"16px", marginBottom:12 }}>
+            <div style={{ fontSize:9, color:C.accent, fontWeight:700, textTransform:"uppercase", marginBottom:6 }}>{timeLeft}s · {question.pts} pts</div>
+            <div style={{ fontSize:14, fontWeight:600, color:C.text, lineHeight:1.6 }}>{question.q}</div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {(question.options||[]).map((opt,i) => (
+              <button key={i} onClick={()=>sendAnswer(i)} disabled={selected!==null} style={{
+                background: selected===i ? C.accentBg : C.panel,
+                border:`2px solid ${selected===i ? C.accent : C.line}`,
+                borderRadius:10, padding:"12px 16px", cursor:selected===null?"pointer":"default",
+                textAlign:"left", fontSize:13, color:selected===i?C.accent:C.text,
+                display:"flex", alignItems:"center", gap:10, transition:"all .1s",
+              }}>
+                <span style={{ width:24, height:24, borderRadius:"50%", background:selected===i?C.accent:C.line, color:selected===i?"#0A1428":C.dim, display:"grid", placeItems:"center", fontSize:10, fontWeight:700, flexShrink:0 }}>
+                  {["A","B","C","D"][i]}
+                </span>
+                {opt}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {showResult && roundResult && (
+        <div>
+          <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:10 }}>Résultats du tour</div>
+          {roundResult.results.map((r,i) => (
+            <div key={r.userId} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"8px 12px", marginBottom:6 }}>
+              <span style={{ fontSize:14 }}>{r.correct?"✅":"❌"}</span>
+              <span style={{ fontSize:12, color:C.text, flex:1 }}>{r.username}</span>
+              {r.ptsEarned > 0 && <span style={{ fontSize:11, color:"#16a34a", fontWeight:700 }}>+{r.ptsEarned}</span>}
+              <span style={{ fontSize:13, fontWeight:800, color:i===0?"#d97706":C.accent }}>{r.score}</span>
+            </div>
+          ))}
+          <div style={{ fontSize:11, color:C.muted, textAlign:"center", marginTop:8 }}>Prochaine question…</div>
+        </div>
+      )}
+    </div>
+  );
+
+  // RÉSULTAT FINAL
+  if (phase === "result" && gameOver) return (
+    <div style={{ padding:"24px", textAlign:"center" }}>
+      <div style={{ fontSize:48, marginBottom:12 }}>🏆</div>
+      <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>
+        {gameOver.winner?.username === userAccount?.username ? "🎉 Tu as gagné !" : `${gameOver.winner?.username} a gagné !`}
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:20, marginBottom:20 }}>
+        {gameOver.finalScores.map((p,i) => (
+          <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"10px 14px" }}>
+            <span style={{ fontSize:16 }}>{["🥇","🥈","🥉"][i]||`#${i+1}`}</span>
+            <div style={{ width:26, height:26, borderRadius:"50%", background:p.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:11, fontWeight:800, color:"#0A1428" }}>
+              {p.username[0].toUpperCase()}
+            </div>
+            <span style={{ flex:1, fontSize:13, color:C.text }}>{p.username}</span>
+            <span style={{ fontSize:15, fontWeight:800, color:C.accent }}>{p.score}</span>
+          </div>
+        ))}
+      </div>
+      <button onClick={leave} style={{ background:C.accent, color:"#0A1428", border:"none", borderRadius:8, padding:"12px 28px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+        Retour au menu
+      </button>
+    </div>
+  );
+
+  return null;
+}
+
+function QuizView({ userAccount }) {
   const [phase,       setPhase]      = useState("menu"); // menu | playing | result
   const [category,   setCategory]   = useState(null);
   const [difficulty, setDifficulty] = useState("moyen");
@@ -4015,6 +4516,7 @@ function QuizView() {
   const [totalXP,    setTotalXP]    = useState(() => parseInt(localStorage.getItem("quiz_xp")||"0"));
   const [highScores, setHighScores] = useState(() => JSON.parse(localStorage.getItem("quiz_scores")||"{}"));
   const [loading,    setLoading]    = useState(false);
+  const [showMulti,  setShowMulti]  = useState(false);
 
   // Timer
   useEffect(() => {
@@ -4106,6 +4608,8 @@ function QuizView() {
     setPhase("result");
   }
 
+  if (showMulti) return <MultiplayerQuiz userAccount={userAccount} onBack={() => setShowMulti(false)} />;
+
   const currentQ = questions[qIdx];
   const catInfo   = QUIZ_CATEGORIES.find(c=>c.id===category);
   const diffInfo  = DIFFICULTIES.find(d=>d.id===difficulty);
@@ -4161,6 +4665,18 @@ function QuizView() {
           ))}
         </div>
       </div>
+
+      {/* Mode multijoueur */}
+      {userAccount && (
+        <button onClick={() => setShowMulti(true)} style={{
+          width:"100%", background:"#1E3040", border:`1px solid ${C.accent}44`, borderRadius:12,
+          padding:"14px", fontSize:14, fontWeight:700, cursor:"pointer", color:C.accent, marginBottom:10,
+          display:"flex", alignItems:"center", justifyContent:"center", gap:10,
+        }}>
+          🎮 Jouer en multijoueur
+          <span style={{ fontSize:10, background:C.accentBg, borderRadius:10, padding:"2px 8px" }}>TEMPS RÉEL</span>
+        </button>
+      )}
 
       {/* Bouton lancer */}
       <button onClick={startQuiz} disabled={!category || loading} style={{
@@ -7112,6 +7628,11 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
 export default function App() {
   const [token,       setToken]      = useState(() => localStorage.getItem("es_token") || "");
   const [showLogin,   setShowLogin]  = useState(false);
+  const [userAccount, setUserAccount] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("vdk_user") || "null"); } catch { return null; }
+  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState("login"); // "login" | "register"
 
   // Mode public : connexion automatique au premier chargement si le serveur le permet
   useEffect(() => {
@@ -7122,6 +7643,17 @@ export default function App() {
         setToken(res.token);
       }
     }).catch(() => {}); // mode privé → laisser le modal apparaître normalement
+  }, []);
+
+  // Vérifier le compte Verdikt au démarrage
+  useEffect(() => {
+    const savedToken = localStorage.getItem("vdk_jwt");
+    if (savedToken) {
+      apiGetMe(savedToken).then(user => {
+        if (user) setUserAccount(user);
+        else { localStorage.removeItem("vdk_jwt"); setUserAccount(null); }
+      }).catch(() => {});
+    }
   }, []);
   const [sport,       setSport]      = useState("home");
   const [compId,      setCompId]     = useState("fr");
@@ -7281,10 +7813,31 @@ export default function App() {
     if (allData[cid]) setActiveMatch(mapLeague(allData[cid]));
   }
 
+  function handleAccountLogin(userData, jwtToken) {
+    localStorage.setItem("vdk_jwt", jwtToken);
+    localStorage.setItem("vdk_user", JSON.stringify(userData));
+    setUserAccount(userData);
+    setShowAuthModal(false);
+  }
+
+  function handleAccountLogout() {
+    localStorage.removeItem("vdk_jwt");
+    localStorage.removeItem("vdk_user");
+    setUserAccount(null);
+  }
+
   return (
     <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:C.bg, color:C.text, fontFamily:"'Inter', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" }}>
       {/* Modal login optionnel */}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={setToken} />}
+      {showAuthModal && (
+        <AuthModal
+          mode={authMode}
+          onSwitchMode={setAuthMode}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAccountLogin}
+        />
+      )}
 
       {/* Sidebar */}
       <Sidebar
@@ -7323,9 +7876,31 @@ export default function App() {
             {allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
             {" "}{allData[compId]?.league || "Chargement…"}
           </div>
-          <button onClick={() => { localStorage.removeItem("es_token"); setToken(""); }} style={{
-            border:`1px solid ${C.line}`, color:C.dim, background:C.panel, fontSize:11, borderRadius:6, padding:"5px 10px", cursor:"pointer",
-          }}>Déconnexion</button>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            {userAccount ? (
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <div style={{ width:28, height:28, borderRadius:"50%", background:userAccount.avatar_color||"#00D4AA", display:"grid", placeItems:"center", fontSize:12, fontWeight:800, color:"#0A1428", flexShrink:0 }}>
+                  {(userAccount.username||"?")[0].toUpperCase()}
+                </div>
+                <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{userAccount.username}</span>
+                <button onClick={handleAccountLogout} style={{
+                  border:`1px solid ${C.line}`, color:C.dim, background:"none", fontSize:11,
+                  borderRadius:6, padding:"4px 9px", cursor:"pointer",
+                }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;e.currentTarget.style.color=C.dim;}}>
+                  Déco.
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => { setAuthMode("login"); setShowAuthModal(true); }} style={{
+                background:C.accent, color:"#0A1428", border:"none", borderRadius:6,
+                padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer",
+              }}>
+                🔑 Se connecter
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Zone centrale + colonne pub — ROW */}
@@ -7375,10 +7950,12 @@ export default function App() {
                   <InfoPanel tone="error">{error}</InfoPanel>
                 ) : sport === "favs" ? (
                   <FavoritesView favorites={favorites} onToggleFavorite={toggleFavorite} />
+                ) : sport === "leaderboard" ? (
+                  <LeaderboardView userAccount={userAccount} />
                 ) : sport === "bankroll" ? (
                   <BankrollView />
                 ) : sport === "quiz" ? (
-                  <QuizView />
+                  <QuizView userAccount={userAccount} />
                 ) : sport === "encyclopedia" ? (
                   <EncyclopediaView />
                 ) : sport === "bracket" ? (
