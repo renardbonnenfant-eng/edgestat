@@ -416,15 +416,19 @@ IMPORTANT: mélange l'index correct (0,1,2 ou 3 aléatoirement). Réponds UNIQUE
   endGame(winnerId) {
     this.status = "finished";
     const winner = winnerId ? this.players.get(winnerId) : null;
+    // Points gagnés = nombre de joueurs - 1 (min 1)
+    const pointsEarned = Math.max(1, this.players.size - 1);
     this.broadcast({
       type: "game_over",
       winner: winnerId ? { id: winnerId, username: winner?.username } : null,
       finalScores: this.playersState(),
       totalQuestions: this.qIdx + 1,
+      pointsEarned,  // affiché dans l'UI
     });
     for (const [uid, p] of this.players) {
       if (String(uid).startsWith("guest_")) continue;
-      try { updateStats(uid, { correct: p.correct, wrong: p.wrong, responseMs: p.responseMs, won: uid === winnerId }); } catch {}
+      const won = uid === winnerId;
+      try { updateStats(uid, { correct: p.correct, wrong: p.wrong, responseMs: p.responseMs, won, pointsEarned: won ? pointsEarned : 0 }); } catch {}
     }
     setTimeout(() => rooms.delete(this.code), 60000);
   }

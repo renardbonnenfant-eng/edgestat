@@ -844,7 +844,6 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
           {[
             { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
-            { id:"bankroll",     label:"Bankroll",     icon:"💳", color:"#16a34a" },
             { id:"quiz",         label:"Quiz",         icon:"🧩", color:"#16a34a" },
             { id:"leaderboard",  label:"Classement",   icon:"🏆", color:"#d97706" },
             { id:"encyclopedia", label:"Encyclopédie", icon:"📖", color:"#7C3AED" },
@@ -4041,13 +4040,14 @@ const DIFFICULTIES = [
 function LeaderboardView({ userAccount }) {
   const [data, setData]     = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab]       = useState("correct"); // correct | wins | speed
+  const [tab, setTab]       = useState("points"); // points | correct | wins | speed
 
   useEffect(() => {
     fetchLeaderboard().then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
   const sorted = [...data].sort((a,b) => {
+    if (tab === "points")  return (b.points||0) - (a.points||0);
     if (tab === "correct") return b.total_correct - a.total_correct;
     if (tab === "wins")    return b.total_wins - a.total_wins;
     if (tab === "speed")   return (a.avg_response_ms||99999) - (b.avg_response_ms||99999);
@@ -4083,7 +4083,7 @@ function LeaderboardView({ userAccount }) {
             </div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{me.username} <span style={{ color:C.accent }}>— #{rank}</span></div>
-              <div style={{ fontSize:11, color:C.dim }}>{me.total_correct} bonnes rép. · {me.total_wins} victoires · {me.avg_response_ms ? `${(me.avg_response_ms/1000).toFixed(1)}s moy.` : "—"}</div>
+              <div style={{ fontSize:11, color:C.dim }}>⭐ {me.points||0} pts · {me.total_correct} bonnes rép. · {me.total_wins} victoires</div>
             </div>
           </div>
         );
@@ -4092,6 +4092,7 @@ function LeaderboardView({ userAccount }) {
       {/* Tabs tri */}
       <div style={{ display:"flex", gap:6, marginBottom:16 }}>
         {[
+          { id:"points",  label:"⭐ Points" },
           { id:"correct", label:"⚽ Bonnes réponses" },
           { id:"wins",    label:"🏆 Victoires" },
           { id:"speed",   label:"⚡ Temps de réponse" },
@@ -4141,18 +4142,18 @@ function LeaderboardView({ userAccount }) {
                   <div style={{ fontSize:10, color:C.muted }}>{player.total_games} parties</div>
                 </div>
                 {/* Stats */}
-                <div style={{ display:"flex", gap:16, flexShrink:0 }}>
+                <div style={{ display:"flex", gap:12, flexShrink:0 }}>
                   <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:14, fontWeight:800, color:"#16a34a" }}>{player.total_correct}</div>
+                    <div style={{ fontSize:16, fontWeight:900, color:"#d97706" }}>{player.points||0}</div>
+                    <div style={{ fontSize:8, color:C.muted, textTransform:"uppercase" }}>Points</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:13, fontWeight:800, color:"#16a34a" }}>{player.total_correct}</div>
                     <div style={{ fontSize:8, color:C.muted, textTransform:"uppercase" }}>Corrects</div>
                   </div>
                   <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:14, fontWeight:800, color:"#d97706" }}>{player.total_wins}</div>
+                    <div style={{ fontSize:13, fontWeight:800, color:C.accent }}>{player.total_wins}</div>
                     <div style={{ fontSize:8, color:C.muted, textTransform:"uppercase" }}>Victoires</div>
-                  </div>
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:14, fontWeight:800, color:C.accent }}>{player.avg_response_ms ? `${(player.avg_response_ms/1000).toFixed(1)}s` : "—"}</div>
-                    <div style={{ fontSize:8, color:C.muted, textTransform:"uppercase" }}>Temps moy.</div>
                   </div>
                 </div>
               </div>
@@ -5033,29 +5034,43 @@ function MultiplayerQuiz({ userAccount, onBack }) {
   );
 
   // RÉSULTAT FINAL
-  if (phase === "result" && gameOver) return (
-    <div style={{ padding:"24px", textAlign:"center" }}>
-      <div style={{ fontSize:48, marginBottom:12 }}>🏆</div>
-      <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>
-        {gameOver.winner?.username === userAccount?.username ? "🎉 Tu as gagné !" : `${gameOver.winner?.username} a gagné !`}
-      </div>
-      <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:20, marginBottom:20 }}>
-        {gameOver.finalScores.map((p,i) => (
-          <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"10px 14px" }}>
-            <span style={{ fontSize:16 }}>{["🥇","🥈","🥉"][i]||`#${i+1}`}</span>
-            <div style={{ width:26, height:26, borderRadius:"50%", background:p.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:11, fontWeight:800, color:"#0A1428" }}>
-              {p.username[0].toUpperCase()}
+  if (phase === "result" && gameOver) {
+    const iWon = gameOver.winner?.username === myUsername;
+    const pts  = gameOver.pointsEarned || (gameOver.finalScores?.length - 1) || 1;
+    return (
+      <div style={{ padding:"24px", textAlign:"center" }}>
+        <div style={{ fontSize:48, marginBottom:8 }}>{iWon ? "🏆" : "💪"}</div>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>
+          {iWon ? "🎉 Tu as gagné !" : `${gameOver.winner?.username || "Personne"} a gagné !`}
+        </div>
+        {/* Points gagnés */}
+        {iWon && (
+          <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(212,160,0,.15)", border:"1px solid #d97706", borderRadius:20, padding:"8px 20px", marginBottom:16 }}>
+            <span style={{ fontSize:22 }}>⭐</span>
+            <div>
+              <div style={{ fontSize:20, fontWeight:900, color:"#d97706" }}>+{pts} point{pts>1?"s":""}</div>
+              <div style={{ fontSize:10, color:C.muted }}>ajouté{pts>1?"s":""} à ton classement</div>
             </div>
-            <span style={{ flex:1, fontSize:13, color:C.text }}>{p.username}</span>
-            <span style={{ fontSize:15, fontWeight:800, color:C.accent }}>{p.score}</span>
           </div>
-        ))}
+        )}
+        <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:iWon?8:20, marginBottom:20 }}>
+          {gameOver.finalScores.map((p,i) => (
+            <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"10px 14px" }}>
+              <span style={{ fontSize:16 }}>{["🥇","🥈","🥉"][i]||`#${i+1}`}</span>
+              <div style={{ width:26, height:26, borderRadius:"50%", background:p.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:11, fontWeight:800, color:"#0A1428" }}>
+                {p.username[0].toUpperCase()}
+              </div>
+              <span style={{ flex:1, fontSize:13, color:C.text }}>{p.username}</span>
+              <span style={{ fontSize:15, fontWeight:800, color:C.accent }}>{p.score}</span>
+            </div>
+          ))}
+        </div>
+        <button onClick={leave} style={{ background:C.accent, color:"#0A1428", border:"none", borderRadius:8, padding:"12px 28px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+          Retour au menu
+        </button>
       </div>
-      <button onClick={leave} style={{ background:C.accent, color:"#0A1428", border:"none", borderRadius:8, padding:"12px 28px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
-        Retour au menu
-      </button>
-    </div>
-  );
+    );
+  }
 
   return null;
 }
@@ -9098,7 +9113,12 @@ export default function App() {
                 <div style={{ width:28, height:28, borderRadius:"50%", background:userAccount.avatar_color||"#00D4AA", display:"grid", placeItems:"center", fontSize:12, fontWeight:800, color:"#0A1428", flexShrink:0 }}>
                   {(userAccount.username||"?")[0].toUpperCase()}
                 </div>
-                {!isMobile && <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{userAccount.username}</span>}
+                {!isMobile && (
+                  <div style={{ display:"flex", flexDirection:"column", lineHeight:1.2 }}>
+                    <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{userAccount.username}</span>
+                    {userAccount.stats?.points > 0 && <span style={{ fontSize:10, color:"#d97706", fontWeight:700 }}>⭐ {userAccount.stats.points} pts</span>}
+                  </div>
+                )}
                 <button onClick={handleAccountLogout} style={{
                   border:`1px solid ${C.line}`, color:C.dim, background:"none", fontSize:11,
                   borderRadius:6, padding:"4px 9px", cursor:"pointer",
@@ -9168,8 +9188,8 @@ export default function App() {
                   <FavoritesView favorites={favorites} onToggleFavorite={toggleFavorite} />
                 ) : sport === "leaderboard" ? (
                   <LeaderboardView userAccount={userAccount} />
-                ) : sport === "bankroll" ? (
-                  <BankrollView />
+                ) : sport === "points_dummy_remove" ? (
+                  <div/>
                 ) : sport === "quiz" ? (
                   <QuizView userAccount={userAccount} />
                 ) : sport === "encyclopedia" ? (

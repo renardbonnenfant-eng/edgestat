@@ -33,7 +33,7 @@ export async function register(email, username, password) {
   store.users[id]                   = user;
   store.usersByEmail[emailLc]       = id;
   store.usersByUsername[usernameLc] = id;
-  store.stats[id] = { user_id: id, total_correct: 0, total_wrong: 0, total_games: 0, total_wins: 0, total_response_ms: 0, questions_answered: 0 };
+  store.stats[id] = { user_id: id, total_correct: 0, total_wrong: 0, total_games: 0, total_wins: 0, total_response_ms: 0, questions_answered: 0, points: 0 };
   persist();
 
   const pub = { id, email: emailLc, username: usernameTr, avatar_color: color };
@@ -84,14 +84,14 @@ export function getLeaderboard(limit = 50) {
         ? Math.round(s.total_response_ms / s.questions_answered) : null;
       return { id: u.id, username: u.username, avatar_color: u.avatar_color, created_at: u.created_at, ...s, avg_response_ms: avg };
     })
-    .sort((a, b) => b.total_correct - a.total_correct)
+    .sort((a, b) => (b.points||0) - (a.points||0) || b.total_correct - a.total_correct)
     .slice(0, limit);
 }
 
 // ── Mise à jour stats ────────────────────────────────────────
-export function updateStats(userId, { correct, wrong, responseMs, won }) {
+export function updateStats(userId, { correct, wrong, responseMs, won, pointsEarned = 0 }) {
   if (!store.stats[userId]) {
-    store.stats[userId] = { user_id: userId, total_correct: 0, total_wrong: 0, total_games: 0, total_wins: 0, total_response_ms: 0, questions_answered: 0 };
+    store.stats[userId] = { user_id: userId, total_correct: 0, total_wrong: 0, total_games: 0, total_wins: 0, total_response_ms: 0, questions_answered: 0, points: 0 };
   }
   const s = store.stats[userId];
   s.total_correct      += correct || 0;
@@ -100,5 +100,6 @@ export function updateStats(userId, { correct, wrong, responseMs, won }) {
   if (won) s.total_wins++;
   s.total_response_ms  += responseMs || 0;
   s.questions_answered += (correct || 0) + (wrong || 0);
+  s.points             = (s.points || 0) + (pointsEarned || 0);
   persist();
 }
