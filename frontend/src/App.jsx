@@ -6,29 +6,30 @@ import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 // Palette
 // ============================================================
 const C = {
-  bg:              "#F3F6F9",
-  sidebar:         "#032D60",
-  sidebarHover:    "#044E9F",
-  sidebarActive:   "#0176D3",
-  sidebarText:     "#9FC3E9",
-  sidebarSection:  "#4A6B8A",
-  panel:           "#ffffff",
-  panel2:          "#F3F6F9",
-  line:            "#D0D5DD",
-  text:            "#032D60",
-  dim:             "#667085",
-  muted:           "#98A2B3",
-  accent:          "#0176D3",
-  accentBg:        "#EBF5FB",
-  accentHover:     "#015BB5",
+  bg:              "#1C2A3A",
+  sidebar:         "#18263A",
+  sidebarHover:    "#1E3040",
+  sidebarActive:   "#1E3040",
+  sidebarBorder:   "#243548",
+  sidebarText:     "#8AABBD",
+  sidebarSection:  "#2A4A62",
+  panel:           "#182030",
+  panel2:          "#1C2A3A",
+  line:            "#243548",
+  text:            "#D0E8F4",
+  dim:             "#5A7A8A",
+  muted:           "#3A607A",
+  accent:          "#00D4AA",
+  accentBg:        "#0D2E2A",
+  accentHover:     "#00B894",
   warn:            "#F59E0B",
-  warnBg:          "#FFFBEB",
-  red:             "#DC2626",
-  redBg:           "#FEF2F2",
-  blue:            "#0176D3",
-  green:           "#10B981",
-  greenBg:         "#D1FAE5",
-  purple:          "#7C3AED",
+  warnBg:          "#1C1A0A",
+  red:             "#FF4444",
+  redBg:           "#2A1010",
+  blue:            "#00D4AA",
+  green:           "#00D4AA",
+  greenBg:         "#0D2E2A",
+  purple:          "#A78BFA",
 };
 
 // ============================================================
@@ -399,7 +400,7 @@ function LoginModal({ onClose, onLogin }) {
           <div style={{ width:44, height:44, borderRadius:10, background:C.accent, display:"grid", placeItems:"center", fontSize:22, color:"#fff" }}>⌁</div>
           <div style={{ textAlign:"center" }}>
             <div style={{ fontSize:18, fontWeight:900 }}>Connexion</div>
-            <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>Accès membres EdgeStat</div>
+            <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>Accès membres Verdikt</div>
           </div>
         </div>
         <form onSubmit={handleSubmit}>
@@ -444,14 +445,14 @@ function SidebarLive({ onMatchClick }) {
   const sorted = [...live].sort((a,b) => livePrestige(b) - livePrestige(a));
 
   return (
-    <div style={{ borderBottom:"1px solid #044E9F" }}>
+    <div style={{ borderBottom:`1px solid ${C.sidebarBorder}` }}>
       {/* Header cliquable pour déplier/replier */}
       <button onClick={() => setOpen(v=>!v)} style={{
         width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
         padding:"8px 14px", background:"none", border:"none", cursor:"pointer",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-          <div style={{ width:7, height:7, borderRadius:"50%", background:"#DC2626", boxShadow:"0 0 5px #DC2626" }} />
+          <div style={{ width:7, height:7, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", animation:"verdikt-blink 1.2s ease-in-out infinite" }}/>
           <span style={{ fontSize:11, fontWeight:700, color:"#ffffff", letterSpacing:.5 }}>
             LIVE
           </span>
@@ -463,7 +464,7 @@ function SidebarLive({ onMatchClick }) {
       </button>
 
       {open && (
-        <div style={{ padding:"0 8px 8px", display:"flex", flexDirection:"column", gap:3, maxHeight:260, overflowY:"auto", scrollbarWidth:"thin", scrollbarColor:"#044E9F transparent" }}>
+        <div style={{ padding:"0 8px 8px", display:"flex", flexDirection:"column", gap:3, maxHeight:260, overflowY:"auto", scrollbarWidth:"thin", scrollbarColor:"#243548 transparent" }}>
           {sorted.map(f => {
             const canNav = !!f.compId;
             return (
@@ -489,7 +490,9 @@ function SidebarLive({ onMatchClick }) {
                 {/* Score + minute */}
                 <div style={{ textAlign:"right", flexShrink:0 }}>
                   <div style={{ fontSize:11, fontWeight:800, color:"#DC2626" }}>{f.score}</div>
-                  <div style={{ fontSize:9, color:"#9FC3E9" }}>{f.minute ? `${f.minute}'` : "🔴"}</div>
+                  <div style={{ fontSize:9, color:"#00D4AA", animation:"verdikt-blink 1.5s ease-in-out infinite", fontWeight:700 }}>
+  {f.minute ? `${f.minute}'` : "🔴"}
+</div>
                 </div>
               </button>
             );
@@ -561,19 +564,19 @@ function SidebarSearch({ allData, logoRegistry, onSelectComp, onSelectTeam, onOp
   );
 
   return (
-    <div ref={ref} style={{ padding:"10px 12px 8px", borderBottom:"1px solid #044E9F", position:"relative", flexShrink:0 }}>
+    <div ref={ref} style={{ padding:"10px 12px 8px", borderBottom:`1px solid ${C.sidebarBorder}`, position:"relative", flexShrink:0 }}>
       {/* Input */}
-      <div style={{ display:"flex", alignItems:"center", gap:7, background:"#044E9F", borderRadius:8, padding:"7px 10px", border:`1px solid ${open ? "#60A5FA" : "transparent"}`, transition:"border .15s" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:7, background:"#0E1A28", borderRadius:8, padding:"7px 10px", border:`1px solid ${open ? "#00D4AA" : "#243548"}`, transition:"border .15s" }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <circle cx="6" cy="6" r="5" stroke="#9FC3E9" strokeWidth="1.5"/>
-          <line x1="10" y1="10" x2="13" y2="13" stroke="#9FC3E9" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="6" cy="6" r="5" stroke="#2A4A62" strokeWidth="1.5"/>
+          <line x1="10" y1="10" x2="13" y2="13" stroke="#2A4A62" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
         <input
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           placeholder="Rechercher équipe, joueur, compé…"
-          style={{ background:"none", border:"none", outline:"none", color:"#fff", flex:1, fontSize:12, "::placeholder":{ color:"#9FC3E9" } }}
+          style={{ background:"none", border:"none", outline:"none", color:"#D0E8F4", flex:1, fontSize:12, "::placeholder":{ color:"#5A7A8A" } }}
         />
         {query && (
           <button onClick={() => { setQuery(""); setResults({ comps:[],teams:[],players:[] }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9FC3E9", fontSize:13, lineHeight:1, padding:0 }}>✕</button>
@@ -685,14 +688,21 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
   return (
     <div style={{
       width:220, flexShrink:0, background:C.sidebar,
-      borderRight:"1px solid #044E9F",
+      borderRight:`1px solid ${C.sidebarBorder}`,
       height:"100vh", overflowY:"auto", position:"sticky", top:0,
       display:"flex", flexDirection:"column",
     }}>
       {/* Logo */}
-      <div style={{ padding:"14px 16px 12px", borderBottom:"1px solid #044E9F", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
-        <div style={{ width:30, height:30, borderRadius:7, background:"#0176D3", display:"grid", placeItems:"center", fontSize:17, color:"#fff", flexShrink:0 }}>⌁</div>
-        <span style={{ color:"#ffffff", fontWeight:700, fontSize:17 }}>EdgeStat</span>
+      <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid ${C.sidebarBorder}`, display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" flexShrink="0">
+          <line x1="3" y1="3" x2="23" y2="3" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+          <line x1="4" y1="7" x2="22" y2="7" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+          <line x1="6" y1="11" x2="20" y2="11" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+          <line x1="8" y1="15" x2="18" y2="15" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+          <line x1="10" y1="19" x2="16" y2="19" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
+          <circle cx="13" cy="23" r="1.8" fill="#00D4AA"/>
+        </svg>
+        <span style={{ color:"#D0E8F4", fontWeight:800, fontSize:16, letterSpacing:.5 }}>Verdikt</span>
       </div>
 
       {/* Recherche globale */}
@@ -714,7 +724,7 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
       }} />
 
       {/* Sport toggle — bien visible */}
-      <div style={{ padding:"10px 10px 12px", borderBottom:"1px solid #044E9F" }}>
+      <div style={{ padding:"10px 10px 12px", borderBottom:`1px solid ${C.sidebarBorder}` }}>
         <div style={{ fontSize:9, color:C.sidebarSection, textTransform:"uppercase", letterSpacing:2, marginBottom:6, paddingLeft:2 }}>Sport</div>
         <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
           {[
@@ -826,14 +836,16 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
       )}
 
       {/* Footer sidebar : login optionnel */}
-      <div style={{ padding:"10px 12px", borderTop:"1px solid #044E9F", flexShrink:0 }}>
+      <div style={{ padding:"10px 12px", borderTop:`1px solid ${C.sidebarBorder}`, flexShrink:0 }}>
         {token ? (
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <span style={{ color:"#60A5FA", fontWeight:600, fontSize:11 }}>✓ Connecté</span>
-            <button onClick={onLogout} style={{ background:"none", border:"1px solid #044E9F", borderRadius:5, color:C.sidebarText, fontSize:10, padding:"4px 8px", cursor:"pointer" }}>Déco.</button>
+            <button onClick={onLogout} style={{ background:"none", border:`1px solid ${C.sidebarBorder}`, borderRadius:4, color:C.dim, fontSize:10, padding:"4px 8px", cursor:"pointer", transition:"all .15s" }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#00D4AA";e.currentTarget.style.color="#00D4AA";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.sidebarBorder;e.currentTarget.style.color=C.dim;}}>Déco.</button>
           </div>
         ) : (
-          <button onClick={onLoginClick} style={{ width:"100%", background:C.panel2, border:`1px solid ${C.line}`, borderRadius:7, color:C.dim, fontSize:12, fontWeight:600, padding:"8px 0", cursor:"pointer" }}>
+          <button onClick={onLoginClick} style={{ width:"100%", background:"#00D4AA", border:"none", borderRadius:0, color:"#0A1428", fontSize:12, fontWeight:700, padding:"10px 0", cursor:"pointer", letterSpacing:.3 }}>
             🔑 Connexion membre
           </button>
         )}
@@ -2057,7 +2069,7 @@ function ChatWidget({ matchContext, teamDatabase = {} }) {
           <div style={{ padding:"10px 14px", background:C.accent, display:"flex", alignItems:"center", gap:8 }}>
             <span style={{ fontSize:15 }}>🤖</span>
             <div>
-              <div style={{ fontWeight:800, fontSize:12.5, color:"#fff" }}>Assistant EdgeStat</div>
+              <div style={{ fontWeight:800, fontSize:12.5, color:"#fff" }}>Assistant Verdikt</div>
               <div style={{ fontSize:10, color:"#ffffff99" }}>{teamCount} équipe{teamCount>1?"s":""} · pas de prédiction</div>
             </div>
             <div style={{ marginLeft:"auto", fontSize:10, color:"#ffffff99", textAlign:"right" }}>
@@ -3065,31 +3077,82 @@ function TabFormation({ fixtureId, homeColor, awayColor, goalMap = {} }) {
 }
 
 // ============================================================
-// Colonne publicitaire droite
+// Colonne publicitaire droite — maquettes réalistes bookmakers
 // ============================================================
-function AdUnit({ height, label }) {
+function AdBanner({ height, brand }) {
+  const brands = {
+    winamax: {
+      bg: "linear-gradient(135deg, #1a4a1a 0%, #0d2e0d 100%)",
+      border: "#2d6a2d",
+      accent: "#4ade80",
+      logo: "W",
+      logoBg: "#16a34a",
+      name: "Winamax",
+      tagline: "Le pari sportif qui vous ressemble",
+      cta: "Parier maintenant",
+      bonus: "Jusqu'à 200€ offerts",
+    },
+    betclic: {
+      bg: "linear-gradient(135deg, #0a1628 0%, #0d1f3c 100%)",
+      border: "#1e3a5f",
+      accent: "#3b82f6",
+      logo: "B",
+      logoBg: "#1d4ed8",
+      name: "Betclic",
+      tagline: "N°1 des paris sportifs",
+      cta: "Je parie →",
+      bonus: "100% jusqu'à 100€",
+    },
+    unibet: {
+      bg: "linear-gradient(135deg, #1a0f00 0%, #2d1a00 100%)",
+      border: "#4a2d00",
+      accent: "#f97316",
+      logo: "U",
+      logoBg: "#ea580c",
+      name: "Unibet",
+      tagline: "Vivez le sport autrement",
+      cta: "Voir les cotes",
+      bonus: "Bienvenue 50€ gratuits",
+    },
+  };
+  const b = brands[brand] || brands.winamax;
+
   return (
     <div style={{
-      width:"100%", height,
-      background:C.panel,
-      border:`1px solid ${C.line}`,
-      borderRadius:10,
+      width:"100%", height, borderRadius:8, overflow:"hidden",
+      background:b.bg, border:`1px solid ${b.border}`,
       display:"flex", flexDirection:"column",
-      alignItems:"center", justifyContent:"center",
-      gap:6,
-      position:"relative", overflow:"hidden",
+      padding:"14px 14px 10px", position:"relative",
+      cursor:"pointer",
     }}>
-      {/* Motif de fond subtil */}
-      <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:.04 }} xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`grid-${height}`} width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#032D60" strokeWidth="0.5"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#grid-${height})`}/>
-      </svg>
-      <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:1.8, fontWeight:500 }}>Publicité</div>
-      <div style={{ fontSize:10, color:C.line, fontWeight:400 }}>{label}</div>
+      {/* Logo + nom */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+        <div style={{ width:28, height:28, borderRadius:6, background:b.logoBg, display:"grid", placeItems:"center", fontSize:14, fontWeight:900, color:"#fff", flexShrink:0 }}>
+          {b.logo}
+        </div>
+        <span style={{ fontSize:14, fontWeight:800, color:"#fff" }}>{b.name}</span>
+        <span style={{ marginLeft:"auto", fontSize:8, background:"rgba(255,255,255,.1)", color:"rgba(255,255,255,.6)", borderRadius:4, padding:"2px 6px" }}>PARTENAIRE</span>
+      </div>
+
+      {/* Bonus */}
+      <div style={{ background:`${b.accent}22`, border:`1px solid ${b.accent}55`, borderRadius:6, padding:"8px 10px", marginBottom:8 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:b.accent }}>{b.bonus}</div>
+      </div>
+
+      {/* Tagline */}
+      {height > 220 && (
+        <div style={{ fontSize:10, color:"rgba(255,255,255,.5)", lineHeight:1.5, marginBottom:"auto" }}>{b.tagline}</div>
+      )}
+
+      {/* CTA */}
+      <div style={{ marginTop:"auto" }}>
+        <div style={{ background:b.accent, borderRadius:5, padding:"7px 12px", textAlign:"center", fontSize:11, fontWeight:700, color:"#fff", marginBottom:6 }}>
+          {b.cta}
+        </div>
+        <div style={{ fontSize:8, color:"rgba(255,255,255,.3)", textAlign:"center", lineHeight:1.4 }}>
+          18+ · Jeu responsable · joueurs-info-service.fr · 09 74 75 13 13
+        </div>
+      </div>
     </div>
   );
 }
@@ -3098,30 +3161,20 @@ function AdColumn() {
   return (
     <div style={{
       width:260, flexShrink:0,
-      borderLeft:`1px solid ${C.line}`,
-      background:C.bg,
+      borderLeft:`1px solid #243548`,
+      background:"#18263A",
       overflowY:"auto",
-      padding:"20px 14px",
+      padding:"16px 12px",
       display:"flex", flexDirection:"column",
-      gap:14,
+      gap:12,
       scrollbarWidth:"none",
     }}>
-      {/* Label section */}
-      <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:1.5, fontWeight:500, textAlign:"center", paddingBottom:4, borderBottom:`1px solid ${C.line}` }}>
-        Espaces publicitaires
+      <div style={{ fontSize:8, color:"#2A4A62", textTransform:"uppercase", letterSpacing:2, fontWeight:600, textAlign:"center", paddingBottom:6, borderBottom:"1px solid #243548" }}>
+        Espaces partenaires
       </div>
-
-      {/* Format Leaderboard */}
-      <AdUnit height={200} label="260 × 200" />
-
-      {/* Format Medium Rectangle */}
-      <AdUnit height={280} label="260 × 280" />
-
-      {/* Format Half Page */}
-      <AdUnit height={360} label="260 × 360" />
-
-      {/* Format Skyscraper */}
-      <AdUnit height={260} label="260 × 260" />
+      <AdBanner height={200} brand="winamax" />
+      <AdBanner height={280} brand="betclic" />
+      <AdBanner height={360} brand="unibet" />
     </div>
   );
 }
@@ -3398,7 +3451,7 @@ function FavoritesView({ favorites, onToggleFavorite }) {
     const perm = await Notification.requestPermission();
     setNotifPermission(perm);
     if (perm === "granted") {
-      new Notification("⭐ EdgeStat Notifications activées", {
+      new Notification("⭐ Verdikt Notifications activées", {
         body: "Vous recevrez des alertes 24h, 1h et 5min avant les matchs de vos clubs favoris.",
         icon: "/favicon.ico",
       });
@@ -6699,7 +6752,7 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
         marginBottom:16, borderBottom:`1px solid ${C.line}`,
       }}>
         <LeagueLogo url={stored.leagueLogo} size={18} />
-        <span style={{ fontSize:14, fontWeight:500, color:C.text }}>{stored.league || "—"}</span>
+        <span style={{ fontSize:14, fontWeight:500, color:"#3A607A" }}>{stored.league || "—"}</span>
         {/* Boutons favoris des deux équipes si match sélectionné */}
         {matchSelected && currentFixture?.home && currentFixture?.away && (
           <div style={{ display:"flex", gap:6, marginLeft:8 }}>
