@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard } from "./api.js";
+import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats } from "./api.js";
 import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 
 // ============================================================
@@ -1248,16 +1248,18 @@ function PeriodSelector({ period, onChange }) {
 // Onglets
 // ============================================================
 const TABS = [
-  { id:"resultat", label:"V/D" },
-  { id:"double",   label:"Double Chance" },
-  { id:"ecart",    label:"Écart" },
-  { id:"buteur",   label:"Buteur" },
-  { id:"buts",     label:"Over/Under" },
-  { id:"timing",   label:"Quarts d'heure" },
-  { id:"btts",     label:"BTTS & CS" },
-  { id:"penalty",  label:"Penalty" },
-  { id:"compo",    label:"Compo ⚽" },
-  { id:"meteo",    label:"🌤 Météo" },
+  { id:"resultat",    label:"V/D" },
+  { id:"stats_match", label:"📊 Stats Match" },
+  { id:"double",      label:"Double Chance" },
+  { id:"ecart",       label:"Écart" },
+  { id:"buteur",      label:"Buteur" },
+  { id:"buts",        label:"Over/Under" },
+  { id:"timing",      label:"Quarts d'heure" },
+  { id:"btts",        label:"BTTS & CS" },
+  { id:"penalty",     label:"Penalty" },
+  { id:"compo",       label:"Compo ⚽" },
+  { id:"meteo",       label:"🌤 Météo" },
+  { id:"classement",  label:"Classement" },
 ];
 
 function TabBar({ tab, setTab }) {
@@ -1279,6 +1281,90 @@ function TabBar({ tab, setTab }) {
           }}>{t.label}</button>
         );
       })}
+    </div>
+  );
+}
+
+// ============================================================
+// Onglet : Statistiques de match (tirs, corners, possession)
+// ============================================================
+function TabMatchStats({ fixtureId }) {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!fixtureId) return;
+    setLoading(true);
+    fetchMatchStats(fixtureId)
+      .then(d => { setStats(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [fixtureId]);
+
+  if (loading) return <InfoPanel>Chargement des statistiques…</InfoPanel>;
+  if (!stats || stats.length < 2) return <InfoPanel>Statistiques non disponibles pour ce match.</InfoPanel>;
+
+  const [home, away] = stats;
+  const getVal = (team, key) => {
+    const v = team.stats?.[key];
+    return v === null || v === undefined ? "—" : String(v).replace("%","");
+  };
+  const getNum = (team, key) => parseInt(getVal(team, key)) || 0;
+
+  const StatBar = ({ label, homeVal, awayVal, isPercent }) => {
+    const h = isPercent ? parseInt(homeVal)||0 : 0;
+    const hPct = isPercent ? h : (getNum(home, label) / (getNum(home, label)+getNum(away, label)||1)) * 100;
+    const aPct = 100 - hPct;
+    return (
+      <div style={{ display:"grid", gridTemplateColumns:"60px 1fr 60px", alignItems:"center", gap:10, marginBottom:10 }}>
+        <div style={{ textAlign:"right", fontSize:13, fontWeight:700, color:C.accent }}>{homeVal}</div>
+        <div style={{ background:C.panel2, borderRadius:99, height:7, overflow:"hidden", display:"flex" }}>
+          <div style={{ width:`${hPct}%`, background:C.accent, transition:"width .5s" }}/>
+          <div style={{ width:`${aPct}%`, background:C.blue, transition:"width .5s" }}/>
+        </div>
+        <div style={{ fontSize:13, fontWeight:700, color:C.blue }}>{awayVal}</div>
+      </div>
+    );
+  };
+
+  const rows = [
+    { label:"Possession", key:"Ball Possession", isPercent:true },
+    { label:"Tirs total", key:"Total Shots" },
+    { label:"Tirs cadrés", key:"Shots on Goal" },
+    { label:"Corners", key:"Corner Kicks" },
+    { label:"Fautes", key:"Fouls" },
+    { label:"Cartons jaunes", key:"Yellow Cards" },
+    { label:"Cartons rouges", key:"Red Cards" },
+    { label:"Hors-jeu", key:"Offsides" },
+    { label:"Arrêts", key:"Goalkeeper Saves" },
+    { label:"Passes réussies", key:"Passes accurate" },
+  ];
+
+  return (
+    <div>
+      {/* Header équipes */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:12, marginBottom:20, padding:"10px 0" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <TeamLogo url={home.team?.logo} size={28} name={home.team?.name} />
+          <span style={{ fontSize:13, fontWeight:600, color:C.accent }}>{home.team?.name}</span>
+        </div>
+        <span style={{ fontSize:11, color:C.muted, fontWeight:500 }}>vs</span>
+        <div style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end" }}>
+          <span style={{ fontSize:13, fontWeight:600, color:C.blue }}>{away.team?.name}</span>
+          <TeamLogo url={away.team?.logo} size={28} name={away.team?.name} />
+        </div>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+        {rows.map(row => {
+          const hv = getVal(home, row.key);
+          const av = getVal(away, row.key);
+          if (hv === "—" && av === "—") return null;
+          return (
+            <div key={row.label}>
+              <div style={{ textAlign:"center", fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:4 }}>{row.label}</div>
+              <StatBar label={row.label} homeVal={hv} awayVal={av} isPercent={row.isPercent} />
+            </div>
+          );
+        }).filter(Boolean)}
+      </div>
     </div>
   );
 }
@@ -4437,11 +4523,136 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
           ));
         })()}
       </div>
+
+      {/* === CE JOUR DANS L'HISTOIRE === */}
+      {(() => {
+        const today = new Date();
+        const day   = today.getDate();
+        const month = today.getMonth()+1;
+
+        const HISTORY_FACTS = [
+          { m:5, d:25, year:1967, text:"Le Celtic Glasgow devient le premier club britannique à remporter la Coupe d'Europe (2-1 vs Inter Milan à Lisbonne). Les 'Lions de Lisbonne'." },
+          { m:5, d:26, year:1999, text:"Manchester United gagne la Ligue des Champions contre le Bayern Munich 2-1 après deux buts en arrêts de jeu (Sheringham 91', Solskjaer 93')." },
+          { m:5, d:29, year:1985, text:"Tragédie du Heysel : 39 morts lors de la finale Juventus-Liverpool. L'UEFA interdit les clubs anglais de coupe d'Europe." },
+          { m:6, d:11, year:2010, text:"Le Mondial 2010 s'ouvre en Afrique du Sud — 1ère CdM sur le continent africain. Bafana Bafana fait match nul contre le Mexique 1-1." },
+          { m:7, d:13, year:1930, text:"Le tout premier match de Coupe du Monde de l'histoire : France 4-1 Mexique. Lucien Laurent inscrit le 1er but de l'histoire des CdM." },
+          { m:7, d:30, year:1966, text:"L'Angleterre remporte sa seule et unique Coupe du Monde à Wembley, 4-2 contre l'Allemagne. Hat-trick de Geoff Hurst." },
+          { m:6, d:4,  year:2012, text:"Chelsea remporte sa 1ère Ligue des Champions (1-1 ap vs Bayern, t.a.b. 4-3). Didier Drogba marque à la 88e puis le penalty décisif." },
+          { m:5, d:22, year:1999, text:"Manchester United bat la Juventus en demi-finale de LDC (3-2) après avoir été menés 2-0. Roy Keane, suspendu pour la finale, signe une performance légendaire." },
+          { m:4, d:6,  year:2005, text:"AC Milan mène 3-0 à la mi-temps de la finale UCL vs Liverpool... Le reste est de l'histoire (miracle d'Istanbul)." },
+          { m:5, d:25, year:2005, text:"Le miracle d'Istanbul : Liverpool remonte un 0-3 contre l'AC Milan et gagne aux tirs au but (3-3 ap, 3-2 aux pen)." },
+        ];
+
+        const facts = HISTORY_FACTS.filter(f => f.m===month && f.d===day);
+        if (!facts.length) return null;
+
+        return (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+              <span style={{ fontSize:18 }}>📅</span>
+              <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>Ce jour dans l'histoire</span>
+              <span style={{ fontSize:11, color:C.muted }}>{day}/{month}</span>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {facts.map((f,i) => (
+                <div key={i} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"14px 16px", display:"flex", gap:14, alignItems:"flex-start" }}>
+                  <div style={{ flexShrink:0, background:`${C.accent}18`, borderRadius:10, padding:"8px 12px", textAlign:"center" }}>
+                    <div style={{ fontSize:18, fontWeight:900, color:C.accent }}>{f.year}</div>
+                    <div style={{ fontSize:9, color:C.dim }}>il y a {new Date().getFullYear()-f.year} ans</div>
+                  </div>
+                  <p style={{ fontSize:12, color:C.text, lineHeight:1.7, margin:0 }}>{f.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
 // ============================================================
+// ============================================================
+// Onglet : Classement de championnat
+// ============================================================
+function TabClassement({ compId }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const now = new Date();
+  const season = now.getMonth()>=6?now.getFullYear():now.getFullYear()-1;
+
+  const API_IDS = {fr:61,en:39,it:135,de:78,es:140,pt:94,ucl:2,uel:3,uecl:848,en_ch:40,fr_l2:62,de_b2:79,es_l2:141,it_sb:136};
+  const apiId = API_IDS[compId];
+
+  useEffect(() => {
+    if (!apiId) { setLoading(false); return; }
+    setLoading(true);
+    fetchStandings(apiId, season)
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [compId, apiId, season]);
+
+  if (loading) return <InfoPanel>Chargement du classement…</InfoPanel>;
+  if (!data || !data.length) return <InfoPanel>Classement non disponible pour cette compétition.</InfoPanel>;
+
+  const group = data[0] || [];
+
+  return (
+    <div>
+      <div style={{ overflowX:"auto" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+          <thead>
+            <tr style={{ background:C.panel2 }}>
+              {["#","Équipe","J","V","N","D","BP","BC","Diff","Pts","Forme"].map(h => (
+                <th key={h} style={{ padding:"8px 10px", color:C.dim, fontWeight:600, textAlign:h==="Équipe"?"left":"center", fontSize:10, textTransform:"uppercase", letterSpacing:.5, borderBottom:`1px solid ${C.line}` }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {group.map((row, i) => {
+              const form = (row.form||"").split("").slice(-5);
+              const pts = row.points||0;
+              const topZone = i < 4;
+              const relegation = i >= group.length-3;
+              return (
+                <tr key={row.team?.id||i} style={{ borderBottom:`1px solid ${C.line}44`, background:i%2===0?"none":C.panel2+"44" }}>
+                  <td style={{ padding:"8px 10px", textAlign:"center", fontWeight:700, color:topZone?C.accent:relegation?"#ef4444":C.text }}>{row.rank}</td>
+                  <td style={{ padding:"8px 10px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                      {row.team?.logo && <img src={row.team.logo} width={16} height={16} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
+                      <span style={{ fontWeight:500, color:C.text }}>{row.team?.name}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding:"8px 10px", textAlign:"center", color:C.dim }}>{row.all?.played||0}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center", color:"#16a34a", fontWeight:600 }}>{row.all?.win||0}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center", color:"#d97706" }}>{row.all?.draw||0}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center", color:"#ef4444" }}>{row.all?.lose||0}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center", color:C.dim }}>{row.all?.goals?.for||0}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center", color:C.dim }}>{row.all?.goals?.against||0}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center", color:C.dim }}>{(row.goalsDiff||0)>0?"+":""}{row.goalsDiff||0}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center", fontWeight:800, color:C.accent, fontSize:13 }}>{pts}</td>
+                  <td style={{ padding:"8px 4px" }}>
+                    <div style={{ display:"flex", gap:2, justifyContent:"center" }}>
+                      {form.map((r,j) => (
+                        <span key={j} style={{ width:16, height:16, borderRadius:3, display:"grid", placeItems:"center", fontSize:8, fontWeight:700,
+                          background:r==="W"?"#16a34a":r==="L"?"#ef4444":r==="D"?"#d97706":"#94a3b8", color:"#fff" }}>{r}</span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop:10, display:"flex", gap:16, fontSize:10, color:C.muted }}>
+        <span style={{ color:C.accent }}>■ Zone qualificative</span>
+        <span style={{ color:"#ef4444" }}>■ Zone de relégation</span>
+      </div>
+    </div>
+  );
+}
+
 // Onglet Météo — statistiques V/N/D par conditions climatiques
 // ============================================================
 function TabMeteo({ compId, fixtureId }) {
@@ -4756,6 +4967,115 @@ function OddsDisplay({ fixtureId }) {
   );
 }
 
+// ============================================================
+// Calculateur de paris flottant
+// ============================================================
+function BetCalculator() {
+  const [open, setOpen] = useState(false);
+  const [bets, setBets] = useState([{ cote:"", mise:"" }]);
+  const [mode, setMode] = useState("simple");
+
+  const totalCote = bets.reduce((acc, b) => acc * (parseFloat(b.cote)||1), 1);
+  const mise = parseFloat(bets[0]?.mise||0);
+  const gainCombine = mode==="combine" ? totalCote * mise : 0;
+  const profitCombine = gainCombine - mise;
+
+  return (
+    <>
+      <button onClick={() => setOpen(o=>!o)} style={{
+        position:"fixed", bottom:24, left:24, zIndex:199,
+        width:46, height:46, borderRadius:"50%", border:"none",
+        background:"#16a34a", color:"#fff", fontSize:18, cursor:"pointer",
+        boxShadow:"0 4px 16px rgba(22,163,74,.4)",
+        display:"flex", alignItems:"center", justifyContent:"center",
+      }}>🧮</button>
+
+      {open && (
+        <div style={{
+          position:"fixed", bottom:80, left:24, zIndex:199,
+          width:300, background:C.panel, border:`1px solid ${C.line}`,
+          borderRadius:14, padding:16, boxShadow:"0 8px 24px rgba(3,45,96,.15)",
+        }} onClick={e=>e.stopPropagation()}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <span style={{ fontSize:13, fontWeight:700, color:C.text }}>🧮 Calculateur</span>
+            <div style={{ display:"flex", gap:4 }}>
+              {["simple","combine"].map(m => (
+                <button key={m} onClick={()=>setMode(m)} style={{
+                  border:`1px solid ${mode===m?C.green:C.line}`, borderRadius:6,
+                  padding:"3px 8px", cursor:"pointer", fontSize:10, fontWeight:600,
+                  background:mode===m?"#D1FAE5":"none", color:mode===m?"#065F46":C.dim,
+                }}>{m==="simple"?"Simples":"Combiné"}</button>
+              ))}
+            </div>
+          </div>
+
+          {mode==="simple" ? (
+            <>
+              {bets.map((b,i) => (
+                <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:6, marginBottom:6 }}>
+                  <input placeholder="Cote (ex: 1.80)" value={b.cote}
+                    onChange={e => { const n=[...bets]; n[i].cote=e.target.value; setBets(n); }}
+                    style={{ padding:"6px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }}/>
+                  <input placeholder="Mise (€)" value={b.mise}
+                    onChange={e => { const n=[...bets]; n[i].mise=e.target.value; setBets(n); }}
+                    style={{ padding:"6px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }}/>
+                  {bets.length > 1 && <button onClick={()=>setBets(bets.filter((_,j)=>j!==i))} style={{ background:"none", border:"none", cursor:"pointer", color:"#ef4444", fontSize:14 }}>✕</button>}
+                </div>
+              ))}
+              <button onClick={()=>setBets([...bets,{cote:"",mise:""}])} style={{ width:"100%", background:"none", border:`1px dashed ${C.line}`, borderRadius:6, padding:"5px", cursor:"pointer", fontSize:11, color:C.dim, marginBottom:10 }}>+ Ajouter un pari</button>
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                {bets.map((b,i) => {
+                  const g = (parseFloat(b.cote)||1) * (parseFloat(b.mise)||0);
+                  const p = g - (parseFloat(b.mise)||0);
+                  if (!b.mise || !b.cote) return null;
+                  return (
+                    <div key={i} style={{ background:C.panel2, borderRadius:8, padding:"8px 10px", display:"flex", justifyContent:"space-between" }}>
+                      <span style={{ fontSize:11, color:C.dim }}>Pari {i+1} ({b.cote})</span>
+                      <div style={{ textAlign:"right" }}>
+                        <div style={{ fontSize:12, fontWeight:700, color:p>0?"#16a34a":"#ef4444" }}>Retour: {g.toFixed(2)}€</div>
+                        <div style={{ fontSize:10, color:p>0?"#16a34a":"#ef4444" }}>{p>0?"+":""}{p.toFixed(2)}€</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              {bets.map((b,i) => (
+                <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:6, marginBottom:6 }}>
+                  <input placeholder={`Cote ${i+1}`} value={b.cote}
+                    onChange={e => { const n=[...bets]; n[i].cote=e.target.value; setBets(n); }}
+                    style={{ padding:"6px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }}/>
+                  {bets.length > 1 && <button onClick={()=>setBets(bets.filter((_,j)=>j!==i))} style={{ background:"none", border:"none", cursor:"pointer", color:"#ef4444", fontSize:14 }}>✕</button>}
+                </div>
+              ))}
+              <button onClick={()=>setBets([...bets,{cote:"",mise:""}])} style={{ width:"100%", background:"none", border:`1px dashed ${C.line}`, borderRadius:6, padding:"5px", cursor:"pointer", fontSize:11, color:C.dim, marginBottom:8 }}>+ Sélection</button>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:10 }}>
+                <input placeholder="Mise totale (€)" value={bets[0]?.mise||""}
+                  onChange={e => { const n=[...bets]; n[0].mise=e.target.value; setBets(n); }}
+                  style={{ padding:"6px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }}/>
+                <div style={{ background:C.panel2, borderRadius:6, padding:"6px 8px", fontSize:11, color:C.dim, display:"flex", alignItems:"center" }}>
+                  Cote: {totalCote.toFixed(2)}
+                </div>
+              </div>
+              {mise > 0 && (
+                <div style={{ background:"#D1FAE5", border:"1px solid #A7F3D0", borderRadius:8, padding:"10px 12px" }}>
+                  <div style={{ fontSize:11, color:"#065F46" }}>Retour potentiel</div>
+                  <div style={{ fontSize:18, fontWeight:800, color:"#065F46" }}>{gainCombine.toFixed(2)}€</div>
+                  <div style={{ fontSize:11, color:profitCombine>=0?"#16a34a":"#ef4444" }}>
+                    {profitCombine>=0?"+":""}{profitCombine.toFixed(2)}€ de profit
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 // Zone principale : analyse d'une compétition
 // ============================================================
 function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendingFixture, onClearPending, pendingTeam, onClearPendingTeam, onGoHistory, favorites = [], onToggleFavorite, isFavorite = () => false, onOpenClub }) {
@@ -4966,6 +5286,91 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
         filterTeamIds={groupTeamIds}
       />
 
+      {/* Séries actuelles */}
+      {(() => {
+        if (!stored?.recentFixtures?.length) return null;
+        const FINISHED = new Set(["FT","AET","PEN"]);
+        const teamId1 = currentFixture?.home?.id;
+        const teamId2 = currentFixture?.away?.id;
+        if (!teamId1 || !teamId2) return null;
+
+        function getStreaks(teamId, fxList) {
+          const teamFx = fxList
+            .filter(f => FINISHED.has(f.status) && (f.home?.id===teamId || f.away?.id===teamId))
+            .sort((a,b) => new Date(b.date)-new Date(a.date));
+
+          const streaks = { wins:0, unbeaten:0, btts:0, over25:0 };
+
+          for (const f of teamFx) {
+            const isHome = f.home?.id===teamId;
+            const [gf,ga] = f.score ? f.score.split(" - ").map(Number) : [0,0];
+            const teamGf = isHome ? gf : ga;
+            const teamGa = isHome ? ga : gf;
+            const res = teamGf>teamGa?"W":teamGf<teamGa?"L":"D";
+            if (res==="W") streaks.wins++; else break;
+          }
+          let streak=0;
+          for (const f of teamFx) {
+            const isHome=f.home?.id===teamId;
+            const [gf,ga]=f.score?f.score.split(" - ").map(Number):[0,0];
+            const tGf=isHome?gf:ga,tGa=isHome?ga:gf;
+            if(tGf>=tGa){streak++;}else break;
+          }
+          streaks.unbeaten=streak;
+          streak=0;
+          for(const f of teamFx){
+            const isHome=f.home?.id===teamId;
+            const [gf,ga]=f.score?f.score.split(" - ").map(Number):[0,0];
+            const tGf=isHome?gf:ga,tGa=isHome?ga:gf;
+            if(tGf>0&&tGa>0)streak++;else break;
+          }
+          streaks.btts=streak;
+          streak=0;
+          for(const f of teamFx){
+            const [gf,ga]=f.score?f.score.split(" - ").map(Number):[0,0];
+            if(gf+ga>2)streak++;else break;
+          }
+          streaks.over25=streak;
+          return streaks;
+        }
+
+        const s1=getStreaks(teamId1, fixtures);
+        const s2=getStreaks(teamId2, fixtures);
+        const homeName=currentFixture?.home?.name||"";
+        const awayName=currentFixture?.away?.name||"";
+
+        const items=[
+          { label:"Sans défaite", h:s1.unbeaten, a:s2.unbeaten, color:"#16a34a", icon:"🛡" },
+          { label:"Victoires consécutives", h:s1.wins, a:s2.wins, color:C.accent, icon:"🔥" },
+          { label:"BTTS consécutifs", h:s1.btts, a:s2.btts, color:"#7C3AED", icon:"⚽" },
+          { label:"Over 2.5 consécutifs", h:s1.over25, a:s2.over25, color:"#d97706", icon:"📈" },
+        ].filter(i=>i.h>0||i.a>0);
+
+        if(!items.length) return null;
+
+        return (
+          <div style={{ marginBottom:14, background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"12px 16px" }}>
+            <div style={{ fontSize:10, color:C.dim, fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:10 }}>🔥 Séries en cours</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {items.map(item=>(
+                <div key={item.label} style={{ display:"grid", gridTemplateColumns:"50px 1fr 50px", alignItems:"center", gap:8 }}>
+                  <div style={{ textAlign:"center" }}>
+                    {item.h>0&&<span style={{ background:`${item.color}18`, color:item.color, borderRadius:20, padding:"2px 8px", fontSize:12, fontWeight:800 }}>{item.h}</span>}
+                  </div>
+                  <div style={{ textAlign:"center", fontSize:10, color:C.dim }}>{item.icon} {item.label}</div>
+                  <div style={{ textAlign:"center" }}>
+                    {item.a>0&&<span style={{ background:`${item.color}18`, color:item.color, borderRadius:20, padding:"2px 8px", fontSize:12, fontWeight:800 }}>{item.a}</span>}
+                  </div>
+                </div>
+              ))}
+              <div style={{ display:"grid", gridTemplateColumns:"50px 1fr 50px", fontSize:9, color:C.muted, textAlign:"center", marginTop:2 }}>
+                <span>{homeName.split(" ").slice(-1)[0]}</span><span></span><span>{awayName.split(" ").slice(-1)[0]}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Contenu — conditionnel */}
       {!matchSelected ? (
         <CompetitionOverview
@@ -5027,16 +5432,18 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
           <div style={{ marginTop:20 }}>
             <TabBar tab={tab} setTab={setTab} />
             <div style={{ marginTop:20 }}>
-              {tab==="resultat" && <TabResultat m={m} period={period} />}
-              {tab==="double"   && <TabDoubleChance m={m} />}
-              {tab==="ecart"    && <TabEcart m={m} />}
-              {tab==="buteur"   && <TabButeur m={m} period={period} />}
-              {tab==="buts"     && <TabButs m={m} period={period} />}
-              {tab==="timing"   && <TabTiming m={m} />}
-              {tab==="btts"     && <TabBTTS m={m} period={period} />}
-              {tab==="penalty"  && <TabPenalty m={m} />}
-              {tab==="compo"    && <TabCompo homeId={homeTeamId} awayId={awayTeamId} homeName={m.home.name} awayName={m.away.name} season={currentSeason} fixtureId={selectedId ?? defaultId} />}
-              {tab==="meteo"    && <TabMeteo compId={compId} fixtureId={selectedId ?? defaultId} />}
+              {tab==="resultat"    && <TabResultat m={m} period={period} />}
+              {tab==="stats_match" && <TabMatchStats fixtureId={selectedId ?? defaultId} />}
+              {tab==="double"      && <TabDoubleChance m={m} />}
+              {tab==="ecart"       && <TabEcart m={m} />}
+              {tab==="buteur"      && <TabButeur m={m} period={period} />}
+              {tab==="buts"        && <TabButs m={m} period={period} />}
+              {tab==="timing"      && <TabTiming m={m} />}
+              {tab==="btts"        && <TabBTTS m={m} period={period} />}
+              {tab==="penalty"     && <TabPenalty m={m} />}
+              {tab==="compo"       && <TabCompo homeId={homeTeamId} awayId={awayTeamId} homeName={m.home.name} awayName={m.away.name} season={currentSeason} fixtureId={selectedId ?? defaultId} />}
+              {tab==="meteo"       && <TabMeteo compId={compId} fixtureId={selectedId ?? defaultId} />}
+              {tab==="classement"  && <TabClassement compId={compId} />}
             </div>
           </div>
         </>
@@ -5310,6 +5717,9 @@ export default function App() {
           <AdColumn />
         </div>
       </div>
+
+      {/* Calculateur de paris */}
+      <BetCalculator />
 
       {/* Chat IA */}
       {!loading && <ChatWidget matchContext={activeMatch} teamDatabase={teamDatabase} />}

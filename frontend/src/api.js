@@ -168,6 +168,12 @@ export async function fetchPlayer(playerId, season, tsdbId) {
   return res.json();
 }
 
+export async function fetchMatchStats(fixtureId) {
+  const res = await fetch(`/api/match-stats/${fixtureId}`);
+  if (!res.ok) return [];
+  return res.json().catch(() => []);
+}
+
 export async function fetchClubFeed(teamId, season) {
   const url = `/api/club-feed/${teamId}${season ? `?season=${season}` : ""}`;
   const res = await fetch(url);

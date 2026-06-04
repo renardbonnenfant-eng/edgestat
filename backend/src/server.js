@@ -786,6 +786,25 @@ Sois précis, cite des noms et chiffres. Mentionne si certaines infos datent. R�
   }
 });
 
+// Statistiques d'un match (tirs, corners, possession…)
+app.get("/api/match-stats/:fixtureId", async (req, res) => {
+  const { fixtureId } = req.params;
+  const cacheKey = `match-stats:${fixtureId}`;
+  try {
+    const cached = await readCache(cacheKey, 24 * 60 * 60 * 1000);
+    if (cached?.fresh) return res.json(cached.value);
+    const data = await apiGet("fixtures/statistics", { fixture: fixtureId }, 24 * 60 * 60 * 1000);
+    const result = (data || []).map(team => ({
+      team: { id: team.team?.id, name: team.team?.name, logo: team.team?.logo || "" },
+      stats: Object.fromEntries((team.statistics || []).map(s => [s.type, s.value]))
+    }));
+    await writeCache(cacheKey, result);
+    res.json(result);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // Matchs en direct (TTL 2 min)
 app.get("/api/live", async (req, res) => {
   const cacheKey = "live:all";
