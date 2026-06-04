@@ -422,6 +422,85 @@ function LoginModal({ onClose, onLogin }) {
 // Sidebar navigation
 // ============================================================
 // ============================================================
+// Section Live dans la sidebar
+// ============================================================
+function SidebarLive({ onMatchClick }) {
+  const [live,    setLive]    = useState([]);
+  const [open,    setOpen]    = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetch_ = () => {
+      fetchLive().then(d => { if(mounted){ setLive(d||[]); setLoading(false); } }).catch(()=>{ if(mounted) setLoading(false); });
+    };
+    fetch_();
+    const t = setInterval(fetch_, 60000); // rafraîchir toutes les minutes
+    return () => { mounted=false; clearInterval(t); };
+  }, []);
+
+  if (loading || live.length === 0) return null;
+
+  const sorted = [...live].sort((a,b) => livePrestige(b) - livePrestige(a));
+
+  return (
+    <div style={{ borderBottom:"1px solid #044E9F" }}>
+      {/* Header cliquable pour déplier/replier */}
+      <button onClick={() => setOpen(v=>!v)} style={{
+        width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"8px 14px", background:"none", border:"none", cursor:"pointer",
+      }}>
+        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+          <div style={{ width:7, height:7, borderRadius:"50%", background:"#DC2626", boxShadow:"0 0 5px #DC2626" }} />
+          <span style={{ fontSize:11, fontWeight:700, color:"#ffffff", letterSpacing:.5 }}>
+            LIVE
+          </span>
+          <span style={{ background:"#DC2626", color:"#fff", fontSize:9, fontWeight:800, borderRadius:20, padding:"1px 6px" }}>
+            {live.length}
+          </span>
+        </div>
+        <span style={{ color:"#9FC3E9", fontSize:10, transition:"transform .2s", transform:open?"rotate(180deg)":"" }}>▾</span>
+      </button>
+
+      {open && (
+        <div style={{ padding:"0 8px 8px", display:"flex", flexDirection:"column", gap:3, maxHeight:260, overflowY:"auto", scrollbarWidth:"thin", scrollbarColor:"#044E9F transparent" }}>
+          {sorted.map(f => {
+            const canNav = !!f.compId;
+            return (
+              <button key={f.id} onClick={() => canNav && onMatchClick(f)} style={{
+                width:"100%", display:"flex", alignItems:"center", gap:8, padding:"6px 8px",
+                background:"rgba(255,255,255,.05)", border:"1px solid #1e3a5f",
+                borderRadius:8, cursor:canNav?"pointer":"default", textAlign:"left",
+                transition:"background .1s",
+              }}
+                onMouseEnter={e => { if(canNav) e.currentTarget.style.background="rgba(1,118,211,.25)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,.05)"; }}
+              >
+                {/* Logos */}
+                <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+                  <TeamLogo url={f.home?.logo||""} size={14} name={f.home?.name||"?"} />
+                  <TeamLogo url={f.away?.logo||""} size={14} name={f.away?.name||"?"} />
+                </div>
+                {/* Équipes + score */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:10, color:"#E2E8F0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.home?.name}</div>
+                  <div style={{ fontSize:10, color:"#9FC3E9", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.away?.name}</div>
+                </div>
+                {/* Score + minute */}
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color:"#DC2626" }}>{f.score}</div>
+                  <div style={{ fontSize:9, color:"#9FC3E9" }}>{f.minute ? `${f.minute}'` : "🔴"}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Barre de recherche globale (sidebar)
 // ============================================================
 function SidebarSearch({ allData, logoRegistry, onSelectComp, onSelectTeam, onOpenPlayer, onOpenClub }) {
@@ -625,6 +704,14 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         onOpenPlayer={onOpenPlayer}
         onOpenClub={onOpenClub}
       />
+
+      {/* Section LIVE dans la sidebar */}
+      <SidebarLive onMatchClick={liveMatch => {
+        const cid = liveMatch.compId;
+        if (!cid) return;
+        if (onSportChange) onSportChange("foot");
+        if (onSelect) onSelect(cid);
+      }} />
 
       {/* Sport toggle — bien visible */}
       <div style={{ padding:"10px 10px 12px", borderBottom:"1px solid #044E9F" }}>
@@ -4044,6 +4131,18 @@ function isBigGame(f) {
   return isFormerWinner(f.home?.name, f.leagueId) && isFormerWinner(f.away?.name, f.leagueId);
 }
 
+// Score de prestige pour les matchs live (pour trier par engouement)
+const LEAGUE_PRESTIGE = {
+  1:100, 4:100, 9:95, 6:90,   // Compétitions internationales majeures
+  2:98,  3:85, 848:75,          // Coupes européennes clubs
+  39:88, 140:87, 78:86, 135:85, 61:84, 94:70, // Top 5 + Portugal
+  11:72, 13:65,                  // Copa Libertadores / Sudamericana
+  45:60, 65:55, 81:55, 143:55, 137:55, // Coupes domestiques
+};
+function livePrestige(f) {
+  return LEAGUE_PRESTIGE[f.leagueId] || 10;
+}
+
 function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
   const [nextFixtures, setNextFixtures] = useState([]);
   const [liveMatches,  setLiveMatches]  = useState([]);
@@ -4192,34 +4291,75 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
       )}
 
       {/* === EN DIRECT === */}
-      <div>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-          <div style={{ width:8, height:8, borderRadius:"50%", background:"#DC2626", animation:"pulse 1.5s infinite" }} />
-          <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>En direct</span>
-          {!liveLoading && <span style={{ background:"#FEE2E2", color:"#DC2626", fontSize:10, fontWeight:700, borderRadius:20, padding:"2px 8px", border:"1px solid #FECACA" }}>{liveMatches.length}</span>}
-        </div>
-        {liveLoading ? (
-          <div style={{ color:C.dim, fontSize:12 }}>Vérification des matchs en direct…</div>
-        ) : liveMatches.length === 0 ? (
-          <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"20px", textAlign:"center", color:C.dim, fontSize:12 }}>
-            Aucun match en direct pour le moment.
-          </div>
-        ) : (
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            {liveMatches.map(f => (
-              <div key={f.id} style={{ position:"relative" }}>
-                <UpcomingCard f={f} onSelect={onMatchClick} />
-                {/* Badge compétition non suivie */}
-                {!f.compId && (
-                  <div style={{ position:"absolute", bottom:6, right:8, fontSize:9, color:C.muted, background:C.panel2, borderRadius:4, padding:"1px 5px" }}>
-                    Compétition non suivie
+      {(() => {
+        const [showAllLive, setShowAllLive] = React.useState(false);
+        const sorted  = [...liveMatches].sort((a,b) => livePrestige(b) - livePrestige(a));
+        const top4    = sorted.slice(0, 4);
+        const rest    = sorted.slice(4);
+
+        return (
+          <div>
+            {/* Header */}
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background:"#DC2626", boxShadow:"0 0 6px #DC2626" }} />
+              <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>En direct</span>
+              {!liveLoading && liveMatches.length > 0 && (
+                <span style={{ background:"#FEE2E2", color:"#DC2626", fontSize:10, fontWeight:700, borderRadius:20, padding:"2px 8px", border:"1px solid #FECACA" }}>
+                  {liveMatches.length}
+                </span>
+              )}
+            </div>
+
+            {liveLoading && <div style={{ color:C.dim, fontSize:12 }}>Vérification des matchs en direct…</div>}
+
+            {!liveLoading && liveMatches.length === 0 && (
+              <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"20px", textAlign:"center", color:C.dim, fontSize:12 }}>
+                Aucun match en direct pour le moment.
+              </div>
+            )}
+
+            {!liveLoading && liveMatches.length > 0 && (
+              <>
+                {/* Top 4 — 2 colonnes */}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom: rest.length > 0 ? 10 : 0 }}>
+                  {top4.map(f => (
+                    <div key={f.id} style={{ position:"relative" }}>
+                      <UpcomingCard f={f} onSelect={onMatchClick} />
+                      {!f.compId && <div style={{ position:"absolute", bottom:5, right:8, fontSize:8, color:C.muted, background:C.panel2, borderRadius:3, padding:"1px 4px" }}>Non suivi</div>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Dropdown "X autres matchs en direct" */}
+                {rest.length > 0 && (
+                  <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, overflow:"hidden" }}>
+                    <button
+                      onClick={() => setShowAllLive(v => !v)}
+                      style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background:"none", border:"none", cursor:"pointer" }}
+                    >
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ width:6, height:6, borderRadius:"50%", background:"#DC2626" }} />
+                        <span style={{ fontSize:12, fontWeight:500, color:C.text }}>{rest.length} autre{rest.length > 1 ? "s" : ""} match{rest.length > 1 ? "s" : ""} en direct</span>
+                      </div>
+                      <span style={{ fontSize:11, color:C.dim, transition:"transform .2s", transform:showAllLive?"rotate(180deg)":"" }}>▾</span>
+                    </button>
+                    {showAllLive && (
+                      <div style={{ borderTop:`1px solid ${C.line}`, padding:"10px 12px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                        {rest.map(f => (
+                          <div key={f.id} style={{ position:"relative" }}>
+                            <UpcomingCard f={f} onSelect={onMatchClick} />
+                            {!f.compId && <div style={{ position:"absolute", bottom:5, right:8, fontSize:8, color:C.muted, background:C.panel2, borderRadius:3, padding:"1px 4px" }}>Non suivi</div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            ))}
+              </>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* === GROSSES AFFICHES === */}
       {bigGames.length > 0 && (
