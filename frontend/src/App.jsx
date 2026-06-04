@@ -875,48 +875,10 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
 
       {/* Navigation Football */}
       {sport === "foot" && (
-        <div style={{ flex:1, overflowY:"auto", padding:"8px 0" }}>
-          {NAV.map(section => (
-            <div key={section.key}>
-              <button onClick={() => toggle(section.key)} style={{
-                width:"100%", textAlign:"left", background:"none", border:"none",
-                padding:"8px 14px", fontSize:11, fontWeight:800, color:C.sidebarSection,
-                letterSpacing:1, textTransform:"uppercase", cursor:"pointer",
-                display:"flex", alignItems:"center", justifyContent:"space-between",
-              }}>
-                <span>{section.section}</span>
-                <span style={{ fontSize:10 }}>{openSections[section.key] ? "▾" : "▸"}</span>
-              </button>
-
-              {openSections[section.key] && section.groups.map(group => (
-                <div key={group.label}>
-                  <div style={{ padding:"4px 14px 2px", fontSize:10, color:C.sidebarSection, letterSpacing:1.2 }}>{group.label}</div>
-                  {group.items.map(item => {
-                    const active = activeId === item.id;
-                    const logo = leagueLogos[item.id];
-                    return (
-                      <button key={item.id} onClick={() => onSelect(item.id)} style={{
-                        width:"100%", textAlign:"left",
-                        background:active ? "#0176D3" : "none",
-                        border:"none", borderLeft:`3px solid ${active ? "#60A5FA" : "transparent"}`,
-                        borderRadius: active ? 8 : 0,
-                        padding:"7px 14px", fontSize:12.5, fontWeight:active ? 700 : 400,
-                        color:active ? "#ffffff" : C.sidebarText, cursor:"pointer",
-                        display:"flex", alignItems:"center", gap:8, transition:"all .1s",
-                      }}>
-                        <FlagImg emoji={item.flag} height={13} />
-                        {logo && <img src={logo} alt="" width={13} height={13} style={{ objectFit:"contain", flexShrink:0 }} onError={e=>e.target.style.display="none"} />}
-                        {item.label}
-                        {LAZY_IDS.has(item.id) && !leagueLogos[item.id] && (
-                          <span style={{ marginLeft:"auto", fontSize:9, color:C.sidebarSection }}>•••</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          ))}
+        <div style={{ padding:"16px 14px", textAlign:"center" }}>
+          <div style={{ fontSize:10, color:C.sidebarSection, lineHeight:1.6 }}>
+            Sélectionne une compétition<br/>depuis la page Football
+          </div>
         </div>
       )}
 
@@ -3414,7 +3376,7 @@ const BC = {
   line:    "#1e3a5f",
 };
 
-function BracketMatchCard({ tie, compact }) {
+function BracketMatchCard({ tie, compact, onMatchClick, onOpenTeam }) {
   const { home, away, score, winner, isAgg } = tie;
   const homeWon = winner?.id === home.id;
   const awayWon = winner?.id === away.id;
@@ -3430,13 +3392,18 @@ function BracketMatchCard({ tie, compact }) {
       padding: bottom ? "4px 0 0" : "0 0 4px",
       borderBottom: !bottom ? `0.5px solid ${BC.border}` : "none",
     }}>
-      {team.logo
-        ? <img src={team.logo} width={logoSz} height={logoSz} style={{ objectFit:"contain", flexShrink:0 }} onError={e=>e.target.style.display="none"} />
-        : <div style={{ width:logoSz, height:logoSz, borderRadius:"50%", background:BC.border, display:"grid", placeItems:"center", fontSize:7, color:BC.textDim, flexShrink:0 }}>{(team.name||"?")[0]}</div>
-      }
-      <span style={{ flex:1, fontSize:fs, fontWeight:won?600:400, color:won?BC.textHi:BC.textDim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-        {team.name}
-      </span>
+      <button
+        onClick={() => onOpenTeam && team?.id && onOpenTeam(team)}
+        style={{ display:"flex", alignItems:"center", gap:6, flex:1, background:"none", border:"none", cursor:onOpenTeam&&team?.id?"pointer":"default", padding:0, textAlign:"left" }}
+      >
+        {team.logo
+          ? <img src={team.logo} width={logoSz} height={logoSz} style={{ objectFit:"contain", flexShrink:0 }} onError={e=>e.target.style.display="none"} />
+          : <div style={{ width:logoSz, height:logoSz, borderRadius:"50%", background:BC.border, display:"grid", placeItems:"center", fontSize:7, color:BC.textDim, flexShrink:0 }}>{(team.name||"?")[0]}</div>
+        }
+        <span style={{ flex:1, fontSize:fs, fontWeight:won?600:400, color:won?BC.textHi:BC.textDim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          {team.name}
+        </span>
+      </button>
       {goals != null && (
         <span style={{ fontSize:fs, fontWeight:won?700:400, color:won?BC.accent:BC.textDim, flexShrink:0, minWidth:14, textAlign:"right" }}>{goals}</span>
       )}
@@ -3444,12 +3411,19 @@ function BracketMatchCard({ tie, compact }) {
   );
 
   return (
-    <div style={{
-      background: BC.card,
-      border:`1px solid ${BC.border}`,
-      borderLeft:`2px solid ${winner ? BC.accent : BC.border}`,
-      borderRadius:6, padding:pad, width:"100%", boxSizing:"border-box",
-    }}>
+    <div
+      onClick={() => onMatchClick && tie.id && onMatchClick(tie)}
+      style={{
+        background: BC.card,
+        border:`1px solid ${BC.border}`,
+        borderLeft:`2px solid ${winner ? BC.accent : BC.border}`,
+        borderRadius:6, padding:pad, width:"100%", boxSizing:"border-box",
+        cursor: onMatchClick && tie.id ? "pointer" : "default",
+        transition:"border-color .15s",
+      }}
+      onMouseEnter={e => { if(onMatchClick && tie.id) e.currentTarget.style.borderColor = BC.accent; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = BC.border; e.currentTarget.style.borderLeftColor = winner ? BC.accent : BC.border; }}
+    >
       <TeamRow team={home} goals={homeScore} won={homeWon} />
       <TeamRow team={away} goals={awayScore} won={awayWon} bottom />
       {!score && (
@@ -3666,7 +3640,7 @@ function FavoritesView({ favorites, onToggleFavorite }) {
   );
 }
 
-function BracketView() {
+function BracketView({ onMatchClick, onOpenClub }) {
   const [selComp, setSelComp] = useState(BRACKET_COMPS[0]);
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(false);
@@ -3810,7 +3784,19 @@ function BracketView() {
                           const y = tIdx * slotH + (slotH - CARD_H) / 2;
                           return (
                             <div key={tie.id||tIdx} style={{ position:"absolute", top:y, left:12, right:12 }}>
-                              <BracketMatchCard tie={tie} compact />
+                              <BracketMatchCard
+                                tie={tie}
+                                compact
+                                onMatchClick={t => {
+                                  if (!t.id) return;
+                                  const compMap = { 1:"wc", 4:"euro", 9:"copa", 848:"uecl", 2:"ucl", 3:"uel" };
+                                  const cId = compMap[selComp.apiId];
+                                  if (cId && onMatchClick) onMatchClick({ id: t.id, compId: cId });
+                                }}
+                                onOpenTeam={team => {
+                                  if (onOpenClub && team?.id) onOpenClub({ id: team.id, name: team.name, logo: team.logo });
+                                }}
+                              />
                             </div>
                           );
                         })}
@@ -3952,6 +3938,71 @@ const QUIZ_SEED = {
     { q:"Quel entraîneur a remporté le plus de titres de Premier League ?", options:["Sir Alex Ferguson (13)","Arsène Wenger (3)","José Mourinho (3)","Pep Guardiola (6)"], correct:0, explanation:"Sir Alex Ferguson remporte 13 titres de Premier League avec Manchester United entre 1993 et 2013 — record absolu en Angleterre.", year:2013 },
     { q:"En quelle année la Premier League a-t-elle été créée ?", options:["1992","1888","1975","2000"], correct:0, explanation:"La Premier League est fondée en février 1992 et démarre en août 1992, remplaçant la Football League First Division créée en 1888.", year:1992 },
   ],
+  // ─── STADES ─────────────────────────────────────────────────
+  stades: [
+    { q:"Quel est le stade le plus grand d'Europe ?", options:["Camp Nou (99 354)","Wembley (90 000)","San Siro (80 018)","Signal Iduna Park (81 365)"], correct:0, explanation:"Le Camp Nou de Barcelone est le plus grand stade d'Europe avec 99 354 places.", year:2024 },
+    { q:"Quel stade accueille la finale de la Ligue des Champions 2024-25 ?", options:["Allianz Arena (Munich)","Wembley","Stade de France","San Siro"], correct:0, explanation:"La finale 2025 est jouée à l'Allianz Arena de Munich.", year:2025 },
+    { q:"Dans quelle ville se trouve l'Estadio Bernabéu ?", options:["Madrid","Barcelone","Séville","Valence"], correct:0, explanation:"Le Santiago Bernabéu est situé dans le quartier de Chamartín à Madrid.", year:2024 },
+    { q:"Quel stade a accueilli la finale de la Coupe du Monde 1998 ?", options:["Stade de France (Saint-Denis)","Parc des Princes","Wembley","Stadio Olimpico"], correct:0, explanation:"Le Stade de France à Saint-Denis, inauguré en janvier 1998, accueille la finale France-Brésil.", year:1998 },
+    { q:"Comment s'appelle le stade du Paris Saint-Germain ?", options:["Parc des Princes","Stade de France","Stade Charléty","Stade Jean-Bouin"], correct:0, explanation:"Le Parc des Princes, inauguré en 1972, est la maison du PSG avec 47 929 places.", year:2024 },
+    { q:"Quel stade porte le surnom de 'La Bombonera' ?", options:["Boca Juniors (Buenos Aires)","River Plate (Buenos Aires)","Maracanã (Rio)","Monumental (Buenos Aires)"], correct:0, explanation:"La Bombonera (La boîte de chocolats) est le stade du Club Atlético Boca Juniors, célèbre pour son ambiance unique.", year:2024 },
+    { q:"Quel est le record d'affluence pour un match de football ?", options:["199 854 spectateurs (Brésil-Uruguay, 1950)","132 000 (Iran-Australie, 1997)","114 000 (Rungrado, 1989)","90 000 (Wembley, 1966)"], correct:0, explanation:"Le Maracanã de Rio lors de la finale de CdM 1950 réunit environ 199 854 spectateurs.", year:1950 },
+  ],
+  // ─── ENTRAÎNEURS LÉGENDAIRES ─────────────────────────────────
+  entraineurs: [
+    { q:"Combien de titres de Premier League Sir Alex Ferguson a-t-il remportés avec Man United ?", options:["13","10","8","15"], correct:0, explanation:"Ferguson remporte 13 titres de PL entre 1993 et 2013, record absolu en Angleterre.", year:2013 },
+    { q:"Quel entraîneur a inventé le jeu de possession 'tiki-taka' moderne ?", options:["Pep Guardiola","Johan Cruyff","Arrigo Sacchi","Louis van Gaal"], correct:0, explanation:"Pep Guardiola perfectionne le tiki-taka avec le Barça B puis le FC Barcelone (2008-2012).", year:2010 },
+    { q:"Quel entraîneur a remporté le plus de Ligues des Champions ?", options:["Carlo Ancelotti (5)","Bob Paisley (3)","Zinédine Zidane (3)","Ottmar Hitzfeld (2)"], correct:0, explanation:"Ancelotti : AC Milan 2003, 2007 + Real Madrid 2014, 2022, 2024. Seul entraîneur à 5 LDC.", year:2024 },
+    { q:"Quel est le surnom de José Mourinho ?", options:["The Special One","The Chosen One","The One","The Genius"], correct:0, explanation:"Mourinho se surnomme lui-même 'The Special One' lors de sa présentation à Chelsea en 2004.", year:2004 },
+    { q:"Quel entraîneur a dirigé la France lors de sa victoire en Coupe du Monde 1998 ?", options:["Aimé Jacquet","Roger Lemerre","Gérard Houllier","Didier Deschamps"], correct:0, explanation:"Aimé Jacquet dirige les Bleus en 1998, malgré les critiques de la presse. Il prend sa retraite après le titre.", year:1998 },
+    { q:"Dans quel club Jürgen Klopp a-t-il remporté la Ligue des Champions ?", options:["Liverpool (2019)","Borussia Dortmund (2012)","Mayence (2005)","Bayern Munich (2013)"], correct:0, explanation:"Klopp remporte la LDC avec Liverpool en 2019 face à Tottenham (2-0) à Madrid.", year:2019 },
+    { q:"Quel entraîneur a réalisé le 'Treble' avec le Bayern Munich en 2013 ?", options:["Jupp Heynckes","Pep Guardiola","Louis van Gaal","Ottmar Hitzfeld"], correct:0, explanation:"Jupp Heynckes réalise le treble (Bundesliga + DFB Pokal + LDC) avec le Bayern en 2012-13.", year:2013 },
+  ],
+  // ─── BUTS LÉGENDAIRES ────────────────────────────────────────
+  buts_legendaires: [
+    { q:"Qui a marqué le 'But du siècle' à la CdM 1986 contre l'Angleterre ?", options:["Diego Maradona","Pelé","Johan Cruyff","Ronaldo R9"], correct:0, explanation:"Maradona slalome devant 5 Anglais sur 60 mètres et marque le 'But du siècle' le 22 juin 1986.", year:1986 },
+    { q:"Comment s'appelle le geste technique où Zidane élimine deux joueurs d'un seul mouvement ?", options:["La roulette de Zidane","La Marseillaise","Le Cruyff turn","La feinte d'Higuita"], correct:0, explanation:"La roulette de Zidane est un geste emblématique inventé par Zinédine Zidane, combinant amorti et pirouette.", year:2003 },
+    { q:"Quel joueur a marqué le plus beau but en Coupe du Monde selon la FIFA (Puskás Award 2014) ?", options:["James Rodríguez (Colombie)","Messi (Argentine)","Robben (Pays-Bas)","Müller (Allemagne)"], correct:0, explanation:"James Rodríguez marque une reprise de volée du gauche contre l'Uruguay, élu meilleur but du Mondial 2014.", year:2014 },
+    { q:"En quelle minute Solskjaer marque-t-il le but vainqueur de Man United en finale UCL 1999 ?", options:["90'+3","91'","88'","93'"], correct:0, explanation:"Solskjaer marque à la 93'+3 (heure locale 91'+3), après l'égalisation de Sheringham à la 91'.", year:1999 },
+    { q:"Quel joueur a marqué le fameux 'But de la main' à la CdM 1986 ?", options:["Diego Maradona","Michel Platini","Bryan Robson","Gary Lineker"], correct:0, explanation:"Maradona marque de la main gauche lors de la même rencontre que le 'But du siècle' (Argentine-Angleterre).", year:1986 },
+    { q:"Combien de buts Gareth Bale marque-t-il lors de la finale de LDC 2018 (retourné acrobatique) ?", options:["2 buts","1 but","3 buts","0 but"], correct:0, explanation:"Bale entre à la 61' et marque 2 buts (retourné + frappe depuis 25m) lors de la finale Real-Liverpool (3-1).", year:2018 },
+  ],
+  // ─── CHAMPIONNATS EUROPE ────────────────────────────────────
+  euros: [
+    { q:"Combien de fois l'Allemagne a-t-elle remporté l'Euro ?", options:["3 fois (1972,1980,1996)","2 fois","4 fois","1 fois"], correct:0, explanation:"L'Allemagne (et l'Allemagne de l'Ouest) remporte l'Euro en 1972, 1980 et 1996.", year:2021 },
+    { q:"Quel pays a organisé l'Euro 2024 ?", options:["Allemagne","France","Angleterre","Espagne"], correct:0, explanation:"L'Allemagne organise l'Euro 2024. L'Espagne remporte le titre face à l'Angleterre (2-1).", year:2024 },
+    { q:"Quel joueur détient le record de buts en phases finales de l'Euro ?", options:["Cristiano Ronaldo (14)","Michel Platini (9)","Nuno Gomes (6)","Antoine Griezmann (7)"], correct:0, explanation:"Cristiano Ronaldo marque 14 buts dans les phases finales de l'Euro, record absolu.", year:2021 },
+    { q:"Quel était le score de la finale de l'Euro 2020 (2021) ?", options:["Italie 1-1 Angleterre, 3-2 aux tirs","Italie 2-0 Angleterre","Angleterre 2-1 Italie","Italie 1-0 Angleterre"], correct:0, explanation:"Après 1-1 ap (Shaw 2', Bonucci 67'), l'Italie gagne aux tirs au but 3-2 à Wembley.", year:2021 },
+    { q:"En quelle année la France a-t-elle remporté son seul titre de champion d'Europe ?", options:["2000 (Euro aux Pays-Bas/Belgique)","1984 (Euro en France)","1992","2016"], correct:0, explanation:"La France remporte l'Euro 2000 avec une victoire en finale contre l'Italie grâce à un golden goal de Trezeguet.", year:2000 },
+    { q:"Quel pays a remporté l'Euro 2016 en France ?", options:["Portugal","France","Allemagne","Galles"], correct:0, explanation:"Le Portugal bat la France 1-0 en finale grâce à Eder (109'). Ronaldo sort blessé mais encourage ses coéquipiers.", year:2016 },
+  ],
+  // ─── LIGUE DES CHAMPIONS — RECORDS ──────────────────────────
+  ucl_records: [
+    { q:"Quel club a remporté 3 LDC consécutives dans l'ère moderne (2016-2018) ?", options:["Real Madrid","Bayern Munich","Barcelone","Juventus"], correct:0, explanation:"Le Real Madrid de Zidane remporte 3 LDC de suite en 2016, 2017 et 2018. Record unique dans l'ère moderne.", year:2018 },
+    { q:"Quel est le record de buts en une saison de LDC ?", options:["17 buts (Cristiano Ronaldo, 2013-14)","14 buts (Messi, 2011-12)","10 buts (Lewandowski)","11 buts (Shevchenko)"], correct:0, explanation:"Cristiano Ronaldo marque 17 buts lors de la saison 2013-14 de LDC, record absolu.", year:2014 },
+    { q:"En quelle année le format actuel de la Ligue des Champions a-t-il été lancé ?", options:["1992","1988","1999","2003"], correct:0, explanation:"La Ligue des Champions remplace la Coupe d'Europe des Clubs Champions en 1992, avec introduction de la phase de groupes.", year:1992 },
+    { q:"Quel est le record de victoires consécutives en phase de groupes de LDC ?", options:["Bayern Munich 11/11 en 2019-20","Real Madrid 8/8 en 2013-14","Barcelone 8/8 en 2008-09","PSG 6/6 en 2021-22"], correct:0, explanation:"Le Bayern Munich est parfait en 2019-20 : 11 victoires en 11 matchs, dont 8-2 contre le Barça.", year:2020 },
+    { q:"Qui est le meilleur buteur de l'histoire de la Ligue des Champions ?", options:["Cristiano Ronaldo (140)","Lionel Messi (129)","Robert Lewandowski (101)","Karim Benzema (90)"], correct:0, explanation:"Ronaldo mène avec 140 buts en LDC, suivi de Messi (129) et Lewandowski (101).", year:2024 },
+    { q:"Quel match est surnommé la 'Remontada' en référence au retour du Barça ?", options:["PSG 4-0 Barça → Barça 6-1 PSG (2017)","Barça 3-0 Roma → Roma 3-0 Barça (2018)","Man City 2-1 Dortmund → Dortmund 4-2 Man City (2023)","Chelsea 3-0 Napoli → Napoli 4-1 Chelsea (2012)"], correct:0, explanation:"PSG 4-0 Barça au match aller. Barça 6-1 PSG au retour le 8 mars 2017 : 3 buts dans les 7 dernières minutes.", year:2017 },
+  ],
+  // ─── TRANSFERTS RECORDS ─────────────────────────────────────
+  transferts_records: [
+    { q:"Quel est le transfert le plus cher de l'histoire ?", options:["Neymar 222M€ (Barça→PSG, 2017)","Mbappé 180M€ (Monaco→PSG)","João Félix 126M€","Jack Grealish 117M€"], correct:0, explanation:"Neymar Junior quitte le FC Barcelone pour le PSG pour 222M€ en août 2017. Record imbattu.", year:2017 },
+    { q:"Pour combien Gareth Bale a-t-il été vendu au Real Madrid en 2013 ?", options:["100,8M€","94M€","80M€","115M€"], correct:0, explanation:"Tottenham vend Bale pour 100,8M€ en septembre 2013, battant le record de Ronaldo (94M€, 2009).", year:2013 },
+    { q:"Quel est le transfert le plus cher pour un gardien de but ?", options:["Ederson (23M€, 2017)","Alisson (75M€, 2018)","Donnarumma (0€, 2021)","Kepa (80M€, 2018)"], correct:3, explanation:"Kepa Arrizabalaga rejoint Chelsea pour 80M€ en 2018, record pour un gardien.", year:2018 },
+    { q:"Quel joueur s'est transféré libre du Barça au PSG en 2021 ?", options:["Lionel Messi","Antoine Griezmann","Philippe Coutinho","Luis Suárez"], correct:0, explanation:"Messi quitte le Barça en larmes le 8 août 2021 après l'échec de la prolongation pour raisons financières.", year:2021 },
+    { q:"Combien a coûté Erling Haaland à Manchester City en 2022 ?", options:["60M€ (clause libératoire)","120M€","85M€","200M€"], correct:0, explanation:"Haaland part pour seulement 60M€ grâce à sa clause libératoire. Il marque 36 buts en PL sa première saison.", year:2022 },
+    { q:"Quel est le record de transfert pour un défenseur ?", options:["Virgil van Dijk (85M€, 2018)","Harry Maguire (87M€, 2019)","Matthijs de Ligt (75M€, 2019)","João Cancelo (65M€, 2019)"], correct:1, explanation:"Harry Maguire rejoint Manchester United pour 87M€ en 2019, record pour un défenseur.", year:2019 },
+  ],
+  // ─── FOOTBALL FÉMININ ────────────────────────────────────────
+  foot_feminin: [
+    { q:"Quelle nation domine le football féminin avec le plus de titres mondiaux ?", options:["États-Unis (4)","Allemagne (2)","Norvège (1)","Japon (1)"], correct:0, explanation:"Les USA remportent la Coupe du Monde féminine en 1991, 1999, 2015 et 2019. Leaders incontestés.", year:2019 },
+    { q:"Qui est la meilleure buteuse de l'histoire du football féminin ?", options:["Abby Wambach (USA, 184 buts)","Christine Sinclair (Canada, 190)","Marta (Brésil, 115)","Birgit Prinz (Allemagne, 128)"], correct:1, explanation:"Christine Sinclair (Canada) détient le record absolu avec 190 buts internationaux, hommes et femmes compris.", year:2023 },
+    { q:"En quelle année la Ligue des Champions féminine a-t-elle été créée ?", options:["2001","1999","2009","1995"], correct:0, explanation:"La Ligue des Champions féminine UEFA est créée en 2001-02, remplaçant la Coupe d'Europe féminine.", year:2001 },
+    { q:"Quel club détient le record de titres en LDC féminine ?", options:["Olympique Lyonnais (8)","FFC Frankfurt (4)","Arsenal (1)","Barcelona (2)"], correct:0, explanation:"L'Olympique Lyonnais remporte 8 LDC féminines (2011,2012,2016,2017,2018,2019,2020,2022). Domination absolue.", year:2022 },
+    { q:"Qui est la première joueuse à avoir remporté le Ballon d'Or féminin ?", options:["Marta (Brésil, 2006)","Birgit Prinz (Allemagne, 2003)","Hanna Ljungberg","Formiga"], correct:0, explanation:"Marta est la première et a remporté le Ballon d'Or féminin France Football 6 fois (2006-2010, 2018).", year:2006 },
+    { q:"Quel pays a organisé la Coupe du Monde féminine 2023 ?", options:["Australie & Nouvelle-Zélande","USA","France","Espagne"], correct:0, explanation:"L'Australie et la Nouvelle-Zélande co-organisent la CdM féminine 2023. L'Espagne remporte le titre.", year:2023 },
+  ],
 };
 
 const QUIZ_CATEGORIES = [
@@ -3964,6 +4015,13 @@ const QUIZ_CATEGORIES = [
   { id:"transferts",       icon:"💰", label:"Transferts" },
   { id:"ligue1",           icon:"🇫🇷", label:"Ligue 1" },
   { id:"premier_league",   icon:"🏴", label:"Premier League" },
+  { id:"stades",             icon:"🏟",  label:"Stades" },
+  { id:"entraineurs",        icon:"🎯",  label:"Entraîneurs" },
+  { id:"buts_legendaires",   icon:"⚡",  label:"Buts légendaires" },
+  { id:"euros",              icon:"🇪🇺", label:"Championnats Europe" },
+  { id:"ucl_records",        icon:"⭐",  label:"LDC Records" },
+  { id:"transferts_records", icon:"💸",  label:"Transferts records" },
+  { id:"foot_feminin",       icon:"👩",  label:"Football féminin" },
   { id:"ai_mix",           icon:"🤖", label:"Mix IA (infini)" },
 ];
 
@@ -8813,7 +8871,10 @@ export default function App() {
                 ) : sport === "encyclopedia" ? (
                   <EncyclopediaView />
                 ) : sport === "bracket" ? (
-                  <BracketView />
+                  <BracketView
+                    onMatchClick={handleMatchClick}
+                    onOpenClub={club => setGlobalClub(club)}
+                  />
                 ) : sport === "home" ? (
                   <HomeView
                     logoRegistry={logoRegistry}
