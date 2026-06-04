@@ -2013,104 +2013,121 @@ function PlayerBlock({ p, name, color }) {
 // ============================================================
 // Carte Joueur Tennis
 // ============================================================
-function TennisPlayerCard({ player, onClose }) {
-  const [detail, setDetail] = useState(null);
-  const [loading, setLoading] = useState(true);
+function formatPrize(raw) {
+  if (!raw) return "—";
+  const s = String(raw).replace(/[^0-9.]/g, "");
+  const n = parseFloat(s);
+  if (isNaN(n)) return String(raw).slice(0, 8);
+  if (n >= 1000000) return `€${(n/1000000).toFixed(2)}M`;
+  if (n >= 1000) return `€${(n/1000).toFixed(0)}k`;
+  return `€${n}`;
+}
 
-  useEffect(() => {
-    if (!player?.id) { setLoading(false); return; }
-    fetch(`/api/tennis/player/${player.id}`)
-      .then(r => r.json())
-      .then(d => { setDetail(d); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [player?.id]);
-
-  const flag = player?.countryCode ? `https://flagcdn.com/h40/${player.countryCode.toLowerCase()}.png` : null;
+function TennisPlayerCard({ player, onClick }) {
+  const flag = player?.countryCode
+    ? `https://flagcdn.com/h20/${player.countryCode.toLowerCase()}.png`
+    : null;
   const rankDiff = player?.prevRank && player?.rank ? player.prevRank - player.rank : null;
+  const isNo1 = player?.rank === 1;
+  const initials = (player?.name || "?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}
-      onClick={onClose}>
-      <div style={{ width:380, background:"#182030", border:`1px solid ${C.line}`, borderRadius:16, overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,.5)" }}
-        onClick={e=>e.stopPropagation()}>
-        {/* Header */}
-        <div style={{ background:`linear-gradient(135deg, #0d2e2a, #182030)`, padding:"20px 20px 16px", position:"relative" }}>
-          <button onClick={onClose} style={{ position:"absolute", top:12, right:12, background:"none", border:"none", cursor:"pointer", color:C.muted, fontSize:18 }}>✕</button>
-          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-            {/* Photo */}
-            <div style={{ width:72, height:72, borderRadius:12, overflow:"hidden", background:C.panel2, flexShrink:0, border:`2px solid ${C.accent}44` }}>
-              {detail?.photo
-                ? <img src={detail.photo} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top" }} onError={e=>e.target.style.display="none"}/>
-                : <div style={{ width:"100%", height:"100%", display:"grid", placeItems:"center", fontSize:28 }}>🎾</div>}
-            </div>
-            <div>
-              {/* Rang */}
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                <div style={{ background:C.accent, color:"#0A1428", borderRadius:8, padding:"2px 10px", fontSize:14, fontWeight:900 }}>#{player.rank}</div>
-                {rankDiff !== null && (
-                  <span style={{ fontSize:11, color:rankDiff>0?"#16a34a":rankDiff<0?"#DC2626":C.muted, fontWeight:600 }}>
-                    {rankDiff>0?`▲${rankDiff}`:rankDiff<0?`▼${Math.abs(rankDiff)}`:"—"}
-                  </span>
-                )}
-                <span style={{ fontSize:10, color:C.muted }}>· {player.points?.toLocaleString()} pts</span>
-              </div>
-              {/* Nom */}
-              <div style={{ fontSize:18, fontWeight:800, color:C.text, lineHeight:1.2 }}>{player.name}</div>
-              {/* Pays */}
-              <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4 }}>
-                {flag && <img src={flag} height={12} style={{ borderRadius:2 }} onError={e=>e.target.style.display="none"}/>}
-                <span style={{ fontSize:12, color:C.dim }}>{player.country}</span>
-                <span style={{ fontSize:10, color:C.muted }}>· {player.type?.toUpperCase()}</span>
-              </div>
-            </div>
+    <button onClick={onClick} style={{
+      background:"#1A2030", border:"1px solid #243548", borderRadius:10,
+      padding:18, cursor:"pointer", textAlign:"left", width:"100%",
+      transition:"all .15s",
+    }}
+      onMouseEnter={e=>{e.currentTarget.style.borderColor="#00D4AA";e.currentTarget.style.background="#1E2838";}}
+      onMouseLeave={e=>{e.currentTarget.style.borderColor="#243548";e.currentTarget.style.background="#1A2030";}}
+    >
+      {/* ── EN-TÊTE ── */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+        {/* Photo / initiales */}
+        <div style={{ width:54, height:54, borderRadius:10, overflow:"hidden", background:"#243548", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {player?.photo
+            ? <img src={player.photo} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top" }} onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}} alt={player.name}/>
+            : null}
+          <div style={{ display:player?.photo?"none":"flex", width:"100%", height:"100%", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:800, color:"#00D4AA" }}>{initials}</div>
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:15, fontWeight:700, color:"#E8F4FF", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{player?.name}</div>
+          <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
+            {flag && <img src={flag} height={11} style={{ borderRadius:1, flexShrink:0 }} onError={e=>e.target.style.display="none"}/>}
+            <span style={{ fontSize:9, fontWeight:700, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:1 }}>{player?.country}</span>
+            <span style={{ fontSize:9, color:"#4A6A7A" }}>·</span>
+            <span style={{ fontSize:10, fontWeight:700, color:isNo1?"#00D4AA":"#E8F4FF" }}>#{player?.rank}</span>
+            <span style={{ fontSize:9, color:"#4A6A7A" }}>·</span>
+            <span style={{ fontSize:9, color:"#4A6A7A" }}>{player?.points?.toLocaleString()} PTS</span>
           </div>
         </div>
+        {rankDiff !== null && rankDiff !== 0 && (
+          <div style={{ fontSize:11, fontWeight:700, color:rankDiff>0?"#16a34a":"#DC2626", flexShrink:0 }}>
+            {rankDiff>0?`▲${rankDiff}`:`▼${Math.abs(rankDiff)}`}
+          </div>
+        )}
+      </div>
 
-        {/* Stats */}
-        <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:10 }}>
-          {loading ? (
-            <div style={{ color:C.muted, fontSize:12, textAlign:"center", padding:"16px" }}>Chargement des détails…</div>
-          ) : (
-            <>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-                {[
-                  { label:"Âge",     val: detail?.age ? `${detail.age} ans` : "—" },
-                  { label:"Taille",  val: detail?.height ? `${detail.height} cm` : "—" },
-                  { label:"Poids",   val: detail?.weight ? `${detail.weight} kg` : "—" },
-                ].map(s => (
-                  <div key={s.label} style={{ background:C.panel2, borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
-                    <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{s.val}</div>
-                    <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.5 }}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
-                {[
-                  { label:"Tournois joués", val: player.tournamentsPlayed ?? "—" },
-                  { label:"Dominant", val: detail?.plays || "—" },
-                  { label:"Pro depuis", val: detail?.turnedPro || "—" },
-                  { label:"Naissance", val: detail?.birthPlace || "—" },
-                ].map(s => (
-                  <div key={s.label} style={{ background:C.panel2, borderRadius:8, padding:"8px 10px" }}>
-                    <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.5, marginBottom:2 }}>{s.label}</div>
-                    <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{s.val}</div>
-                  </div>
-                ))}
-              </div>
-              {(detail?.prizeCurrent || detail?.prizeTotal) && (
-                <div style={{ background:`${C.accent}10`, border:`1px solid ${C.accent}33`, borderRadius:8, padding:"10px 12px" }}>
-                  <div style={{ fontSize:10, color:C.accent, fontWeight:700, marginBottom:4 }}>💰 Gains</div>
-                  <div style={{ display:"flex", justifyContent:"space-between" }}>
-                    {detail.prizeCurrent && <div><div style={{ fontSize:12, fontWeight:700, color:C.text }}>{detail.prizeCurrent}</div><div style={{ fontSize:9, color:C.muted }}>Cette saison</div></div>}
-                    {detail.prizeTotal && <div style={{ textAlign:"right" }}><div style={{ fontSize:12, fontWeight:700, color:C.text }}>{detail.prizeTotal}</div><div style={{ fontSize:9, color:C.muted }}>Carrière</div></div>}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+      {/* Séparateur */}
+      <div style={{ height:1, background:"#243548", marginBottom:12 }}/>
+
+      {/* ── CLASSEMENT ── */}
+      <div style={{ marginBottom:12 }}>
+        <div style={{ fontSize:8, fontWeight:700, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:2, marginBottom:7 }}>Classement</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+          {[
+            { label:"ACTUEL",    val:`#${player?.rank||"—"}`,        accent:isNo1 },
+            { label:"PRÉCÉDENT", val:player?.prevRank?`#${player.prevRank}`:"—", accent:false },
+            { label:"MEILLEUR",  val:player?.bestRank?`#${player.bestRank}`:"—", accent:player?.bestRank===1 },
+          ].map(s => (
+            <div key={s.label} style={{ background:"#141C28", borderRadius:6, padding:"7px 6px", textAlign:"center" }}>
+              <div style={{ fontSize:14, fontWeight:700, color:s.accent?"#00D4AA":"#E8F4FF" }}>{s.val}</div>
+              <div style={{ fontSize:8, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:1, marginTop:2 }}>{s.label}</div>
+            </div>
+          ))}
         </div>
       </div>
-    </div>
+
+      {/* Séparateur */}
+      <div style={{ height:1, background:"#243548", marginBottom:12 }}/>
+
+      {/* ── PROFIL ── */}
+      <div style={{ marginBottom:12 }}>
+        <div style={{ fontSize:8, fontWeight:700, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:2, marginBottom:7 }}>Profil</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:5 }}>
+          {[
+            { label:"TAILLE",     val: player?.height ? `${player.height}m` : "—" },
+            { label:"POIDS",      val: player?.weight ? `${player.weight}kg` : "—" },
+            { label:"JEU",        val: player?.plays === "Right-Handed" ? "Droitier" : player?.plays === "Left-Handed" ? "Gaucher" : player?.plays || "—" },
+            { label:"PRO DEPUIS", val: player?.turnedPro || "—" },
+          ].map(s => (
+            <div key={s.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:"#141C28", borderRadius:5, padding:"5px 8px" }}>
+              <span style={{ fontSize:8, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:.8 }}>{s.label}</span>
+              <span style={{ fontSize:11, fontWeight:500, color:"#E8F4FF" }}>{s.val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Séparateur */}
+      <div style={{ height:1, background:"#243548", marginBottom:12 }}/>
+
+      {/* ── CETTE SAISON ── */}
+      <div>
+        <div style={{ fontSize:8, fontWeight:700, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:2, marginBottom:7 }}>Cette Saison</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:5 }}>
+          {[
+            { label:"TOURNOIS",       val: player?.tournamentsPlayed ?? "—" },
+            { label:"GAINS SAISON",   val: player?.prizeCurrent ? formatPrize(player.prizeCurrent) : "—" },
+            { label:"GAINS CARRIÈRE", val: player?.prizeTotal   ? formatPrize(player.prizeTotal)   : "—" },
+          ].map(s => (
+            <div key={s.label} style={{ background:"#141C28", borderRadius:6, padding:"7px 5px", textAlign:"center" }}>
+              <div style={{ fontSize:13, fontWeight:600, color:"#E8F4FF" }}>{s.val}</div>
+              <div style={{ fontSize:7, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:.8, marginTop:2, lineHeight:1.3 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -2118,90 +2135,102 @@ function TennisPlayerCard({ player, onClose }) {
 // Classement Tennis Top 200
 // ============================================================
 function TennisRankingView({ type }) {
-  const [players, setPlayers]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [search,  setSearch]    = useState("");
-  const [selected,setSelected]  = useState(null);
-  const [error,   setError]     = useState("");
+  const [players,   setPlayers]   = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [search,    setSearch]    = useState("");
+  const [sortBy,    setSortBy]    = useState("rank"); // rank | prize | tournaments
+  const [selected,  setSelected]  = useState(null);
+  const [error,     setError]     = useState("");
 
   useEffect(() => {
     setLoading(true); setError(""); setPlayers([]);
     fetch(`/api/tennis/top200/${type}`)
-      .then(r => r.json())
+      .then(r => { if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => {
-        if (d.error) throw new Error(d.error);
-        setPlayers(Array.isArray(d) ? d : []);
+        if (!Array.isArray(d)) throw new Error("Format inattendu");
+        // Charger les détails (photo, height, etc.) en batch pour les 50 premiers
+        const enriched = d.slice(0, 200);
+        setPlayers(enriched);
         setLoading(false);
+        // Charger les détails progressivement pour les 50 premiers
+        enriched.slice(0, 50).forEach(p => {
+          if (!p.id) return;
+          fetch(`/api/tennis/player/${p.id}`)
+            .then(r => r.json())
+            .then(det => {
+              setPlayers(prev => prev.map(pl =>
+                pl.id === p.id ? { ...pl, photo: det.photo||"", height: det.height, weight: det.weight, plays: det.plays, turnedPro: det.turnedPro, prizeCurrent: det.prizeCurrent, prizeTotal: det.prizeTotal, bestRank: det.bestRank||null } : pl
+              ));
+            })
+            .catch(() => {});
+        });
       })
       .catch(e => { setError(e.message); setLoading(false); });
   }, [type]);
 
-  const filtered = players.filter(p =>
-    !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.country?.toLowerCase().includes(search.toLowerCase())
-  );
+  const sorted = [...players]
+    .filter(p => !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.country?.toLowerCase().includes(search.toLowerCase()))
+    .sort((a,b) => {
+      if (sortBy === "rank")        return (a.rank||999) - (b.rank||999);
+      if (sortBy === "prize")       return (parseFloat(String(b.prizeCurrent||"0").replace(/[^0-9.]/g,""))||0) - (parseFloat(String(a.prizeCurrent||"0").replace(/[^0-9.]/g,""))||0);
+      if (sortBy === "tournaments") return (b.tournamentsPlayed||0) - (a.tournamentsPlayed||0);
+      return 0;
+    });
 
   return (
-    <div style={{ padding:"16px 20px" }}>
-      {selected && <TennisPlayerCard player={selected} onClose={() => setSelected(null)} />}
+    <div style={{ background:"#141C28", minHeight:"100%", padding:"16px 20px" }}>
+      {/* Panneau détail si sélectionné (modal simple) */}
+      {selected && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+          onClick={() => setSelected(null)}>
+          <div style={{ maxWidth:360, width:"100%", maxHeight:"90vh", overflowY:"auto", scrollbarWidth:"thin" }} onClick={e=>e.stopPropagation()}>
+            <div style={{ marginBottom:8, display:"flex", justifyContent:"flex-end" }}>
+              <button onClick={() => setSelected(null)} style={{ background:"#1A2030", border:"1px solid #243548", borderRadius:6, padding:"4px 10px", cursor:"pointer", color:"#4A6A7A", fontSize:12 }}>✕ Fermer</button>
+            </div>
+            <TennisPlayerCard player={selected} onClick={() => setSelected(null)} />
+          </div>
+        </div>
+      )}
 
-      {/* Barre de recherche */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"8px 12px", marginBottom:14 }}>
-        <span style={{ color:C.muted }}>🔍</span>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un joueur ou un pays…"
-          style={{ flex:1, background:"none", border:"none", outline:"none", color:C.text, fontSize:13 }}/>
-        {search && <button onClick={()=>setSearch("")} style={{ background:"none", border:"none", cursor:"pointer", color:C.muted, fontSize:14 }}>✕</button>}
+      {/* Contrôles */}
+      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+        {/* Recherche */}
+        <div style={{ display:"flex", alignItems:"center", gap:7, background:"#1A2030", border:"1px solid #243548", borderRadius:8, padding:"8px 12px", flex:1, minWidth:180 }}>
+          <span style={{ color:"#4A6A7A", fontSize:13 }}>🔍</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher joueur / pays…"
+            style={{ flex:1, background:"none", border:"none", outline:"none", color:"#E8F4FF", fontSize:12 }}/>
+          {search && <button onClick={()=>setSearch("")} style={{ background:"none", border:"none", cursor:"pointer", color:"#4A6A7A" }}>✕</button>}
+        </div>
+        {/* Tri */}
+        <div style={{ display:"flex", gap:4 }}>
+          {[
+            { id:"rank",        label:"Classement" },
+            { id:"prize",       label:"Gains" },
+            { id:"tournaments", label:"Tournois" },
+          ].map(s => (
+            <button key={s.id} onClick={() => setSortBy(s.id)} style={{
+              padding:"7px 12px", borderRadius:8, border:`1px solid ${sortBy===s.id?"#00D4AA":"#243548"}`,
+              background: sortBy===s.id?"rgba(0,212,170,.15)":"#1A2030",
+              color: sortBy===s.id?"#00D4AA":"#4A6A7A",
+              cursor:"pointer", fontSize:11, fontWeight: sortBy===s.id?700:400,
+            }}>{s.label}</button>
+          ))}
+        </div>
+        {!loading && <span style={{ fontSize:11, color:"#4A6A7A" }}>{sorted.length} joueurs</span>}
       </div>
 
-      {loading && <InfoPanel>Chargement du classement {type.toUpperCase()}…</InfoPanel>}
-      {error && <InfoPanel tone="error">{error}</InfoPanel>}
+      {loading && <div style={{ color:"#4A6A7A", fontSize:13, textAlign:"center", padding:"40px 0" }}>⏳ Chargement du classement {type.toUpperCase()}…</div>}
+      {error   && <div style={{ color:"#DC2626", fontSize:12, padding:16, background:"#2A1010", borderRadius:8 }}>Erreur : {error}</div>}
 
       {!loading && !error && (
-        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-          {filtered.map((p, i) => {
-            const flag = p.countryCode ? `https://flagcdn.com/h20/${p.countryCode.toLowerCase()}.png` : null;
-            const rankDiff = p.prevRank && p.rank ? p.prevRank - p.rank : null;
-            const top10 = p.rank <= 10;
-            const top50 = p.rank <= 50;
-            return (
-              <button key={p.id||i} onClick={() => setSelected(p)} style={{
-                display:"flex", alignItems:"center", gap:10,
-                background: top10 ? `${C.accent}08` : C.panel,
-                border:`1px solid ${top10?C.accent+"33":C.line}`,
-                borderRadius:10, padding:"10px 14px", cursor:"pointer", textAlign:"left",
-                transition:"all .1s",
-              }}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background=C.accentBg;}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor=top10?C.accent+"33":C.line;e.currentTarget.style.background=top10?`${C.accent}08`:C.panel;}}
-              >
-                {/* Rang */}
-                <div style={{ width:36, textAlign:"center", flexShrink:0 }}>
-                  <div style={{ fontSize:14, fontWeight:900, color:top10?C.accent:top50?"#d97706":C.muted }}>#{p.rank}</div>
-                  {rankDiff !== null && rankDiff !== 0 && (
-                    <div style={{ fontSize:9, color:rankDiff>0?"#16a34a":"#DC2626", fontWeight:600 }}>
-                      {rankDiff>0?`▲${rankDiff}`:`▼${Math.abs(rankDiff)}`}
-                    </div>
-                  )}
-                </div>
-                {/* Drapeau */}
-                <div style={{ width:24, height:18, flexShrink:0, borderRadius:2, overflow:"hidden", background:C.panel2, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  {flag ? <img src={flag} height="14" style={{ objectFit:"cover" }} onError={e=>e.target.style.display="none"}/> : <span style={{ fontSize:10 }}>🌍</span>}
-                </div>
-                {/* Nom */}
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:top10?700:500, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
-                  <div style={{ fontSize:10, color:C.muted }}>{p.country}</div>
-                </div>
-                {/* Points */}
-                <div style={{ textAlign:"right", flexShrink:0 }}>
-                  <div style={{ fontSize:13, fontWeight:700, color:top10?C.accent:C.dim }}>{p.points?.toLocaleString()}</div>
-                  <div style={{ fontSize:9, color:C.muted }}>pts</div>
-                </div>
-                <span style={{ fontSize:11, color:C.muted }}>›</span>
-              </button>
-            );
-          })}
-          {filtered.length === 0 && !loading && (
-            <div style={{ color:C.muted, textAlign:"center", padding:"24px" }}>Aucun joueur trouvé pour "{search}"</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap:12 }}>
+          {sorted.map(p => (
+            <TennisPlayerCard key={p.id||p.rank} player={p} onClick={() => setSelected(p)} />
+          ))}
+          {sorted.length === 0 && (
+            <div style={{ color:"#4A6A7A", gridColumn:"1/-1", textAlign:"center", padding:32 }}>
+              Aucun joueur pour "{search}"
+            </div>
           )}
         </div>
       )}
