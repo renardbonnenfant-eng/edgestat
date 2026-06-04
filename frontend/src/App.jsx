@@ -807,8 +807,17 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
       ...(mobile ? { left:0, zIndex:199, boxShadow:"4px 0 24px rgba(0,0,0,.5)" } : {}),
       display:"flex", flexDirection:"column",
     }}>
-      {/* Logo */}
-      <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid ${C.sidebarBorder}`, display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+      {/* Logo — cliquable → Accueil */}
+      <button onClick={() => onSportChange("home")} style={{
+        padding:"14px 16px 12px", borderBottom:`1px solid ${C.sidebarBorder}`,
+        display:"flex", alignItems:"center", gap:10, flexShrink:0,
+        background:"none", border:"none", borderBottom:`1px solid ${C.sidebarBorder}`,
+        cursor:"pointer", width:"100%", textAlign:"left",
+        transition:"background .15s",
+      }}
+        onMouseEnter={e=>e.currentTarget.style.background="rgba(0,212,170,.08)"}
+        onMouseLeave={e=>e.currentTarget.style.background="none"}
+      >
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none" flexShrink="0">
           <line x1="3" y1="3" x2="23" y2="3" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
           <line x1="4" y1="7" x2="22" y2="7" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
@@ -818,7 +827,7 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
           <circle cx="13" cy="23" r="1.8" fill="#00D4AA"/>
         </svg>
         <span style={{ color:"#D0E8F4", fontWeight:800, fontSize:16, letterSpacing:.5 }}>Verdikt</span>
-      </div>
+      </button>
 
       {/* Recherche globale */}
       <SidebarSearch
@@ -843,16 +852,16 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         <div style={{ fontSize:9, color:C.sidebarSection, textTransform:"uppercase", letterSpacing:2, marginBottom:6, paddingLeft:2 }}>Sport</div>
         <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
           {[
-            { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
+            { id:"home",         label:"Accueil",      icon:"🏠", color:"#0176D3" },
+            { id:"foot",         label:"Football",     icon:"⚽", color:"#0176D3" },
+            { id:"tennis",       label:"Tennis",       icon:"🎾", color:"#c2692d" },
+            { id:"bracket",      label:"Coupes",       icon:"🏆", color:"#0176D3" },
             { id:"quiz",         label:"Quiz",         icon:"🧩", color:"#16a34a" },
             { id:"leaderboard",  label:"Classement",   icon:"🏆", color:"#d97706" },
+            { id:"history",      label:"Histoire",     icon:"📚", color:"#7C3AED" },
             { id:"encyclopedia", label:"Encyclopédie", icon:"📖", color:"#7C3AED" },
-            { id:"home",         label:"Accueil",      icon:"🏠", color:"#032D60" },
-            { id:"history", label:"Histoire", icon:"📚", color:"#7C3AED" },
-            { id:"bracket", label:"Coupes",   icon:"🏆", color:"#0176D3" },
-            { id:"conseils", label:"Conseils", icon:"💡", color:"#d97706" },
-            { id:"foot",    label:"Football", icon:"⚽", color:"#0176D3" },
-            { id:"tennis",  label:"Tennis",   icon:"🎾", color:"#c2692d" },
+            { id:"conseils",     label:"Conseils",     icon:"💡", color:"#d97706" },
+            { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
           ].map(s => {
             const active = sport === s.id;
             return (
@@ -6636,6 +6645,54 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
       {/* === FLASH INFOS FOOTBALL === */}
       <FootballNewsTicker />
 
+      {/* === PROMO QUIZ === */}
+      {(() => {
+        const [dismissed, setDismissed] = React.useState(
+          () => localStorage.getItem("quiz_promo_dismissed") === "1"
+        );
+        if (dismissed) return null;
+        return (
+          <div style={{
+            background:"linear-gradient(135deg, #0d2e2a 0%, #0a1f1c 100%)",
+            border:"1px solid rgba(0,212,170,.4)",
+            borderRadius:14, padding:"16px 18px",
+            display:"flex", alignItems:"center", gap:16, position:"relative",
+          }}>
+            {/* Close */}
+            <button onClick={() => { localStorage.setItem("quiz_promo_dismissed","1"); setDismissed(true); }}
+              style={{ position:"absolute", top:8, right:10, background:"none", border:"none", cursor:"pointer", color:"rgba(0,212,170,.5)", fontSize:16, lineHeight:1 }}>✕</button>
+            {/* Icon */}
+            <div style={{ fontSize:36, flexShrink:0 }}>🧩</div>
+            {/* Text */}
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:800, color:"#00D4AA", marginBottom:4 }}>
+                Quiz Football — Challenge tes amis !
+              </div>
+              <div style={{ fontSize:11, color:"#8AABBD", lineHeight:1.5, marginBottom:10 }}>
+                50 000+ questions · Classement mondial · Médailles de vitesse<br/>
+                Joue en <strong style={{ color:"#00D4AA" }}>multijoueur</strong> et gagne des points au classement
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => window.dispatchEvent(new CustomEvent("edgestat:navigate-sport", { detail:"quiz" }))}
+                  style={{ background:"#00D4AA", color:"#0A1428", border:"none", borderRadius:8, padding:"7px 16px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                  Jouer maintenant →
+                </button>
+                <button onClick={() => window.dispatchEvent(new CustomEvent("edgestat:navigate-sport", { detail:"leaderboard" }))}
+                  style={{ background:"none", border:"1px solid rgba(0,212,170,.3)", color:"#00D4AA", borderRadius:8, padding:"7px 14px", fontSize:12, cursor:"pointer" }}>
+                  Voir le classement
+                </button>
+              </div>
+            </div>
+            {/* Badges */}
+            <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
+              {["🥇 Vitesse", "⭐ Points", "🌍 Classement"].map(b => (
+                <span key={b} style={{ fontSize:10, background:"rgba(0,212,170,.1)", color:"#00D4AA", borderRadius:20, padding:"3px 10px", fontWeight:600 }}>{b}</span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* === COUPE DU MONDE 2026 === */}
       {onGoWC && (
         <div>
@@ -9035,6 +9092,13 @@ export default function App() {
     const h = (e) => { setSport("foot"); setFootHub(false); setCompId(e.detail); };
     window.addEventListener("edgestat:navigate", h);
     return () => window.removeEventListener("edgestat:navigate", h);
+  }, []);
+
+  // Navigation vers une section depuis la bulle promo ou autres composants internes
+  useEffect(() => {
+    const h = (e) => { setSport(e.detail); if (e.detail === "foot") setFootHub(true); };
+    window.addEventListener("edgestat:navigate-sport", h);
+    return () => window.removeEventListener("edgestat:navigate-sport", h);
   }, []);
 
   // Navigation depuis l'accueil (live ou à venir) → page de la compétition + match sélectionné
