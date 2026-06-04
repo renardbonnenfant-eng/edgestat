@@ -1422,6 +1422,7 @@ const TABS = [
   { id:"classement",  label:"Classement" },
   { id:"h2h_deep",    label:"⚔️ H2H" },
   { id:"records_comp",label:"📊 Records" },
+  { id:"advanced",    label:"📈 Stats Avancées" },
 ];
 
 function TabBar({ tab, setTab }) {
@@ -6601,65 +6602,71 @@ const FOOT_SECTIONS = [
 ];
 
 function FootballHub({ allData, leagueLogos, logoRegistry, loading, onSelectComp }) {
+  // Bulle compétition — format compact identique pour toutes
+  const CompBubble = ({ comp }) => {
+    const data    = allData[comp.id];
+    const logo    = data?.leagueLogo || leagueLogos[comp.id] || STATIC_LOGOS[comp.id];
+    const hasLive = data?.recentFixtures?.some(f => ["1H","2H","HT","ET","BT","P"].includes(f.status));
+    const upcoming = data?.recentFixtures?.filter(f => f.status === "NS" || f.status === "upcoming")?.length || 0;
+    return (
+      <button onClick={() => onSelectComp(comp.id)} style={{
+        display:"flex", flexDirection:"column", alignItems:"center", gap:8,
+        background:C.panel, border:`1px solid ${C.line}`,
+        borderRadius:16, padding:"16px 10px", cursor:"pointer",
+        transition:"all .15s", position:"relative", minWidth:0,
+      }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.background=C.accentBg; e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=`0 4px 16px ${C.accent}22`; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor=C.line; e.currentTarget.style.background=C.panel; e.currentTarget.style.transform=""; e.currentTarget.style.boxShadow=""; }}
+      >
+        {/* Badge LIVE */}
+        {hasLive && (
+          <div style={{ position:"absolute", top:8, right:8, width:8, height:8, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", animation:"verdikt-blink 1.2s infinite" }}/>
+        )}
+        {/* Logo */}
+        <div style={{ width:52, height:52, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {logo
+            ? <img src={logo} style={{ width:52, height:52, objectFit:"contain" }} onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }} alt={comp.name} />
+            : null}
+          <div style={{ display: logo ? "none" : "flex", width:52, height:52, alignItems:"center", justifyContent:"center", fontSize:28 }}>{comp.flag}</div>
+        </div>
+        {/* Nom */}
+        <div style={{ fontSize:11, fontWeight:600, color:C.text, textAlign:"center", lineHeight:1.3, maxWidth:100, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+          {comp.name}
+        </div>
+        {/* Statut */}
+        <div style={{ fontSize:9, color: hasLive?"#FF4444": upcoming>0?C.accent:C.muted, fontWeight: hasLive||upcoming>0?700:400 }}>
+          {hasLive ? "● En direct" : upcoming > 0 ? `${upcoming} à venir` : "Stats"}
+        </div>
+      </button>
+    );
+  };
+
   return (
-    <div style={{ padding:"24px" }}>
+    <div style={{ padding:"20px 24px" }}>
       {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:28 }}>
-        <div style={{ width:48, height:48, borderRadius:14, background:"rgba(0,212,170,.15)", display:"grid", placeItems:"center", fontSize:26 }}>⚽</div>
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:24 }}>
+        <div style={{ width:44, height:44, borderRadius:12, background:"rgba(0,212,170,.12)", display:"grid", placeItems:"center", fontSize:24, border:`1px solid rgba(0,212,170,.2)` }}>⚽</div>
         <div>
-          <div style={{ fontSize:22, fontWeight:900, color:C.text }}>Football</div>
-          <div style={{ fontSize:12, color:C.dim }}>Toutes les compétitions · Statistiques · Histoire</div>
+          <div style={{ fontSize:20, fontWeight:900, color:C.text }}>Football</div>
+          <div style={{ fontSize:11, color:C.dim }}>{Object.values(FOOT_SECTIONS).flatMap(s=>s.comps).length} compétitions disponibles</div>
         </div>
       </div>
 
       {loading && <InfoPanel>Chargement des données…</InfoPanel>}
 
-      {FOOT_SECTIONS.map(section => {
-        const available = section.comps;
-        if (available.length === 0) return null;
-        return (
-          <div key={section.title} style={{ marginBottom:28 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
-              {section.title}
-              <div style={{ flex:1, height:1, background:C.line }} />
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:10 }}>
-              {available.map(comp => {
-                const data     = allData[comp.id];
-                const logo     = data?.leagueLogo || leagueLogos[comp.id] || STATIC_LOGOS[comp.id];
-                const hasLive  = data?.recentFixtures?.some(f => ["1H","2H","HT","ET","BT","P"].includes(f.status));
-                const upcomingCount = data?.recentFixtures?.filter(f => f.status === "NS" || f.status === "upcoming")?.length || 0;
-                return (
-                  <button key={comp.id} onClick={() => onSelectComp(comp.id)} style={{
-                    background:C.panel, border:`1px solid ${C.line}`, borderRadius:12,
-                    padding:"14px 16px", cursor:"pointer", textAlign:"left",
-                    transition:"all .15s", display:"flex", alignItems:"center", gap:12,
-                    position:"relative", overflow:"hidden",
-                  }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.background = C.accentBg; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.line;   e.currentTarget.style.background = C.panel;   }}
-                  >
-                    {logo ? (
-                      <img src={logo} width={36} height={36} style={{ objectFit:"contain", borderRadius:8, flexShrink:0 }} onError={e=>e.target.style.display="none"}/>
-                    ) : (
-                      <div style={{ width:36, height:36, borderRadius:8, background:C.panel2, display:"grid", placeItems:"center", fontSize:20, flexShrink:0 }}>{comp.flag}</div>
-                    )}
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{comp.name}</div>
-                      <div style={{ fontSize:10, color:C.dim, marginTop:2 }}>
-                        {hasLive ? <span style={{ color:"#FF4444", fontWeight:700 }}>● Live</span> : upcomingCount > 0 ? <span>{upcomingCount} match{upcomingCount>1?"s":""} à venir</span> : <span>Voir les stats</span>}
-                      </div>
-                    </div>
-                    {hasLive && (
-                      <div style={{ width:8, height:8, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", flexShrink:0, animation:"verdikt-blink 1.2s infinite" }}/>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+      {FOOT_SECTIONS.map(section => (
+        <div key={section.title} style={{ marginBottom:24 }}>
+          {/* Titre section */}
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+            <span style={{ fontSize:12, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, whiteSpace:"nowrap" }}>{section.title}</span>
+            <div style={{ flex:1, height:1, background:C.line }}/>
           </div>
-        );
-      })}
+          {/* Grille de bulles */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(110px, 1fr))", gap:8 }}>
+            {section.comps.map(comp => <CompBubble key={comp.id} comp={comp} />)}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -8691,6 +8698,238 @@ function QuickBettorPanel({ m }) {
   );
 }
 
+// ============================================================
+// TabAdvancedStats
+// ============================================================
+function TabAdvancedStats({ m, fixtures }) {
+  if (!m?.home || !m?.away) return <InfoPanel>Données insuffisantes.</InfoPanel>;
+
+  const FINISHED = new Set(["FT","AET","PEN"]);
+  const home = m.home;
+  const away = m.away;
+
+  // Calculer depuis les fixtures disponibles
+  const homeFx = (fixtures || []).filter(f =>
+    FINISHED.has(f.status) && (f.home?.id===home.id || f.away?.id===home.id)
+  ).sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0, 20);
+
+  const awayFx = (fixtures || []).filter(f =>
+    FINISHED.has(f.status) && (f.home?.id===away.id || f.away?.id===away.id)
+  ).sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0, 20);
+
+  function teamStats(teamId, fxList) {
+    let wins=0, draws=0, losses=0;
+    let scored=0, conceded=0;
+    let scoredH1=0, scoredH2=0, concededH1=0, concededH2=0;
+    let homeWins=0, homePlayed=0, awayWins=0, awayPlayed=0;
+    let cleanSheets=0, failedToScore=0;
+    let over25=0, under25=0;
+    let last5pts=0, seasonPts=0, last5played=0;
+
+    fxList.forEach((f, idx) => {
+      const isHome = f.home?.id === teamId;
+      const parts = (f.score||"").split(" - ").map(Number);
+      if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+      const [gf, ga] = isHome ? parts : [parts[1], parts[0]];
+
+      const w = gf > ga, d = gf === ga, l = gf < ga;
+      wins += w?1:0; draws += d?1:0; losses += l?1:0;
+      scored += gf; conceded += ga;
+      if (gf+ga > 2.5) over25++; else under25++;
+      if (ga === 0) cleanSheets++;
+      if (gf === 0) failedToScore++;
+
+      seasonPts += w?3:d?1:0;
+      if (idx < 5) { last5pts += w?3:d?1:0; last5played++; }
+
+      // Domicile/Extérieur split
+      if (isHome) { homePlayed++; if(w) homeWins++; }
+      else { awayPlayed++; if(w) awayWins++; }
+
+      // Buts 1ère/2ème mi-temps (si disponible dans les périodes)
+      if (f.periods) {
+        const p = f.periods;
+        const h1gf = isHome ? (p.home?.h1||0) : (p.away?.h1||0);
+        const h1ga = isHome ? (p.away?.h1||0) : (p.home?.h1||0);
+        const h2gf = isHome ? (p.home?.h2||0) : (p.away?.h2||0);
+        const h2ga = isHome ? (p.away?.h2||0) : (p.home?.h2||0);
+        scoredH1 += h1gf; scoredH2 += h2gf;
+        concededH1 += h1ga; concededH2 += h2ga;
+      }
+    });
+
+    const n = fxList.length || 1;
+    const avgG = (scored/n).toFixed(2);
+    const avgC = (conceded/n).toFixed(2);
+    const winPct = Math.round(wins/n*100);
+    const homeWinPct = homePlayed > 0 ? Math.round(homeWins/homePlayed*100) : null;
+    const awayWinPct = awayPlayed > 0 ? Math.round(awayWins/awayPlayed*100) : null;
+    const over25pct = Math.round(over25/n*100);
+    const csPct = Math.round(cleanSheets/n*100);
+    const ftsPct = Math.round(failedToScore/n*100);
+    const seasonAvgPts = n > 0 ? (seasonPts/n).toFixed(2) : null;
+    const last5AvgPts  = last5played > 0 ? (last5pts/last5played).toFixed(2) : null;
+    const momentum = last5AvgPts && seasonAvgPts
+      ? (parseFloat(last5AvgPts) - parseFloat(seasonAvgPts)).toFixed(2)
+      : null;
+
+    return { wins, draws, losses, n, avgG, avgC, winPct, homeWinPct, awayWinPct, over25pct, csPct, ftsPct, momentum, scoredH1, scoredH2, concededH1, concededH2 };
+  }
+
+  const hs = teamStats(home.id, homeFx);
+  const as_ = teamStats(away.id, awayFx);
+
+  const StatCompare = ({ label, h, a, hColor, aColor, format, invert }) => {
+    const hv = parseFloat(h) || 0;
+    const av = parseFloat(a) || 0;
+    const max = Math.max(hv, av, 0.01);
+    const hPct = (hv/max)*100;
+    const aPct = (av/max)*100;
+    const hBetter = invert ? hv < av : hv > av;
+    const aBetter = invert ? av < hv : av > hv;
+    return (
+      <div style={{ marginBottom:12 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:C.muted, marginBottom:4 }}>
+          <span style={{ fontWeight:700, color: hBetter?C.accent:C.text }}>{format ? format(h) : h}</span>
+          <span style={{ textTransform:"uppercase", letterSpacing:.5 }}>{label}</span>
+          <span style={{ fontWeight:700, color: aBetter?C.blue:C.text }}>{format ? format(a) : a}</span>
+        </div>
+        <div style={{ display:"flex", height:6, borderRadius:99, overflow:"hidden", gap:1, background:C.panel2 }}>
+          <div style={{ width:`${hPct}%`, background: hBetter?C.accent:"#3A607A", borderRadius:"99px 0 0 99px", transition:"width .5s" }}/>
+          <div style={{ flex:1 }}/>
+          <div style={{ width:`${aPct}%`, background: aBetter?C.blue:"#3A607A", borderRadius:"0 99px 99px 0", transition:"width .5s" }}/>
+        </div>
+      </div>
+    );
+  };
+
+  const SectionTitle = ({ children }) => (
+    <div style={{ fontSize:10, fontWeight:700, color:C.accent, textTransform:"uppercase", letterSpacing:1, marginBottom:10, marginTop:16, borderBottom:`1px solid ${C.line}`, paddingBottom:4 }}>
+      {children}
+    </div>
+  );
+
+  const pct = v => `${v}%`;
+
+  return (
+    <div>
+      {/* Équipes en-tête */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:10, marginBottom:16 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <TeamLogo url={home.logo} size={24} name={home.name} />
+          <span style={{ fontSize:13, fontWeight:700, color:C.accent }}>{home.name}</span>
+        </div>
+        <span style={{ fontSize:11, color:C.muted }}>vs</span>
+        <div style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end" }}>
+          <span style={{ fontSize:13, fontWeight:700, color:C.blue }}>{away.name}</span>
+          <TeamLogo url={away.logo} size={24} name={away.name} />
+        </div>
+      </div>
+      <div style={{ fontSize:9, color:C.muted, textAlign:"center", marginBottom:12 }}>Basé sur {Math.max(hs.n, as_.n)} derniers matchs disponibles</div>
+
+      <SectionTitle>⚽ Buts & Efficacité</SectionTitle>
+      <StatCompare label="Buts/match (dom. → ext.)" h={hs.avgG} a={as_.avgG} />
+      <StatCompare label="Buts encaissés/match" h={hs.avgC} a={as_.avgC} invert />
+      <StatCompare label="Over 2.5" h={hs.over25pct} a={as_.over25pct} format={pct} />
+      <StatCompare label="Clean sheets" h={hs.csPct} a={as_.csPct} format={pct} />
+      <StatCompare label="Sans marquer" h={hs.ftsPct} a={as_.ftsPct} format={pct} invert />
+
+      <SectionTitle>🏠 Domicile / Extérieur</SectionTitle>
+      {hs.homeWinPct !== null && as_.homeWinPct !== null && (
+        <StatCompare label="Win% à domicile" h={hs.homeWinPct} a={as_.homeWinPct} format={pct} />
+      )}
+      {hs.awayWinPct !== null && as_.awayWinPct !== null && (
+        <StatCompare label="Win% à l'extérieur" h={hs.awayWinPct} a={as_.awayWinPct} format={pct} />
+      )}
+
+      <SectionTitle>🔥 Forme & Momentum</SectionTitle>
+      {/* Forme visuelle */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+        {[{ name:home.name, form:home.form||[], color:C.accent }, { name:away.name, form:away.form||[], color:C.blue }].map(t => (
+          <div key={t.name} style={{ background:C.panel2, borderRadius:8, padding:"8px 10px" }}>
+            <div style={{ fontSize:10, color:C.dim, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+            <div style={{ display:"flex", gap:3 }}>
+              {(t.form||[]).slice(-8).map((r,i) => (
+                <div key={i} style={{ width:18, height:18, borderRadius:4, display:"grid", placeItems:"center", fontSize:9, fontWeight:700,
+                  background:r==="W"?t.color:r==="D"?"#d97706":"#DC2626", color:"#fff" }}>{r}</div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Momentum */}
+      {hs.momentum !== null && as_.momentum !== null && (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+          {[{ name:home.name, val:hs.momentum, color:C.accent }, { name:away.name, val:as_.momentum, color:C.blue }].map(t => {
+            const v = parseFloat(t.val);
+            const isUp = v > 0.1;
+            const isDown = v < -0.1;
+            return (
+              <div key={t.name} style={{ background: isUp?`${t.color}12`:isDown?"rgba(220,38,38,.08)":C.panel2, border:`1px solid ${isUp?t.color:isDown?"#DC2626":C.line}33`, borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+                <div style={{ fontSize:9, color:C.muted, marginBottom:2 }}>Momentum (pts/match)</div>
+                <div style={{ fontSize:16, fontWeight:800, color:isUp?t.color:isDown?"#DC2626":C.dim }}>
+                  {v>0?"+":""}{t.val}
+                </div>
+                <div style={{ fontSize:9, color:C.muted }}>{isUp?"📈 En hausse":isDown?"📉 En baisse":"➡️ Stable"}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <SectionTitle>⏱ Buts par mi-temps</SectionTitle>
+      {(hs.scoredH1+hs.scoredH2 > 0 || as_.scoredH1+as_.scoredH2 > 0) ? (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          {[
+            { label:"1ère mi-temps", hV:hs.scoredH1, aV:as_.scoredH1, icon:"1️⃣" },
+            { label:"2ème mi-temps", hV:hs.scoredH2, aV:as_.scoredH2, icon:"2️⃣" },
+          ].map(row => (
+            <div key={row.label} style={{ background:C.panel2, borderRadius:8, padding:"10px 12px" }}>
+              <div style={{ fontSize:9, color:C.muted, marginBottom:6, textAlign:"center" }}>{row.icon} {row.label}</div>
+              <div style={{ display:"flex", justifyContent:"space-around" }}>
+                <div style={{ textAlign:"center" }}>
+                  <div style={{ fontSize:16, fontWeight:800, color:C.accent }}>{row.hV}</div>
+                  <div style={{ fontSize:8, color:C.muted }}>{home.name?.split(" ").slice(-1)[0]}</div>
+                </div>
+                <div style={{ textAlign:"center" }}>
+                  <div style={{ fontSize:16, fontWeight:800, color:C.blue }}>{row.aV}</div>
+                  <div style={{ fontSize:8, color:C.muted }}>{away.name?.split(" ").slice(-1)[0]}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize:11, color:C.muted }}>Données par mi-temps non disponibles.</div>
+      )}
+
+      <SectionTitle>🎯 Profil de jeu</SectionTitle>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+        {[
+          { label:"Win%", hV:hs.winPct, aV:as_.winPct, icon:"🏆", unit:"%" },
+          { label:"Matchs O2.5", hV:hs.over25pct, aV:as_.over25pct, icon:"📈", unit:"%" },
+          { label:"Clean sheets", hV:hs.csPct, aV:as_.csPct, icon:"🛡", unit:"%" },
+          { label:"Sans marquer", hV:hs.ftsPct, aV:as_.ftsPct, icon:"❌", unit:"%" },
+        ].map(item => (
+          <div key={item.label} style={{ background:C.panel2, borderRadius:8, padding:"8px 10px" }}>
+            <div style={{ fontSize:9, color:C.muted, marginBottom:4 }}>{item.icon} {item.label}</div>
+            <div style={{ display:"flex", justifyContent:"space-between" }}>
+              <span style={{ fontSize:14, fontWeight:800, color:C.accent }}>{item.hV}{item.unit}</span>
+              <span style={{ fontSize:14, fontWeight:800, color:C.blue }}>{item.aV}{item.unit}</span>
+            </div>
+            <div style={{ display:"flex", height:3, borderRadius:99, overflow:"hidden", marginTop:4 }}>
+              <div style={{ flex:item.hV, background:C.accent }}/>
+              <div style={{ flex:1, background:"transparent" }}/>
+              <div style={{ flex:item.aV, background:C.blue }}/>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Zone principale : analyse d'une compétition
 // ============================================================
 function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendingFixture, onClearPending, pendingTeam, onClearPendingTeam, onGoHistory, favorites = [], onToggleFavorite, isFavorite = () => false, onOpenClub }) {
@@ -9162,6 +9401,7 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
               {tab==="classement"  && <TabClassement compId={compId} />}
               {tab==="h2h_deep"    && <TabH2HDeep m={m} />}
               {tab==="records_comp"&& <TabRecordsComp compId={compId} stored={stored} />}
+              {tab==="advanced"   && <TabAdvancedStats m={m} fixtures={fixtures} />}
             </div>
           </div>
         </>
