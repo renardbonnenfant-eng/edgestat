@@ -42,7 +42,7 @@ const SERVER_QUESTIONS = [
     fact:"Messi marque 91 buts en 2012 (clubs + sélection), battant le record de Müller de 1972." },
 
   { id:"q8",  q:"Après quelle tragédie les clubs anglais ont-ils été bannis d'Europe ?",
-    options:["Heysel (1985)","Hillsborough (1989)","Bradford (1985)","Ibrox (1971)"], correct:0, pts:150,
+    options:["Heysel","Hillsborough","Bradford","Ibrox"], correct:0, pts:150,
     img:"https://media.api-sports.io/football/teams/40.png",
     fact:"39 morts au Heysel lors de la finale Juventus-Liverpool. Tous les clubs anglais bannis 5 ans." },
 
@@ -77,12 +77,12 @@ const SERVER_QUESTIONS = [
     fact:"Shane Long (Southampton) contre Watford le 23 avril 2019. Record absolu de PL." },
 
   { id:"q15", q:"Quelle est la plus grande victoire de l'histoire de la Coupe du Monde ?",
-    options:["Hongrie 10-1 El Salvador (1982)","Allemagne 7-1 Brésil (2014)","Yougoslavie 9-0 Zaïre","France 6-0 Jamaïque"], correct:0, pts:150,
+    options:["Hongrie 10-1 El Salvador","Allemagne 7-1 Brésil","Yougoslavie 9-0 Zaïre","France 6-0 Jamaïque"], correct:0, pts:150,
     img:"https://flagcdn.com/h80/hu.png",
     fact:"Hongrie 10-1 El Salvador, 15 juin 1982. Record absolu, 4 buts de László Kiss." },
 
   { id:"q16", q:"Quel est le seul gardien de but à avoir remporté le Ballon d'Or ?",
-    options:["Lev Yachine (1963)","Gianluigi Buffon","Manuel Neuer","Iker Casillas"], correct:0, pts:100,
+    options:["Lev Yachine","Gianluigi Buffon","Manuel Neuer","Iker Casillas"], correct:0, pts:100,
     img:"https://flagcdn.com/h80/ru.png",
     fact:"Lev Yachine, l'Araignée Noire soviétique, unique gardien Ballon d'Or (1963)." },
 
@@ -107,7 +107,7 @@ const SERVER_QUESTIONS = [
     fact:"Edson Arantes do Nascimento, né le 23 octobre 1940 à Três Corações, Brésil." },
 
   { id:"q21", q:"Quel club a le plus grand nombre de titres en Serie A ?",
-    options:["Juventus (36)","Inter Milan (20)","AC Milan (19)","Roma (3)"], correct:0, pts:100,
+    options:["Juventus","Inter Milan","AC Milan","Roma"], correct:0, pts:100,
     img:"https://media.api-sports.io/football/teams/496.png",
     fact:"La Juventus domine avec 36 scudetti, malgré la rétrogradation de 2006 (Calciopoli)." },
 
@@ -127,7 +127,7 @@ const SERVER_QUESTIONS = [
     fact:"Solskjaer à la 93'+3 (2-1 vs Bayern), après l'égalisation de Sheringham à la 91'." },
 
   { id:"q25", q:"Quel stade a la plus grande capacité officielle (football) ?",
-    options:["Narendra Modi Stadium, Inde (132 000)","Rungrado, Corée du Nord (114 000)","Camp Nou (99 354)","Wembley (90 000)"], correct:0, pts:200,
+    options:["Narendra Modi Stadium, Inde","Rungrado, Corée du Nord","Camp Nou","Wembley"], correct:0, pts:200,
     img:"https://flagcdn.com/h80/in.png",
     fact:"Le Narendra Modi Stadium (Ahmedabad, Inde) accueille 132 000 spectateurs." },
 
@@ -157,7 +157,7 @@ const SERVER_QUESTIONS = [
     fact:"Bader Al-Mutawa (Koweït) détient le record avec 196 sélections (2024)." },
 
   { id:"q31", q:"Quel joueur a gagné le plus de titres de champion en carrière ?",
-    options:["Dani Alves (43 titres)","Lionel Messi (44)","Marcelo (25)","Iniesta (35)"], correct:0, pts:200,
+    options:["Dani Alves","Lionel Messi","Marcelo","Iniesta"], correct:0, pts:200,
     img:"https://media.api-sports.io/football/players/154.png",
     fact:"Messi dépasse Dani Alves avec 44 trophées collectifs. Record mondial absolu." },
 
@@ -172,7 +172,7 @@ const SERVER_QUESTIONS = [
     fact:"Les Clasicos à Madrid se jouent au Santiago Bernabéu (81 044 places après rénovation)." },
 
   { id:"q34", q:"Quel pays a remporté la Copa América le plus souvent ?",
-    options:["Uruguay (15)","Argentine (15)","Brésil (9)","Chili (2)"], correct:0, pts:150,
+    options:["Uruguay","Argentine","Brésil","Chili"], correct:0, pts:150,
     img:"https://flagcdn.com/h80/uy.png",
     fact:"Uruguay et Argentine partagent le record avec 15 titres chacun." },
 
