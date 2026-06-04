@@ -72,47 +72,89 @@ app.get("/api/leaderboard", (req, res) => {
 });
 
 app.get("/api/news/football", async (req, res) => {
-  const cacheKey = "football-news-v1";
+  // Cache 1h — données fraîches basées sur les vrais résultats
+  const cacheKey = `football-news-v3:${new Date().toISOString().slice(0,13)}`; // reset toutes les heures
   try {
-    const cached = await readCache(cacheKey, 2 * 60 * 60 * 1000); // 2h
+    const cached = await readCache(cacheKey, 60 * 60 * 1000);
     if (cached?.fresh) return res.json(cached.value);
 
     const groqKey = process.env.GROQ_KEY;
     if (!groqKey) return res.json(getFallbackNews());
 
+    // ── Collecter les vrais résultats des dernières 48h ──────────
+    const now = Date.now();
+    const h48 = now - 48 * 60 * 60 * 1000;
+    const recentResults = [];
+
+    try {
+      // Lire le payload football en cache
+      const payload = await readCache("payload:football:v2", 24 * 60 * 60 * 1000);
+      if (payload?.value) {
+        for (const [lgId, lg] of Object.entries(payload.value.leagues || {})) {
+          for (const f of (lg.recentFixtures || [])) {
+            const d = new Date(f.date).getTime();
+            if (d > h48 && d < now && f.score && f.status === "FT") {
+              const [h, a] = (f.score||"").split(" - ").map(Number);
+              if (!isNaN(h) && !isNaN(a)) {
+                recentResults.push({
+                  home: f.home?.name, away: f.away?.name,
+                  score: f.score, league: lg.league,
+                  diff: Math.abs(h-a),
+                  total: h+a,
+                  date: f.date,
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // Trier par intérêt (gros score en premier)
+    recentResults.sort((a,b) => (b.diff+b.total) - (a.diff+a.total));
+    const top5 = recentResults.slice(0, 5);
+
     const { default: Groq } = await import("groq-sdk");
     const groq = new Groq({ apiKey: groqKey });
     const today = new Date().toISOString().slice(0, 10);
+
+    const resultsContext = top5.length > 0
+      ? `\n\nRésultats RÉELS des dernières 48h disponibles:\n${top5.map(r => `- ${r.home} ${r.score} ${r.away} (${r.league})`).join('\n')}`
+      : "";
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [{
         role: "user",
-        content: `Génère 6 actualités football RÉALISTES et RÉCENTES (comme si elles dataient des 48 dernières heures depuis ${today}).
-Mix: transferts, résultats surprenants, blessures importantes, records, incidents, nominations d'entraîneurs.
-Chaque news doit concerner des équipes/joueurs réels et connus (top 5 ligues européennes, CdM, LDC).
+        content: `Tu es un journaliste sportif. Date du jour: ${today}.
+${resultsContext}
+
+Génère 6 actualités football basées sur ce qui s'est VRAIMENT passé dans les 48 dernières heures.
+${top5.length > 0 ? "Utilise les résultats réels fournis ci-dessus comme base pour les news." : ""}
+Mix: analyse des résultats, transferts chauds de l'été 2026, blessures, impacts sur les pronostics.
+IMPORTANT: Rends les news UTILES pour un parieur sportif (impacts sur les cotes, équipes en forme, etc.)
 
 Format JSON strict:
 {
   "news": [
     {
       "id": "n1",
-      "title": "Titre accrocheur (max 80 chars)",
-      "summary": "Résumé factuel en 2 phrases maximum",
-      "category": "transfert|résultat|blessure|record|incident|nomination",
-      "entity": "nom du club ou joueur principal (ex: Real Madrid, Kylian Mbappé)",
+      "title": "Titre max 80 chars",
+      "summary": "2 phrases. Impact pour les parieurs si pertinent.",
+      "category": "résultat|transfert|blessure|forme|tactique|incident",
+      "entity": "club ou joueur principal",
       "entityType": "club|player|competition",
-      "leagueId": 39,
-      "emoji": "💸",
-      "hot": true
+      "leagueId": 61,
+      "emoji": "⚽",
+      "hot": true,
+      "betImpact": "court texte sur l'impact pour les paris (optionnel)"
     }
   ]
 }
-leagueId optionnel: 39=PL, 61=Ligue1, 78=Bundesliga, 135=SerieA, 140=LaLiga, 2=UCL
 Réponds UNIQUEMENT avec le JSON.`
       }],
-      max_tokens: 1200,
-      temperature: 0.9,
+      max_tokens: 1500,
+      temperature: 0.7,
       response_format: { type: "json_object" },
     });
 
@@ -122,7 +164,7 @@ Réponds UNIQUEMENT avec le JSON.`
       news = parsed.news || [];
     } catch { news = getFallbackNews().news; }
 
-    const result = { news, generatedAt: new Date().toISOString() };
+    const result = { news, generatedAt: new Date().toISOString(), realResults: top5.length };
     if (news.length > 0) await writeCache(cacheKey, result);
     res.json(result);
   } catch (err) {
@@ -377,38 +419,80 @@ app.get("/api/next", async (req, res) => {
 });
 
 // Cotes de match — API-Football /odds
+// ── Calcul de cotes Poisson ──────────────────────────────────
+function poissonProb(lambda, k) {
+  let p = Math.exp(-lambda);
+  for (let i = 1; i <= k; i++) p *= lambda / i;
+  return p;
+}
+function calcOddsFromStats(hAtt, hDef, aAtt, aDef) {
+  const MARGIN  = 1.06; // marge bookmaker ~6%
+  const lgH = 1.35, lgA = 1.05;
+  const lH = (hAtt * aDef) / lgA;
+  const lA = (aAtt * hDef) / lgH;
+  let pH = 0, pD = 0, pA = 0, pO25 = 0, pBTTS = 0;
+  for (let h = 0; h <= 6; h++) {
+    for (let a = 0; a <= 6; a++) {
+      const p = poissonProb(lH, h) * poissonProb(lA, a);
+      if (h > a)       pH   += p;
+      else if (h === a) pD  += p;
+      else             pA   += p;
+      if (h + a > 2.5) pO25 += p;
+      if (h > 0 && a > 0) pBTTS += p;
+    }
+  }
+  const o = v => +(v > 0.01 ? (MARGIN / v).toFixed(2) : null);
+  return {
+    bookmaker: "Verdikt Estimé",
+    estimated: true,
+    win:  { home: o(pH),  draw: o(pD),  away: o(pA) },
+    ou25: { over: o(pO25), under: o(1-pO25) },
+    btts: { yes: o(pBTTS), no: o(1-pBTTS) },
+    proba: { home: +(pH*100).toFixed(1), draw: +(pD*100).toFixed(1), away: +(pA*100).toFixed(1) },
+  };
+}
+
 app.get("/api/odds/:fixtureId", async (req, res) => {
   const { fixtureId } = req.params;
+  const { homeAtt, homeDef, awayAtt, awayDef } = req.query;
   const cacheKey = `odds:${fixtureId}`;
   try {
-    const cached = await readCache(cacheKey, 24 * 60 * 60 * 1000);
+    // 1. Essayer le cache
+    const cached = await readCache(cacheKey, 3 * 60 * 60 * 1000);
     if (cached?.fresh) return res.json(cached.value);
 
-    const data = await apiGet("odds", { fixture: fixtureId }, 24 * 60 * 60 * 1000);
-    const bookmakers = (data?.[0]?.bookmakers || []);
-    // Prendre le premier bookmaker disponible
+    // 2. Essayer l'API officielle
+    const data = await apiGet("odds", { fixture: fixtureId }, 3 * 60 * 60 * 1000);
+    const bookmakers = data?.[0]?.bookmakers || [];
     const bm = bookmakers[0];
-    if (!bm) { await writeCache(cacheKey, null); return res.json(null); }
+    if (bm) {
+      const getBet = (id) => bm.bets?.find(b => b.id === id || b.name?.includes(String(id)));
+      const win  = getBet(1) || getBet("Match Winner");
+      const ou25 = getBet(5) || getBet("Goals Over/Under");
+      const btts = getBet(8) || getBet("Both Teams Score");
+      const getV = (bet, val) => bet?.values?.find(v => v.value === val || v.value?.toLowerCase().includes(val.toLowerCase()))?.odd;
+      const result = {
+        bookmaker: bm.name,
+        estimated: false,
+        win:  { home: getV(win,"Home"), draw: getV(win,"Draw"), away: getV(win,"Away") },
+        ou25: { over: getV(ou25,"Over 2.5"), under: getV(ou25,"Under 2.5") },
+        btts: { yes: getV(btts,"Yes"), no: getV(btts,"No") },
+      };
+      await writeCache(cacheKey, result);
+      return res.json(result);
+    }
 
-    const getBet = (betId) => bm.bets?.find(b => b.id === betId || b.name?.includes(betId));
-    const win  = getBet(1) || getBet("Match Winner");
-    const ou25 = getBet(5) || getBet("Goals Over/Under");
-    const btts = getBet(8) || getBet("Both Teams Score");
-
-    const getVal = (bet, val) => bet?.values?.find(v => v.value === val || v.value?.toLowerCase().includes(val.toLowerCase()))?.odd;
-
-    const result = {
-      bookmaker: bm.name,
-      logo: `https://media.api-sports.io/bookmakers/${bm.id}.png`,
-      win:  { home: getVal(win,"Home"), draw: getVal(win,"Draw"), away: getVal(win,"Away") },
-      ou25: { over: getVal(ou25,"Over 2.5"), under: getVal(ou25,"Under 2.5") },
-      btts: { yes: getVal(btts,"Yes"), no: getVal(btts,"No") },
-    };
+    // 3. Fallback : calcul Poisson depuis les stats passées en query
+    const hA = parseFloat(homeAtt)||1.3, hD = parseFloat(homeDef)||1.2;
+    const aA = parseFloat(awayAtt)||1.0, aD = parseFloat(awayDef)||1.3;
+    const result = calcOddsFromStats(hA, hD, aA, aD);
     await writeCache(cacheKey, result);
     res.json(result);
   } catch (err) {
-    console.error(`[/api/odds/${fixtureId}]`, err.message);
-    res.json(null);
+    // En cas d'erreur, calcul Poisson
+    const hA = parseFloat(homeAtt)||1.3, hD = parseFloat(homeDef)||1.2;
+    const aA = parseFloat(awayAtt)||1.0, aD = parseFloat(awayDef)||1.3;
+    res.json(calcOddsFromStats(hA, hD, aA, aD));
   }
 });
 

@@ -7786,19 +7786,31 @@ function LeagueGroups({ compId, fixtures, onGroupClick, onTeamClick, activeTeamI
 // ============================================================
 // Affichage des cotes d'un match
 // ============================================================
-function OddsDisplay({ fixtureId }) {
+function OddsDisplay({ fixtureId, m }) {
   const [odds,    setOdds]    = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!fixtureId) return;
     setOdds(null); setLoading(true);
-    fetchOdds(fixtureId)
+    // Passer les stats des équipes pour le calcul Poisson de secours
+    const teamStats = {
+      homeAtt: m?.home?.avgGoalsScored   || 1.3,
+      homeDef: m?.home?.avgGoalsConceded || 1.2,
+      awayAtt: m?.away?.avgGoalsScored   || 1.0,
+      awayDef: m?.away?.avgGoalsConceded || 1.3,
+    };
+    fetchOdds(fixtureId, teamStats)
       .then(d => { setOdds(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [fixtureId]);
 
-  if (loading || !odds) return null; // invisible si pas de cotes
+  if (loading) return (
+    <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"10px 16px", marginBottom:8, fontSize:11, color:C.muted }}>
+      Chargement des cotes…
+    </div>
+  );
+  if (!odds) return null;
 
   const OddChip = ({ label, value, color }) => (
     value ? (
@@ -7810,12 +7822,26 @@ function OddsDisplay({ fixtureId }) {
   );
 
   return (
-    <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"10px 16px", marginBottom:8, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-      {/* Bookmaker */}
-      <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-        {odds.logo && <img src={odds.logo} width={16} height={16} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
+    <div style={{ background:C.panel, border:`1px solid ${odds.estimated?"#d97706":C.line}`, borderRadius:10, padding:"10px 16px", marginBottom:8 }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+        {odds.logo && <img src={odds.logo} width={14} height={14} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
         <span style={{ fontSize:10, fontWeight:600, color:C.dim }}>{odds.bookmaker}</span>
+        {odds.estimated && (
+          <span style={{ fontSize:8, background:"#FEF3C7", color:"#92400E", borderRadius:4, padding:"1px 6px", fontWeight:700 }}>
+            ⚡ CALCULÉ via Poisson
+          </span>
+        )}
+        {/* Probabilités en % */}
+        {odds.proba && (
+          <div style={{ marginLeft:"auto", display:"flex", gap:6, fontSize:10 }}>
+            <span style={{ color:C.accent, fontWeight:700 }}>Dom. {odds.proba.home}%</span>
+            <span style={{ color:C.muted }}>Nul {odds.proba.draw}%</span>
+            <span style={{ color:C.blue, fontWeight:700 }}>Ext. {odds.proba.away}%</span>
+          </div>
+        )}
       </div>
+      <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
       <div style={{ width:1, height:28, background:C.line, flexShrink:0 }} />
       {/* 1X2 */}
       {(odds.win?.home || odds.win?.draw || odds.win?.away) && (
@@ -7845,6 +7871,7 @@ function OddsDisplay({ fixtureId }) {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }
@@ -8694,7 +8721,7 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
               ))}
             </div>
           )}
-          <OddsDisplay fixtureId={selectedId ?? defaultId} />
+          <OddsDisplay fixtureId={selectedId ?? defaultId} m={m} />
           {matchSelected && currentFixture && (
             <InjuryReport
               homeTeamId={currentFixture.home?.id}

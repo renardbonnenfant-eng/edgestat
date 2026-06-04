@@ -67,9 +67,15 @@ export async function fetchMatch(leagueId, fixtureId) {
   return res.json();
 }
 
-export async function fetchOdds(fixtureId) {
+export async function fetchOdds(fixtureId, teamStats = {}) {
   if (!fixtureId) return null;
-  const res = await fetch(`/api/odds/${fixtureId}`);
+  const params = new URLSearchParams();
+  if (teamStats.homeAtt) params.set("homeAtt", teamStats.homeAtt);
+  if (teamStats.homeDef) params.set("homeDef", teamStats.homeDef);
+  if (teamStats.awayAtt) params.set("awayAtt", teamStats.awayAtt);
+  if (teamStats.awayDef) params.set("awayDef", teamStats.awayDef);
+  const qs = params.toString();
+  const res = await fetch(`/api/odds/${fixtureId}${qs ? "?" + qs : ""}`);
   if (!res.ok) return null;
   return res.json().catch(() => null);
 }
