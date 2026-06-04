@@ -1,10 +1,19 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// En dev, /api est relayé vers le backend Express : le frontend ne connaît
-// jamais l'URL ni la clé d'API-Football, seulement son propre backend.
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Sépare React du reste pour réduire la charge mémoire du build
+          "vendor-react": ["react", "react-dom"],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

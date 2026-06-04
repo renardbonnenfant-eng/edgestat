@@ -4,11 +4,9 @@
   "description": "EdgeStat — analyse statistique de paris sportifs",
   "scripts": {
     "build": "cd backend && npm install && cd ../frontend && npm install && npm run build",
-    "start": "node backend/src/server.js",
-    "install": "cd backend && npm install && cd ../frontend && npm install"
+    "start": "node backend/src/server.js"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": "18.x"
   }
 }
