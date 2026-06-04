@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: edgestat
+    env: node
+    region: frankfurt
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
