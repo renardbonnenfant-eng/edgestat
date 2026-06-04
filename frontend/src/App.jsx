@@ -5087,37 +5087,74 @@ function QuizView({ userAccount }) {
     return a;
   }
 
+  // ── Gestion des questions déjà vues (localStorage) ──────────
+  function getSeenIds(cat) {
+    try { return new Set(JSON.parse(localStorage.getItem(`quiz_seen_${cat}`) || "[]")); }
+    catch { return new Set(); }
+  }
+  function markSeen(cat, ids) {
+    const seen = getSeenIds(cat);
+    ids.forEach(id => seen.add(id));
+    // Garder max 200 IDs par catégorie (glissement circulaire)
+    const arr = [...seen];
+    if (arr.length > 200) arr.splice(0, arr.length - 200);
+    localStorage.setItem(`quiz_seen_${cat}`, JSON.stringify(arr));
+  }
+  function filterUnseen(questions, cat) {
+    const seen = getSeenIds(cat);
+    const unseen = questions.filter(q => !seen.has(q.q)); // clé = texte de la question
+    // Si moins de 5 questions fraîches, réinitialiser (on a tout vu)
+    if (unseen.length < 5) {
+      localStorage.removeItem(`quiz_seen_${cat}`);
+      return questions;
+    }
+    return unseen;
+  }
+
   async function startQuiz() {
     setLoading(true);
     let pool = [];
+    const cat = category || "all";
 
     if (category === "ai_mix") {
-      // Générer via IA
-      const cats = ["records","champions_league","world_cup","joueurs","clubs"];
+      // IA pure — nouvelles questions à chaque fois
+      const cats = ["records","champions_league","world_cup","joueurs","clubs","stades","entraineurs","euros"];
       const randomCat = cats[Math.floor(Math.random()*cats.length)];
       const diff = difficulty === "mixte" ? ["facile","moyen","difficile","expert"][Math.floor(Math.random()*4)] : difficulty;
-      pool = await generateQuizQuestions(randomCat, diff, 10);
-      if (pool.length === 0) {
-        const all = Object.values(QUIZ_SEED).flat();
-        pool = shuffle(all).slice(0, 15);
-      }
+      const aiQ = await generateQuizQuestions(randomCat, diff, 15);
+      pool = aiQ.length > 0 ? aiQ : shuffle(Object.values(QUIZ_SEED).flat()).slice(0, 15);
+
     } else if (difficulty === "mixte" && !category) {
-      // Mixte sans catégorie : tout QUIZ_SEED mélangé
+      // Mixte global : TOUTES catégories, jamais les mêmes
       const all = Object.values(QUIZ_SEED).flat();
-      pool = shuffle(all).slice(0, 20);
+      const fresh = filterUnseen(all, "mixte_global");
+      pool = shuffle(fresh).slice(0, 20);
+
     } else {
       const seed = QUIZ_SEED[category] || [];
+      const fresh = filterUnseen(seed, cat);
+
       if (difficulty === "mixte") {
-        // Mixte avec catégorie : prendre toutes les questions de la catégorie
-        pool = shuffle(seed).slice(0, 20);
-      } else if (seed.length >= 10) {
-        pool = shuffle(seed).slice(0, 15);
+        // Mixte sur une catégorie — fraîches d'abord, complété par IA
+        if (fresh.length >= 10) {
+          pool = shuffle(fresh).slice(0, 20);
+        } else {
+          const aiQ = await generateQuizQuestions(category, "moyen", 15);
+          pool = shuffle([...fresh, ...aiQ]).slice(0, 20);
+        }
+      } else if (fresh.length >= 8) {
+        // Assez de fraîches en seed
+        pool = shuffle(fresh).slice(0, 15);
       } else {
-        // Compléter avec IA
-        const aiQuestions = await generateQuizQuestions(category, difficulty, 10);
-        pool = shuffle([...seed, ...aiQuestions]).slice(0, 15);
+        // Compléter avec IA (nouvelles questions générées)
+        const aiQ = await generateQuizQuestions(category, difficulty, 15);
+        const allAvail = shuffle([...fresh, ...aiQ]);
+        pool = allAvail.slice(0, 15);
       }
     }
+
+    // Mémoriser les questions qui vont être posées
+    markSeen(cat, pool.map(q => q.q));
 
     setQuestions(pool);
     setQIdx(0); setScore(0); setLives(3); setStreak(0);

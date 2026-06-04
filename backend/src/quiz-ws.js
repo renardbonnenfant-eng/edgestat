@@ -252,9 +252,36 @@ class Room {
       .sort((a, b) => b.score - a.score);
   }
 
-  startGame() {
+  async startGame() {
     this.status = "playing";
-    this.broadcast({ type:"game_started", players: this.playersState(), targetScore: this.targetScore, maxQuestions: this.maxQuestions });
+    this.broadcast({ type:"game_started", players: this.playersState(), targetScore: this.targetScore, maxQuestions: this.maxQuestions, gameMode: this.gameMode });
+
+    // Enrichir avec des questions IA pour avoir de la variété
+    try {
+      const groqKey = process.env.GROQ_KEY;
+      if (groqKey) {
+        const { default: Groq } = await import("groq-sdk");
+        const groq = new Groq({ apiKey: groqKey });
+        const cats = ["records","champions_league","world_cup","joueurs","clubs","stades","entraineurs","euros","transferts"];
+        const randomCat = cats[Math.floor(Math.random()*cats.length)];
+        const prompt = `Génère 10 questions de quiz football variées et difficiles sur la catégorie "${randomCat}".
+Format JSON strict: { "questions": [{ "id":"ai1", "q":"...", "options":["bonne réponse","mauvaise1","mauvaise2","mauvaise3"], "correct":0, "pts":150, "fact":"explication courte" }] }
+IMPORTANT: mélange l'index correct (0,1,2 ou 3 aléatoirement). Réponds UNIQUEMENT avec le JSON.`;
+        const completion = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role:"user", content:prompt }],
+          max_tokens: 2000, temperature: 0.85,
+          response_format: { type: "json_object" },
+        });
+        const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        const aiQ = (parsed.questions || []).filter(q => q.q && q.options?.length === 4);
+        if (aiQ.length > 0) {
+          // Mélanger les questions IA avec les questions de base
+          this.questions = shuffle([...this.questions, ...aiQ]);
+        }
+      }
+    } catch { /* continuer sans IA si erreur */ }
+
     setTimeout(() => this.sendQuestion(), 800);
   }
 
@@ -262,7 +289,8 @@ class Room {
     if (this.status !== "playing") return;
     if (this.qIdx >= this.maxQuestions) { this.endGame(null); return; }
 
-    const rawQ = this.questions[this.qIdx % this.questions.length];
+    // Accès séquentiel sans modulo pour ne pas recycler
+    const rawQ = this.questions[this.qIdx] || this.questions[this.qIdx % this.questions.length];
     const q    = shuffleOptions(rawQ); // réordonne les options aléatoirement à chaque envoi
     this._currentQ = q;
     this.currentAnswers.clear();
