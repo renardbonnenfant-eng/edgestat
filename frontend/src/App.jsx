@@ -4514,6 +4514,10 @@ function MultiplayerQuiz({ userAccount, onBack }) {
   const [gameOver, setGameOver]   = useState(null);
   const [timeLeft, setTimeLeft]   = useState(20);
   const [myScore, setMyScore]     = useState(0);
+  const [maxQuestions, setMaxQuestions]     = useState(20);
+  const [answeredUsers, setAnsweredUsers]   = useState(new Set()); // userIds qui ont répondu
+  const [questionTotal, setQuestionTotal]   = useState(20);
+  const [questionIndex, setQuestionIndex]   = useState(0);
   const [err, setErr]             = useState("");
   const [myUsername, setMyUsername] = useState(userAccount?.username || "");
 
@@ -4554,20 +4558,46 @@ function MultiplayerQuiz({ userAccount, onBack }) {
   function handleWsMsg(msg, sock) {
     if (msg.type === "auth_ok")       return;
     if (msg.type === "error")         { setErr(msg.message); return; }
-    if (msg.type === "room_created")  { setRoomCode(msg.roomCode); setPlayers(msg.players); setIsCreator(true); setPhase("room"); return; }
-    if (msg.type === "room_joined")   { setRoomCode(msg.roomCode); setPlayers(msg.players); setIsCreator(false); setPhase("room"); return; }
+    if (msg.type === "room_created") {
+      setRoomCode(msg.roomCode);
+      setPlayers(msg.players);
+      setIsCreator(true);
+      setMaxQuestions(msg.maxQuestions || 20);
+      setPhase("room");
+      return;
+    }
+    if (msg.type === "room_joined") {
+      setRoomCode(msg.roomCode);
+      setPlayers(msg.players);
+      setIsCreator(false);
+      setMaxQuestions(msg.maxQuestions || 20);
+      setPhase("room");
+      return;
+    }
     if (msg.type === "player_joined") { setPlayers(msg.players); return; }
     if (msg.type === "player_left")   { setPlayers(msg.players); return; }
     if (msg.type === "game_started")  { setPlayers(msg.players); setPhase("playing"); return; }
-    if (msg.type === "question")      {
-      setQuestion(msg.question); setSelected(null); setShowResult(false);
-      setRoundResult(null); setTimeLeft(msg.question.timeLimit);
+    if (msg.type === "question") {
+      setQuestion(msg.question);
+      setSelected(null);
+      setShowResult(false);
+      setRoundResult(null);
+      setTimeLeft(msg.question.timeLimit || 20);
+      setAnsweredUsers(new Set());
+      setQuestionIndex(msg.question.index || 0);
+      setQuestionTotal(msg.question.total || maxQuestions);
+      if (msg.players) setPlayers(msg.players);
+      return;
+    }
+    if (msg.type === "player_answered") {
+      setAnsweredUsers(prev => new Set([...prev, msg.userId]));
       return;
     }
     if (msg.type === "round_result") {
-      setRoundResult(msg); setShowResult(true);
+      setRoundResult(msg);
+      setShowResult(true);
       setPlayers(msg.results.map(r => ({ id:r.userId, username:r.username, avatarColor:r.avatarColor, score:r.score })));
-      const me = msg.results.find(r => r.username === userAccount?.username);
+      const me = msg.results.find(r => r.username === myUsername);
       if (me) setMyScore(me.score);
       return;
     }
@@ -4585,7 +4615,7 @@ function MultiplayerQuiz({ userAccount, onBack }) {
   function createRoom() {
     if (!effectiveName) { setErr("Entre un pseudo pour jouer en invité."); return; }
     connect(sock => {
-      sock.send(JSON.stringify({ type:"create_room", payload:{ targetScore } }));
+      sock.send(JSON.stringify({ type:"create_room", payload:{ targetScore, maxQuestions } }));
     });
   }
 
@@ -4664,6 +4694,19 @@ function MultiplayerQuiz({ userAccount, onBack }) {
             }}>{s} pts</button>
           ))}
         </div>
+        <div style={{ fontSize:11, color:C.muted, marginBottom:6, marginTop:10 }}>Nombre de questions</div>
+        <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
+          {[10,20,30,50].map(n => (
+            <button key={n} onClick={() => setMaxQuestions(n)} style={{
+              flex:1, minWidth:50, padding:"7px 4px",
+              border:`1px solid ${maxQuestions===n ? C.accent : C.line}`,
+              borderRadius:8, cursor:"pointer",
+              background: maxQuestions===n ? C.accentBg : "none",
+              color: maxQuestions===n ? C.accent : C.dim,
+              fontSize:12, fontWeight:600,
+            }}>{n}Q</button>
+          ))}
+        </div>
         <button onClick={createRoom} style={{
           width:"100%", background:C.accent, color:"#0A1428", border:"none", borderRadius:8,
           padding:"11px", fontSize:13, fontWeight:700, cursor:"pointer",
@@ -4691,7 +4734,7 @@ function MultiplayerQuiz({ userAccount, onBack }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
         <div>
           <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Salle d'attente</div>
-          <div style={{ fontSize:11, color:C.dim }}>Score cible : {targetScore} pts</div>
+          <div style={{ fontSize:11, color:C.dim }}>Score cible : {targetScore} pts · {maxQuestions === 999 ? "∞" : maxQuestions} questions</div>
         </div>
         <div style={{ background:C.accentBg, border:`1px solid ${C.accent}44`, borderRadius:8, padding:"8px 14px", textAlign:"center" }}>
           <div style={{ fontSize:20, fontWeight:900, color:C.accent, letterSpacing:2 }}>{roomCode}</div>
@@ -4734,28 +4777,77 @@ function MultiplayerQuiz({ userAccount, onBack }) {
   // EN JEU
   if (phase === "playing") return (
     <div style={{ padding:"16px 20px" }}>
-      {/* Scores */}
-      <div style={{ display:"flex", gap:4, overflowX:"auto", marginBottom:12, paddingBottom:4, scrollbarWidth:"none" }}>
-        {[...players].sort((a,b)=>b.score-a.score).map((p,i) => (
-          <div key={p.id} style={{ flexShrink:0, background:p.username===userAccount?.username?C.accentBg:C.panel, border:`1px solid ${p.username===userAccount?.username?C.accent:C.line}`, borderRadius:8, padding:"6px 10px", textAlign:"center", minWidth:80 }}>
-            <div style={{ width:18, height:18, borderRadius:"50%", background:p.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:9, fontWeight:800, color:"#0A1428", margin:"0 auto 3px" }}>
-              {p.username[0].toUpperCase()}
-            </div>
-            <div style={{ fontSize:9, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:76 }}>{p.username}</div>
-            <div style={{ fontSize:13, fontWeight:800, color:i===0?"#d97706":C.accent }}>{p.score}</div>
-          </div>
-        ))}
+      {/* Classement en direct */}
+      <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"8px 12px", marginBottom:12 }}>
+        <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>
+          🏆 Classement · Q{questionIndex+1}/{questionTotal}
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          {[...players].sort((a,b)=>b.score-a.score).map((p,i) => {
+            const isMe = p.username === myUsername;
+            const barW = players[0]?.score > 0 ? (p.score / Math.max(...players.map(x=>x.score))) * 100 : 0;
+            return (
+              <div key={p.id} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:11, width:14, color:i===0?"#d97706":C.muted, fontWeight:700, flexShrink:0 }}>
+                  {i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`}
+                </span>
+                <div style={{ width:20, height:20, borderRadius:"50%", background:p.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:9, fontWeight:800, color:"#0A1428", flexShrink:0 }}>
+                  {p.username?.[0]?.toUpperCase()}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:2 }}>
+                    <span style={{ fontSize:11, fontWeight:isMe?700:400, color:isMe?C.accent:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:100 }}>
+                      {p.username}{isMe?" (toi)":""}
+                    </span>
+                    <span style={{ fontSize:12, fontWeight:800, color:i===0?"#d97706":C.accent, flexShrink:0 }}>{p.score}</span>
+                  </div>
+                  <div style={{ height:3, background:C.panel2, borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${barW}%`, background:isMe?C.accent:p.avatarColor||"#00D4AA", transition:"width .5s", borderRadius:99 }}/>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {question && !showResult && (
         <>
           {/* Timer */}
           <div style={{ background:C.panel2, borderRadius:99, height:6, marginBottom:12, overflow:"hidden" }}>
-            <div style={{ height:"100%", width:`${(timeLeft/question.timeLimit)*100}%`, transition:"width 1s linear", background:timeLeft>10?"#16a34a":timeLeft>5?"#d97706":"#FF4444" }}/>
+            <div style={{ height:"100%", width:`${(timeLeft/(question.timeLimit||20))*100}%`, transition:"width 1s linear", background:timeLeft>10?"#16a34a":timeLeft>5?"#d97706":"#FF4444" }}/>
           </div>
+          {question?.img && (
+            <div style={{ width:"100%", height:90, marginBottom:12, borderRadius:10, overflow:"hidden", background:C.panel2, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <img src={question.img} alt="" style={{ maxHeight:90, maxWidth:"100%", objectFit:"contain" }}
+                onError={e => { e.target.parentElement.style.display="none"; }}/>
+            </div>
+          )}
           <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"16px", marginBottom:12 }}>
             <div style={{ fontSize:9, color:C.accent, fontWeight:700, textTransform:"uppercase", marginBottom:6 }}>{timeLeft}s · {question.pts} pts</div>
             <div style={{ fontSize:14, fontWeight:600, color:C.text, lineHeight:1.6 }}>{question.q}</div>
+            {/* Qui a répondu (sans révéler le choix) */}
+            <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:8 }}>
+              {players.map(p => {
+                const hasAnswered = answeredUsers.has(p.id);
+                return (
+                  <div key={p.id} title={`${p.username}${hasAnswered?" — a répondu":""}`} style={{
+                    width:22, height:22, borderRadius:"50%",
+                    background: hasAnswered ? p.avatarColor || "#00D4AA" : C.panel2,
+                    border:`2px solid ${hasAnswered ? p.avatarColor||"#00D4AA" : C.line}`,
+                    display:"grid", placeItems:"center",
+                    fontSize:9, fontWeight:700, color: hasAnswered ? "#0A1428" : C.muted,
+                    transition:"all .3s",
+                    opacity: hasAnswered ? 1 : 0.5,
+                  }}>
+                    {p.username?.[0]?.toUpperCase() || "?"}
+                  </div>
+                );
+              })}
+              <span style={{ fontSize:10, color:C.muted, alignSelf:"center" }}>
+                {answeredUsers.size}/{players.length} ont répondu
+              </span>
+            </div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(question.options||[]).map((opt,i) => (
@@ -4776,18 +4868,50 @@ function MultiplayerQuiz({ userAccount, onBack }) {
         </>
       )}
 
-      {showResult && roundResult && (
+      {showResult && roundResult && question && (
         <div>
-          <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:10 }}>Résultats du tour</div>
-          {roundResult.results.map((r,i) => (
-            <div key={r.userId} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"8px 12px", marginBottom:6 }}>
-              <span style={{ fontSize:14 }}>{r.correct?"✅":"❌"}</span>
-              <span style={{ fontSize:12, color:C.text, flex:1 }}>{r.username}</span>
-              {r.ptsEarned > 0 && <span style={{ fontSize:11, color:"#16a34a", fontWeight:700 }}>+{r.ptsEarned}</span>}
-              <span style={{ fontSize:13, fontWeight:800, color:i===0?"#d97706":C.accent }}>{r.score}</span>
+          {/* Bonne réponse en évidence */}
+          <div style={{ background:"rgba(22,163,74,.12)", border:"1px solid #16a34a44", borderRadius:10, padding:"10px 14px", marginBottom:10, display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:16 }}>✅</span>
+            <div>
+              <div style={{ fontSize:10, color:"#16a34a", fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>Bonne réponse</div>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{roundResult.correctText}</div>
             </div>
-          ))}
-          <div style={{ fontSize:11, color:C.muted, textAlign:"center", marginTop:8 }}>Prochaine question…</div>
+          </div>
+
+          {/* Anecdote */}
+          {roundResult.fact && (
+            <div style={{ background:C.accentBg, border:`1px solid ${C.accent}33`, borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:11, color:C.text, lineHeight:1.6 }}>
+              💡 {roundResult.fact}
+            </div>
+          )}
+
+          {/* Résultats par joueur avec leur choix */}
+          <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>
+            Réponses ({roundResult.questionsDone}/{roundResult.maxQuestions === 999 ? "∞" : roundResult.maxQuestions})
+          </div>
+          {roundResult.results.map((r, i) => {
+            const chosenText = r.answerIdx >= 0 ? question.options[r.answerIdx] : "—";
+            return (
+              <div key={r.userId} style={{ display:"flex", alignItems:"center", gap:8, background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"8px 12px", marginBottom:5 }}>
+                <span style={{ fontSize:14, flexShrink:0 }}>{r.correct ? "✅" : "❌"}</span>
+                <div style={{ width:22, height:22, borderRadius:"50%", background:r.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:9, fontWeight:800, color:"#0A1428", flexShrink:0 }}>
+                  {r.username?.[0]?.toUpperCase()}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, color:C.text, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.username}</div>
+                  <div style={{ fontSize:10, color:r.correct?"#16a34a":"#FF4444" }}>{chosenText}</div>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  {r.ptsEarned > 0 && <div style={{ fontSize:11, fontWeight:700, color:"#16a34a" }}>+{r.ptsEarned}</div>}
+                  <div style={{ fontSize:13, fontWeight:800, color:i===0?"#d97706":C.accent }}>{r.score}</div>
+                </div>
+              </div>
+            );
+          })}
+          <div style={{ textAlign:"center", fontSize:10, color:C.muted, marginTop:8, animation:"verdikt-blink 1.5s infinite" }}>
+            Prochaine question dans quelques secondes…
+          </div>
         </div>
       )}
     </div>
