@@ -412,8 +412,10 @@ function AuthModal({ mode, onSwitchMode, onClose, onSuccess }) {
         onClick={e => e.stopPropagation()}>
         {/* Logo */}
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
-          <img src="/fox-mascot.avif" width="28" height="28" style={{ objectFit:"contain", borderRadius:6 }} alt="FoxLab" />
-          <span style={{ fontSize:16, fontWeight:800, color:C.text }}>FoxLab</span>
+          <div style={{ width:40, height:40, borderRadius:10, overflow:"hidden", flexShrink:0, background:"linear-gradient(135deg,#0d2e2a,#0a1f1c)", border:"1px solid rgba(0,212,170,.25)" }}>
+            <img src="/fox-mascot.avif" style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top", transform:"scale(1.15)" }} alt="FoxLab" />
+          </div>
+          <span style={{ fontFamily:"'Orbitron','Exo 2',sans-serif", fontSize:18, fontWeight:900, letterSpacing:1.5, background:"linear-gradient(135deg,#00D4AA,#00FFC8)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>FoxLab</span>
         </div>
 
         {/* Tabs */}
@@ -811,8 +813,28 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         onMouseEnter={e=>e.currentTarget.style.background="rgba(0,212,170,.08)"}
         onMouseLeave={e=>e.currentTarget.style.background="none"}
       >
-        <img src="/fox-mascot.avif" width="32" height="32" style={{ objectFit:"contain", borderRadius:6, flexShrink:0 }} alt="FoxLab" />
-        <span style={{ color:"#D0E8F4", fontWeight:800, fontSize:16, letterSpacing:.5 }}>FoxLab</span>
+        {/* Logo fox : recadré sur le renard, fond légèrement teinté */}
+        <div style={{
+          width:44, height:44, borderRadius:12, overflow:"hidden", flexShrink:0,
+          background:"linear-gradient(135deg,#0d2e2a,#0a1f1c)",
+          border:"1px solid rgba(0,212,170,.25)",
+          boxShadow:"0 2px 10px rgba(0,212,170,.2)",
+        }}>
+          <img src="/fox-mascot.avif"
+            style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top", transform:"scale(1.15)" }}
+            alt="FoxLab" />
+        </div>
+        {/* Texte FoxLab stylisé */}
+        <div style={{ display:"flex", flexDirection:"column", lineHeight:1.1 }}>
+          <span style={{
+            fontFamily:"'Orbitron', 'Exo 2', sans-serif",
+            fontSize:17, fontWeight:900, letterSpacing:1.5,
+            background:"linear-gradient(135deg, #00D4AA 0%, #00FFC8 60%, #7FFFDA 100%)",
+            WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+            backgroundClip:"text",
+          }}>FOX<span style={{ WebkitTextFillColor:"#D0E8F4", color:"#D0E8F4", fontFamily:"'Orbitron','Exo 2',sans-serif" }}>LAB</span></span>
+          <span style={{ fontSize:8, color:"#2A4A62", fontWeight:600, letterSpacing:2, textTransform:"uppercase" }}>Football Analytics</span>
+        </div>
       </button>
 
       {/* Recherche globale */}
