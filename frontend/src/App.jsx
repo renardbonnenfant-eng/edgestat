@@ -3769,7 +3769,79 @@ function BracketView({ onMatchClick, onOpenClub }) {
         )}
         {error && <div style={{ padding:20, color:"#ef4444", fontSize:13 }}>{error}</div>}
 
-        {data && !loading && data.rounds.length === 0 && (
+        {/* ── Phase de groupes ── */}
+        {data && !loading && data.groupStage?.length > 0 && (
+          <div style={{ padding:"20px" }}>
+            <div style={{ fontSize:11, fontWeight:700, color:BC.textDim, textTransform:"uppercase", letterSpacing:1.2, marginBottom:14 }}>
+              Phase de groupes · {data.groupStage.length} groupes
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:16 }}>
+              {data.groupStage.map(g => (
+                <div key={g.group} style={{ background:BC.card, border:`1px solid ${BC.border}`, borderRadius:10, overflow:"hidden" }}>
+                  {/* Header groupe */}
+                  <div style={{ background:BC.section, padding:"8px 12px", borderBottom:`1px solid ${BC.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span style={{ fontSize:12, fontWeight:700, color:BC.textHi }}>{g.group}</span>
+                    <span style={{ fontSize:9, color:BC.textDim }}>{g.matches.length} matchs</span>
+                  </div>
+                  {/* Classement */}
+                  {g.ranking.length > 0 && (
+                    <div style={{ borderBottom:`1px solid ${BC.border}` }}>
+                      {g.ranking.map((t, ri) => (
+                        <button key={t.id} onClick={() => onOpenClub && onOpenClub({ id:t.id, name:t.name, logo:t.logo })} style={{
+                          width:"100%", display:"flex", alignItems:"center", gap:8, padding:"5px 12px",
+                          background: ri < 2 ? `${BC.accent}10` : "none", border:"none",
+                          borderBottom:`1px solid ${BC.border}44`, cursor:"pointer", textAlign:"left",
+                        }}>
+                          <span style={{ fontSize:10, color: ri<2 ? BC.accent : BC.textDim, width:14, textAlign:"center", fontWeight:700 }}>{ri+1}</span>
+                          {t.logo && <img src={t.logo} width={14} height={14} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                          <span style={{ flex:1, fontSize:11, color: ri<2 ? BC.textHi : BC.textDim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</span>
+                          {t.played > 0 && (
+                            <div style={{ display:"flex", gap:8, fontSize:10, color:BC.textDim, flexShrink:0 }}>
+                              <span>{t.played}J</span>
+                              <span style={{ fontWeight:700, color: ri<2 ? BC.accent : BC.textDim }}>{t.pts}pts</span>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Matchs du groupe */}
+                  <div style={{ maxHeight:180, overflowY:"auto", scrollbarWidth:"thin" }}>
+                    {g.matches.map(m => {
+                      const compMap = { 1:"wc", 4:"euro", 9:"copa", 2:"ucl", 3:"uel", 848:"uecl" };
+                      const cId = compMap[selComp.apiId];
+                      const canClick = !!m.id && !!cId;
+                      return (
+                        <button key={m.id||`${m.home.name}-${m.away.name}`} onClick={() => canClick && onMatchClick && onMatchClick({ id:m.id, compId:cId })} style={{
+                          width:"100%", display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:6, padding:"5px 12px",
+                          background:"none", border:"none", borderBottom:`1px solid ${BC.border}22`,
+                          cursor: canClick ? "pointer" : "default", textAlign:"left",
+                        }}
+                          onMouseEnter={e=>{ if(canClick) e.currentTarget.style.background=`${BC.accent}10`; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.background="none"; }}
+                        >
+                          <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                            {m.home.logo && <img src={m.home.logo} width={12} height={12} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                            <span style={{ fontSize:10, color:BC.textDim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.home.name}</span>
+                          </div>
+                          <span style={{ fontSize:11, fontWeight:700, color: m.score ? BC.textHi : BC.textDim, textAlign:"center", whiteSpace:"nowrap" }}>
+                            {m.score || new Date(m.date).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})}
+                          </span>
+                          <div style={{ display:"flex", alignItems:"center", gap:5, justifyContent:"flex-end" }}>
+                            <span style={{ fontSize:10, color:BC.textDim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"right" }}>{m.away.name}</span>
+                            {m.away.logo && <img src={m.away.logo} width={12} height={12} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {data && !loading && data.rounds.length === 0 && (!data.groupStage || data.groupStage.length === 0) && (
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:200, color:BC.textDim, fontSize:13 }}>
             Aucune donnée de bracket disponible pour cette saison.
           </div>
@@ -7805,21 +7877,30 @@ function LeagueGroups({ compId, fixtures, onGroupClick, onTeamClick, activeTeamI
               border:`1px solid ${gActive ? C.accent : C.line}`,
               borderRadius:10, overflow:"hidden",
             }}>
-              {/* En-tête du groupe */}
-              <button onClick={() => onGroupClick(tids)} style={{
-                width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-                background:gActive ? `${C.accent}18` : C.panel2,
-                border:"none", borderBottom:`1px solid ${C.line}`,
-                padding:"7px 10px", cursor:"pointer",
-              }}>
-                <span style={{ fontSize:11, fontWeight:700, color:gActive ? C.accent : C.text }}>{gname}</span>
-                <span style={{ fontSize:9, color:C.dim }}>Voir matchs →</span>
-              </button>
+              {/* En-tête du groupe — clic → filtre + premier match */}
+              {(() => {
+                // Trouver le premier fixture ID du groupe dans les fixtures disponibles
+                const groupFixtures = fixtures.filter(f =>
+                  tids.includes(f.home?.id) && tids.includes(f.away?.id)
+                ).sort((a,b) => new Date(a.date)-new Date(b.date));
+                const firstId = groupFixtures[0]?.id || null;
+                return (
+                  <button onClick={() => onGroupClick(tids, firstId)} style={{
+                    width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+                    background:gActive ? `${C.accent}18` : C.panel2,
+                    border:"none", borderBottom:`1px solid ${C.line}`,
+                    padding:"7px 10px", cursor:"pointer",
+                  }}>
+                    <span style={{ fontSize:11, fontWeight:700, color:gActive ? C.accent : C.text }}>{gname}</span>
+                    <span style={{ fontSize:9, color:C.dim }}>Voir matchs →</span>
+                  </button>
+                );
+              })()}
               {/* Équipes */}
               {group.map(e => {
                 const tActive = activeSet.has(e.team.id) && !gActive;
                 return (
-                  <button key={e.team.id} onClick={() => onTeamClick(e.team.id)} style={{
+                  <button key={e.team.id} onClick={() => onTeamClick(e.team.id, e.team)} style={{
                     width:"100%", display:"flex", alignItems:"center", gap:7,
                     background: tActive ? `${C.accent}10` : "none",
                     border:"none", borderBottom:`1px solid ${C.line}44`,
@@ -8615,12 +8696,18 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
           compId={compId}
           fixtures={fixtures}
           activeTeamIds={groupTeamIds}
-          onGroupClick={tids => setGroupTeamIds(prev =>
-            prev && prev.length === tids.length && tids.every(id => prev.includes(id)) ? null : tids
-          )}
-          onTeamClick={tid => setGroupTeamIds(prev =>
-            prev?.length === 1 && prev[0] === tid ? null : [tid]
-          )}
+          onGroupClick={(tids, firstFixtureId) => {
+            // Filtrer le groupe ET auto-sélectionner le premier match
+            const alreadyActive = groupTeamIds && groupTeamIds.length === tids.length && tids.every(id => groupTeamIds.includes(id));
+            setGroupTeamIds(alreadyActive ? null : tids);
+            if (!alreadyActive && firstFixtureId) handleSelectFixture(firstFixtureId);
+          }}
+          onTeamClick={(tid, team) => {
+            // Filtrer par équipe ET ouvrir la carte club
+            const alreadyActive = groupTeamIds?.length === 1 && groupTeamIds[0] === tid;
+            setGroupTeamIds(alreadyActive ? null : [tid]);
+            if (team && onOpenClub) onOpenClub({ id: team.id, name: team.name, logo: team.logo });
+          }}
         />
       )}
 

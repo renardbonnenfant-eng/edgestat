@@ -726,15 +726,58 @@ app.get("/api/bracket/:leagueId", async (req, res) => {
       "Final":          "FINALE",
     };
 
-    // Grouper les fixtures par round
+    // Séparer phases de groupes et phase finale
+    const groupMap = {};  // "Group A" → [fixtures]
     const roundMap = {};
+
+    const FINISHED_S = new Set(["FT","AET","PEN"]);
+
     (fixtures || []).forEach(f => {
       const r = f.league?.round || "";
+      // Phases de groupes : "Group A - 1", "Group Stage - 3", etc.
+      const gm = r.match(/Group\s+([A-P])\b/i) || r.match(/Group\s+Stage/i) || r.match(/Groupe\s+([A-P])\b/i);
+      if (gm) {
+        const gKey = gm[1] ? `Group ${gm[1].toUpperCase()}` : "Group Stage";
+        if (!groupMap[gKey]) groupMap[gKey] = [];
+        groupMap[gKey].push(f);
+        return;
+      }
       const key = ROUND_ORDER.find(k => r.toLowerCase().includes(k.toLowerCase()));
       if (!key) return;
       if (!roundMap[key]) roundMap[key] = [];
       roundMap[key].push(f);
     });
+
+    // Construire les groupes avec classement + matchs
+    const groupStage = Object.entries(groupMap)
+      .sort(([a],[b]) => a.localeCompare(b))
+      .map(([gname, fxs]) => {
+        const teams = {};
+        fxs.forEach(f => {
+          const addTeam = (t, gf, ga, isHome) => {
+            if (!t?.id) return;
+            if (!teams[t.id]) teams[t.id] = { id:t.id, name:t.name, logo:t.logo||"", played:0,won:0,drawn:0,lost:0,gf:0,ga:0,pts:0 };
+            const e = teams[t.id];
+            if (!FINISHED_S.has(f.fixture?.status?.short)) return;
+            e.played++; e.gf += gf||0; e.ga += ga||0;
+            if (gf > ga) { e.won++; e.pts+=3; }
+            else if (gf === ga) { e.drawn++; e.pts++; }
+            else e.lost++;
+          };
+          addTeam(f.teams.home, f.goals.home, f.goals.away, true);
+          addTeam(f.teams.away, f.goals.away, f.goals.home, false);
+        });
+        const ranking = Object.values(teams).sort((a,b) => b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf);
+        const matches = fxs.sort((a,b) => new Date(a.fixture.date)-new Date(b.fixture.date)).map(f => ({
+          id:     f.fixture.id,
+          date:   f.fixture.date,
+          status: f.fixture.status?.short,
+          home:   { id:f.teams.home.id, name:f.teams.home.name, logo:f.teams.home.logo||"" },
+          away:   { id:f.teams.away.id, name:f.teams.away.name, logo:f.teams.away.logo||"" },
+          score:  f.goals.home!=null ? `${f.goals.home} - ${f.goals.away}` : null,
+        }));
+        return { group: gname, ranking, matches };
+      });
 
     // Pour chaque round, grouper en "ties" (confrontations) si 2 matchs aller/retour
     const rounds = ROUND_ORDER
@@ -831,7 +874,7 @@ app.get("/api/bracket/:leagueId", async (req, res) => {
         };
       });
 
-    const result = { leagueId, season, rounds };
+    const result = { leagueId, season, rounds, groupStage };
     await writeCache(cacheKey, result);
     res.json(result);
   } catch (err) {
