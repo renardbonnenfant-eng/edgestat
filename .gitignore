@@ -6,3 +6,8 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 *.log
+backend/data/verdikt-store.json
+backend/data/verdikt.db
+backend/data/verdikt.db-shm
+backend/data/verdikt.db-wal
+backend/data/app-data.json

@@ -4247,38 +4247,56 @@ function BankrollView() {
 }
 
 function MultiplayerQuiz({ userAccount, onBack }) {
-  const [phase, setPhase] = useState("lobby"); // lobby | room | playing | result
-  const [ws, setWs]       = useState(null);
-  const [roomCode, setRoomCode] = useState("");
-  const [joinCode, setJoinCode] = useState("");
+  const [phase, setPhase]         = useState("lobby");
+  const [ws, setWs]               = useState(null);
+  const [roomCode, setRoomCode]   = useState("");
+  const [joinCode, setJoinCode]   = useState("");
+  const [guestName, setGuestName] = useState("");
   const [targetScore, setTargetScore] = useState(200);
-  const [players, setPlayers] = useState([]);
+  const [players, setPlayers]     = useState([]);
   const [isCreator, setIsCreator] = useState(false);
-  const [question, setQuestion] = useState(null);
-  const [selected, setSelected] = useState(null);
+  const [question, setQuestion]   = useState(null);
+  const [selected, setSelected]   = useState(null);
   const [showResult, setShowResult] = useState(false);
   const [roundResult, setRoundResult] = useState(null);
-  const [gameOver, setGameOver] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(20);
-  const [myScore, setMyScore] = useState(0);
-  const [err, setErr] = useState("");
+  const [gameOver, setGameOver]   = useState(null);
+  const [timeLeft, setTimeLeft]   = useState(20);
+  const [myScore, setMyScore]     = useState(0);
+  const [err, setErr]             = useState("");
+  const [myUsername, setMyUsername] = useState(userAccount?.username || "");
 
-  const jwt = localStorage.getItem("vdk_jwt");
+  const jwtToken = localStorage.getItem("vdk_jwt");
 
-  // Connexion WS
+  // Identité : compte enregistré ou pseudo invité
+  const effectiveName  = userAccount?.username || guestName.trim();
+  const effectiveColor = userAccount?.avatar_color || "#8AABBD";
+
+  // Connexion WS — supporte compte ET invité
   function connect(cb) {
+    setErr("");
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const sock = new WebSocket(`${protocol}//${window.location.host}/ws/quiz`);
     sock.onopen = () => {
-      sock.send(JSON.stringify({ type:"auth", payload:{ token:jwt, avatarColor:userAccount?.avatar_color||"#00D4AA" } }));
+      const authPayload = jwtToken
+        ? { token: jwtToken, avatarColor: effectiveColor }
+        : { guestName: effectiveName, avatarColor: effectiveColor };
+      sock.send(JSON.stringify({ type:"auth", payload: authPayload }));
+      // Après auth_ok, lancer l'action
+      const origMsg = sock.onmessage;
+      sock.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "auth_ok") {
+          if (msg.username) setMyUsername(msg.username);
+          sock.onmessage = (e2) => handleWsMsg(JSON.parse(e2.data), sock);
+          cb(sock);
+          return;
+        }
+        if (msg.type === "error") { setErr(msg.message); sock.close(); return; }
+      };
     };
-    sock.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      handleWsMsg(msg, sock);
-    };
-    sock.onclose = () => { if (phase !== "result") setErr("Connexion perdue."); };
+    sock.onclose = () => { if (phase !== "result" && phase !== "lobby") setErr("Connexion interrompue. Reconnecte-toi."); };
+    sock.onerror = () => setErr("Impossible de se connecter. Vérifie ta connexion.");
     setWs(sock);
-    cb(sock);
   }
 
   function handleWsMsg(msg, sock) {
@@ -4313,15 +4331,17 @@ function MultiplayerQuiz({ userAccount, onBack }) {
   }, [timeLeft, phase, showResult, question]);
 
   function createRoom() {
+    if (!effectiveName) { setErr("Entre un pseudo pour jouer en invité."); return; }
     connect(sock => {
-      setTimeout(() => sock.send(JSON.stringify({ type:"create_room", payload:{ targetScore } })), 300);
+      sock.send(JSON.stringify({ type:"create_room", payload:{ targetScore } }));
     });
   }
 
   function joinRoom() {
-    if (!joinCode.trim()) return;
+    if (!joinCode.trim()) { setErr("Entre le code de la salle."); return; }
+    if (!effectiveName) { setErr("Entre un pseudo pour jouer en invité."); return; }
     connect(sock => {
-      setTimeout(() => sock.send(JSON.stringify({ type:"join_room", payload:{ roomCode:joinCode.trim().toUpperCase() } })), 300);
+      sock.send(JSON.stringify({ type:"join_room", payload:{ roomCode:joinCode.trim().toUpperCase() } }));
     });
   }
 
@@ -4341,12 +4361,10 @@ function MultiplayerQuiz({ userAccount, onBack }) {
     onBack();
   }
 
-  if (!userAccount) return (
+  // Pas de mur de connexion — mode invité disponible
+  if (false) return (
     <div style={{ padding:"40px 24px", textAlign:"center" }}>
-      <div style={{ fontSize:40, marginBottom:12 }}>🔐</div>
-      <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:8 }}>Connexion requise</div>
-      <div style={{ fontSize:12, color:C.dim, marginBottom:16 }}>Crée un compte pour accéder au quiz multijoueur.</div>
-      <button onClick={onBack} style={{ background:C.accent, color:"#0A1428", border:"none", borderRadius:8, padding:"10px 24px", cursor:"pointer", fontWeight:700 }}>← Retour</button>
+      <button onClick={onBack}>← Retour</button>
     </div>
   );
 
@@ -4355,7 +4373,29 @@ function MultiplayerQuiz({ userAccount, onBack }) {
     <div style={{ padding:"24px" }}>
       <button onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer", color:C.dim, fontSize:12, marginBottom:16, display:"flex", alignItems:"center", gap:4 }}>← Retour au quiz solo</button>
       <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>🎮 Quiz Multijoueur</div>
-      <div style={{ fontSize:12, color:C.dim, marginBottom:24 }}>Affronte d'autres joueurs en temps réel</div>
+      <div style={{ fontSize:12, color:C.dim, marginBottom:16 }}>Affronte d'autres joueurs en temps réel · Aucun compte requis</div>
+
+      {/* Identité */}
+      {!userAccount && (
+        <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"12px 14px", marginBottom:14 }}>
+          <div style={{ fontSize:11, fontWeight:600, color:C.text, marginBottom:8 }}>👤 Ton pseudo (mode invité)</div>
+          <input value={guestName} onChange={e => setGuestName(e.target.value)} placeholder="ex: Papa, Julien, FootFan…"
+            maxLength={20}
+            style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1px solid ${C.line}`, background:"#0E1A28", color:C.text, fontSize:13, outline:"none", boxSizing:"border-box" }}/>
+          <div style={{ fontSize:9, color:C.muted, marginTop:4 }}>Crée un compte pour sauvegarder tes stats dans le classement.</div>
+        </div>
+      )}
+      {userAccount && (
+        <div style={{ background:C.accentBg, border:`1px solid ${C.accent}33`, borderRadius:10, padding:"10px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background:userAccount.avatar_color, display:"grid", placeItems:"center", fontSize:12, fontWeight:800, color:"#0A1428" }}>
+            {userAccount.username[0].toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{userAccount.username}</div>
+            <div style={{ fontSize:10, color:C.dim }}>Compte enregistré · stats sauvegardées ✅</div>
+          </div>
+        </div>
+      )}
 
       {err && <div style={{ color:"#FF4444", background:"#2A1010", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:12 }}>{err}</div>}
 

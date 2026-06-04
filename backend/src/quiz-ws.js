@@ -210,8 +210,9 @@ class Room {
       finalScores: this.playersState(),
     });
 
-    // Sauvegarder les stats
+    // Sauvegarder les stats (comptes enregistrés uniquement, pas les invités)
     for (const [uid, p] of this.players) {
+      if (String(uid).startsWith("guest_")) continue;
       try {
         updateStats(uid, {
           correct: p.correct, wrong: p.wrong,
@@ -237,18 +238,28 @@ export function initQuizWS(server) {
       try { msg = JSON.parse(raw); } catch { return; }
       const { type, payload = {} } = msg;
 
-      // ── Auth ──────────────────────────────────────────────
+      // ── Auth (compte) OU invité ────────────────────────────
       if (type === "auth") {
-        const decoded = verifyToken(payload.token);
-        if (!decoded) { ws.send(JSON.stringify({ type:"error", message:"Token invalide." })); return; }
-        userId      = decoded.id;
-        username    = decoded.username;
-        avatarColor = payload.avatarColor || "#00D4AA";
-        ws.send(JSON.stringify({ type:"auth_ok", userId, username }));
+        if (payload.token) {
+          const decoded = verifyToken(payload.token);
+          if (decoded) {
+            userId      = decoded.id;
+            username    = decoded.username;
+            avatarColor = payload.avatarColor || "#00D4AA";
+          }
+        }
+        // Mode invité : pseudo fourni sans token
+        if (!userId && payload.guestName) {
+          username    = payload.guestName.trim().slice(0, 20) || "Invité";
+          userId      = `guest_${genCode()}`;  // ID temporaire
+          avatarColor = "#8AABBD";
+        }
+        if (!userId) { ws.send(JSON.stringify({ type:"error", message:"Identifie-toi (compte ou pseudo invité)." })); return; }
+        ws.send(JSON.stringify({ type:"auth_ok", userId, username, isGuest: String(userId).startsWith("guest_") }));
         return;
       }
 
-      if (!userId) { ws.send(JSON.stringify({ type:"error", message:"Non authentifié." })); return; }
+      if (!userId) { ws.send(JSON.stringify({ type:"error", message:"Identifie-toi d'abord (envoie auth)." })); return; }
 
       // ── Créer une salle ───────────────────────────────────
       if (type === "create_room") {
