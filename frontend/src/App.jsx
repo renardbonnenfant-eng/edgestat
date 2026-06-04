@@ -6695,34 +6695,7 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:28 }}>
 
-      {/* ── HISTOIRE DU FOOT ── */}
-      <div>
-        <button onClick={onGoHistory} style={{
-          width:"100%", background:`linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4C1D95 100%)`,
-          border:"none", borderRadius:16, padding:"24px 28px",
-          cursor:"pointer", textAlign:"left", display:"flex", alignItems:"center", gap:20,
-          boxShadow:"0 4px 20px rgba(124,58,237,.3)",
-          transition:"transform .15s, box-shadow .15s",
-        }}
-          onMouseEnter={e => { e.currentTarget.style.transform="scale(1.01)"; e.currentTarget.style.boxShadow="0 8px 28px rgba(124,58,237,.4)"; }}
-          onMouseLeave={e => { e.currentTarget.style.transform=""; e.currentTarget.style.boxShadow="0 4px 20px rgba(124,58,237,.3)"; }}
-        >
-          <div style={{ fontSize:48, lineHeight:1 }}>📚</div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:20, fontWeight:800, color:"#fff", marginBottom:6 }}>Histoire du Football</div>
-            <div style={{ fontSize:12, color:"#C4B5FD", lineHeight:1.5 }}>
-              Explorez l'historique complet de toutes les compétitions · Ligues · Coupes · Europe · Équipes nationales<br/>
-              <span style={{ fontSize:11, color:"#A78BFA" }}>Qui a gagné en 2012 ? Quel a été le parcours du PSG ? Découvrez tout.</span>
-            </div>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
-            {["🏆 UCL","🇫🇷 Ligue 1","🌍 Coupe du Monde","🇧🇷 Copa Libertadores"].map(c => (
-              <span key={c} style={{ background:"rgba(255,255,255,.1)", borderRadius:20, padding:"3px 10px", fontSize:11, color:"#E9D5FF", fontWeight:500 }}>{c}</span>
-            ))}
-          </div>
-          <div style={{ fontSize:20, color:"#C4B5FD" }}>→</div>
-        </button>
-      </div>
+      {/* Histoire du foot supprimée de l'accueil */}
 
       {/* === FLASH INFOS FOOTBALL === */}
       <FootballNewsTicker />
@@ -8088,26 +8061,27 @@ function LeagueGroups({ compId, fixtures, onGroupClick, onTeamClick, activeTeamI
 // ============================================================
 function OddsDisplay({ fixtureId, m }) {
   const [odds,    setOdds]    = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  // Stats disponibles dès que m est chargé
+  const hAtt = m?.home?.avgGoalsScored   || 1.3;
+  const hDef = m?.home?.avgGoalsConceded || 1.2;
+  const aAtt = m?.away?.avgGoalsScored   || 1.0;
+  const aDef = m?.away?.avgGoalsConceded || 1.3;
 
   useEffect(() => {
-    if (!fixtureId) return;
-    setOdds(null); setLoading(true);
-    // Passer les stats des équipes pour le calcul Poisson de secours
-    const teamStats = {
-      homeAtt: m?.home?.avgGoalsScored   || 1.3,
-      homeDef: m?.home?.avgGoalsConceded || 1.2,
-      awayAtt: m?.away?.avgGoalsScored   || 1.0,
-      awayDef: m?.away?.avgGoalsConceded || 1.3,
-    };
-    fetchOdds(fixtureId, teamStats)
+    // Recalculer quand le fixture OU les stats changent
+    const id = fixtureId;
+    if (!id) return;
+    setLoading(true);
+    fetchOdds(id, { homeAtt: hAtt, homeDef: hDef, awayAtt: aAtt, awayDef: aDef })
       .then(d => { setOdds(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [fixtureId]);
+  }, [fixtureId, hAtt, hDef, aAtt, aDef]);
 
-  if (loading) return (
-    <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"10px 16px", marginBottom:8, fontSize:11, color:C.muted }}>
-      Chargement des cotes…
+  if (loading && !odds) return (
+    <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"8px 14px", marginBottom:8, fontSize:11, color:C.muted }}>
+      ⚡ Calcul des cotes…
     </div>
   );
   if (!odds) return null;

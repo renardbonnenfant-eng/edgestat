@@ -474,9 +474,9 @@ app.get("/api/odds/:fixtureId", async (req, res) => {
   const { homeAtt, homeDef, awayAtt, awayDef } = req.query;
   const cacheKey = `odds:${fixtureId}`;
   try {
-    // 1. Essayer le cache
+    // 1. Essayer le cache — ignorer si valeur null (API vide dans le passé)
     const cached = await readCache(cacheKey, 3 * 60 * 60 * 1000);
-    if (cached?.fresh) return res.json(cached.value);
+    if (cached?.fresh && cached.value !== null) return res.json(cached.value);
 
     // 2. Essayer l'API officielle
     const data = await apiGet("odds", { fixture: fixtureId }, 3 * 60 * 60 * 1000);
