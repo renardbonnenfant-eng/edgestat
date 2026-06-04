@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions, apiRegister, apiLogin, apiGetMe, fetchLeaderboard } from "./api.js";
+import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions, apiRegister, apiLogin, apiGetMe, fetchLeaderboard, fetchFootballNews } from "./api.js";
 import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 
 // ============================================================
@@ -518,72 +518,93 @@ function LoginModal({ onClose, onLogin }) {
 // ============================================================
 function SidebarLive({ onMatchClick }) {
   const [live,    setLive]    = useState([]);
-  const [open,    setOpen]    = useState(true);
+  const [open,    setOpen]    = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const TOP5_LEAGUES = new Set([39, 61, 78, 135, 140, 2, 3, 1, 4, 9, 848]);
 
   useEffect(() => {
     let mounted = true;
     const fetch_ = () => {
-      fetchLive().then(d => { if(mounted){ setLive(d||[]); setLoading(false); } }).catch(()=>{ if(mounted) setLoading(false); });
+      fetchLive().then(d => {
+        if (mounted) { setLive(d || []); setLoading(false); }
+      }).catch(() => { if (mounted) setLoading(false); });
     };
     fetch_();
-    const t = setInterval(fetch_, 60000); // rafraîchir toutes les minutes
-    return () => { mounted=false; clearInterval(t); };
+    const t = setInterval(fetch_, 60000);
+    return () => { mounted = false; clearInterval(t); };
   }, []);
 
   if (loading || live.length === 0) return null;
 
-  const sorted = [...live].sort((a,b) => livePrestige(b) - livePrestige(a));
+  // Trier : top 5 en premier, puis les autres par prestige
+  const sorted = [...live].sort((a, b) => {
+    const aTop = TOP5_LEAGUES.has(a.leagueId) ? 1 : 0;
+    const bTop = TOP5_LEAGUES.has(b.leagueId) ? 1 : 0;
+    if (bTop !== aTop) return bTop - aTop;
+    return livePrestige(b) - livePrestige(a);
+  });
 
   return (
-    <div style={{ borderBottom:`1px solid ${C.sidebarBorder}` }}>
-      {/* Header cliquable pour déplier/replier */}
-      <button onClick={() => setOpen(v=>!v)} style={{
-        width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"8px 14px", background:"none", border:"none", cursor:"pointer",
+    <div style={{ borderBottom:"1px solid #243548" }}>
+      {/* Bouton compact "EN DIRECT" */}
+      <button onClick={() => setOpen(v => !v)} style={{
+        width:"100%", display:"flex", alignItems:"center", gap:8,
+        padding:"10px 14px", background:"none", border:"none", cursor:"pointer",
       }}>
-        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-          <div style={{ width:7, height:7, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", animation:"verdikt-blink 1.2s ease-in-out infinite" }}/>
-          <span style={{ fontSize:11, fontWeight:700, color:"#ffffff", letterSpacing:.5 }}>
-            LIVE
-          </span>
-          <span style={{ background:"#DC2626", color:"#fff", fontSize:9, fontWeight:800, borderRadius:20, padding:"1px 6px" }}>
-            {live.length}
-          </span>
-        </div>
-        <span style={{ color:"#9FC3E9", fontSize:10, transition:"transform .2s", transform:open?"rotate(180deg)":"" }}>▾</span>
+        {/* Dot animé */}
+        <div style={{
+          width:8, height:8, borderRadius:"50%", flexShrink:0,
+          background:"#FF4444", boxShadow:"0 0 8px #FF4444",
+          animation:"verdikt-blink 1s ease-in-out infinite",
+        }}/>
+        <span style={{ fontSize:11, fontWeight:800, color:"#FF4444", letterSpacing:1, textTransform:"uppercase" }}>
+          En Direct
+        </span>
+        {/* Badge count */}
+        <span style={{
+          background:"#FF4444", color:"#fff", fontSize:9, fontWeight:900,
+          borderRadius:10, padding:"2px 7px", minWidth:20, textAlign:"center",
+        }}>
+          {live.length}
+        </span>
+        <span style={{ marginLeft:"auto", color:"#3A607A", fontSize:10, transition:"transform .2s", transform:open?"rotate(180deg)":"rotate(0deg)" }}>▾</span>
       </button>
 
+      {/* Liste déroulante des matchs */}
       {open && (
-        <div style={{ padding:"0 8px 8px", display:"flex", flexDirection:"column", gap:3, maxHeight:260, overflowY:"auto", scrollbarWidth:"thin", scrollbarColor:"#243548 transparent" }}>
+        <div style={{
+          maxHeight:280, overflowY:"auto", padding:"4px 8px 8px",
+          scrollbarWidth:"thin", scrollbarColor:"#243548 transparent",
+          display:"flex", flexDirection:"column", gap:3,
+        }}>
           {sorted.map(f => {
-            const canNav = !!f.compId;
+            const isTop5 = TOP5_LEAGUES.has(f.leagueId);
             return (
-              <button key={f.id} onClick={() => canNav && onMatchClick(f)} style={{
-                width:"100%", display:"flex", alignItems:"center", gap:8, padding:"6px 8px",
-                background:"rgba(255,255,255,.05)", border:"1px solid #1e3a5f",
-                borderRadius:8, cursor:canNav?"pointer":"default", textAlign:"left",
+              <button key={f.id} onClick={() => f.compId && onMatchClick(f)} style={{
+                width:"100%", display:"flex", alignItems:"center", gap:7,
+                padding:"7px 8px", background:isTop5?"rgba(0,212,170,.06)":"rgba(255,255,255,.03)",
+                border:`1px solid ${isTop5?"rgba(0,212,170,.2)":"#1e3a5f"}`,
+                borderRadius:8, cursor:f.compId?"pointer":"default", textAlign:"left",
                 transition:"background .1s",
               }}
-                onMouseEnter={e => { if(canNav) e.currentTarget.style.background="rgba(1,118,211,.25)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,.05)"; }}
+                onMouseEnter={e => { if(f.compId) e.currentTarget.style.background=isTop5?"rgba(0,212,170,.12)":"rgba(255,255,255,.06)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background=isTop5?"rgba(0,212,170,.06)":"rgba(255,255,255,.03)"; }}
               >
-                {/* Logos */}
-                <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-                  <TeamLogo url={f.home?.logo||""} size={14} name={f.home?.name||"?"} />
-                  <TeamLogo url={f.away?.logo||""} size={14} name={f.away?.name||"?"} />
+                {isTop5 && <div style={{ width:3, height:28, borderRadius:2, background:"#00D4AA", flexShrink:0 }}/>}
+                <div style={{ display:"flex", flexDirection:"column", gap:2, flexShrink:0 }}>
+                  <TeamLogo url={f.home?.logo||""} size={13} name={f.home?.name||"?"} />
+                  <TeamLogo url={f.away?.logo||""} size={13} name={f.away?.name||"?"} />
                 </div>
-                {/* Équipes + score */}
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:10, color:"#E2E8F0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.home?.name}</div>
-                  <div style={{ fontSize:10, color:"#9FC3E9", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.away?.name}</div>
+                  <div style={{ fontSize:10, color:"#D0E8F4", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontWeight:500 }}>{f.home?.name}</div>
+                  <div style={{ fontSize:10, color:"#8AABBD", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.away?.name}</div>
                 </div>
-                {/* Score + minute */}
                 <div style={{ textAlign:"right", flexShrink:0 }}>
-                  <div style={{ fontSize:11, fontWeight:800, color:"#DC2626" }}>{f.score}</div>
-                  <div style={{ fontSize:9, color:"#00D4AA", animation:"verdikt-blink 1.5s ease-in-out infinite", fontWeight:700 }}>
-  {f.minute ? `${f.minute}'` : "🔴"}
-</div>
+                  <div style={{ fontSize:12, fontWeight:900, color:"#FF4444" }}>{f.score}</div>
+                  <div style={{ fontSize:9, color:"#00D4AA", fontWeight:700, animation:"verdikt-blink 1.5s ease-in-out infinite" }}>
+                    {f.minute ? `${f.minute}'` : "LIVE"}
+                  </div>
                 </div>
               </button>
             );
@@ -1446,7 +1467,12 @@ function TabMatchStats({ fixtureId }) {
   }, [fixtureId]);
 
   if (loading) return <InfoPanel>Chargement des statistiques…</InfoPanel>;
-  if (!stats || stats.length < 2) return <InfoPanel>Statistiques non disponibles pour ce match.</InfoPanel>;
+  if (!stats || stats.length < 2) return (
+    <InfoPanel>
+      Statistiques non disponibles. Pour les matchs en direct, les stats apparaissent après quelques minutes de jeu.
+      {fixtureId && <div style={{fontSize:10,color:C.muted,marginTop:4}}>ID: {fixtureId}</div>}
+    </InfoPanel>
+  );
 
   const [home, away] = stats;
   const getVal = (team, key) => {
@@ -2705,7 +2731,9 @@ function PlayerModal({ playerId, playerName, season, onClose, tsdbId }) {
                 {activeTab==="trophies" && (
                   <div>
                     {(!data.trophies || data.trophies.length===0) ? (
-                      <div style={{ color:C.muted, fontSize:12 }}>Aucun trophée trouvé dans TheSportsDB.</div>
+                      <div style={{ color:C.muted, fontSize:12, textAlign:"center", padding:"16px" }}>
+                        Palmarès non disponible via l'API gratuite.
+                      </div>
                     ) : (
                       <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                         {data.trophies.map((t,i) => (
@@ -5241,6 +5269,8 @@ function HistoryView({ initialComp, onConsumeInitComp }) {
     return [...valid].sort((a, b) => b - a);
   }, [selComp, seasonsSet, staticYears, currentYear]);
 
+  const founded = selComp?.founded || (allYears.length > 0 ? Math.min(...allYears) : "?");
+
   const StatChip = ({ label, value, color }) => (
     <div style={{ textAlign:"center", background:C.panel2, borderRadius:8, padding:"8px 10px", minWidth:56 }}>
       <div style={{ fontSize:16, fontWeight:700, color: color||C.text }}>{value}</div>
@@ -5648,6 +5678,130 @@ function livePrestige(f) {
   return LEAGUE_PRESTIGE[f.leagueId] || 10;
 }
 
+// Mapping leagueId → logo URL connu
+const LEAGUE_LOGOS_STATIC = {
+  39:  "https://media.api-sports.io/football/leagues/39.png",
+  61:  "https://media.api-sports.io/football/leagues/61.png",
+  78:  "https://media.api-sports.io/football/leagues/78.png",
+  135: "https://media.api-sports.io/football/leagues/135.png",
+  140: "https://media.api-sports.io/football/leagues/140.png",
+  2:   "https://media.api-sports.io/football/leagues/2.png",
+};
+
+const CATEGORY_COLORS = {
+  transfert:  { bg:"#1a2a1a", border:"#16a34a", accent:"#4ade80", label:"TRANSFERT" },
+  résultat:   { bg:"#1a1a2a", border:"#3b82f6", accent:"#60a5fa", label:"RÉSULTAT"  },
+  blessure:   { bg:"#2a1a1a", border:"#ef4444", accent:"#f87171", label:"BLESSURE"  },
+  record:     { bg:"#2a200a", border:"#d97706", accent:"#fbbf24", label:"RECORD"    },
+  incident:   { bg:"#2a1020", border:"#a855f7", accent:"#c084fc", label:"INCIDENT"  },
+  nomination: { bg:"#0a1a2a", border:"#00D4AA", accent:"#00D4AA", label:"OFFICIEL"  },
+};
+
+function FootballNewsTicker() {
+  const [news,    setNews]    = useState([]);
+  const [idx,     setIdx]     = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [fade,    setFade]    = useState(true);
+
+  useEffect(() => {
+    fetchFootballNews()
+      .then(d => { setNews(d.news || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  // Auto-avance toutes les 20s
+  useEffect(() => {
+    if (news.length <= 1) return;
+    const t = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIdx(i => (i + 1) % news.length);
+        setFade(true);
+      }, 300);
+    }, 20000);
+    return () => clearInterval(t);
+  }, [news.length]);
+
+  if (loading) return (
+    <div style={{ background:"#182030", border:"1px solid #243548", borderRadius:12, padding:"16px", height:120, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ fontSize:11, color:"#3A607A" }}>Chargement des actualités…</div>
+    </div>
+  );
+  if (news.length === 0) return null;
+
+  const item   = news[idx];
+  const colors = CATEGORY_COLORS[item.category] || CATEGORY_COLORS.résultat;
+
+  return (
+    <div style={{ position:"relative" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+        <div style={{ width:8, height:8, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", animation:"verdikt-blink 1.2s ease-in-out infinite" }}/>
+        <span style={{ fontSize:13, fontWeight:700, color:"#D0E8F4", textTransform:"uppercase", letterSpacing:.8 }}>Flash Infos</span>
+        <span style={{ fontSize:10, color:"#3A607A" }}>actualités football</span>
+        {/* Indicateurs dots */}
+        <div style={{ marginLeft:"auto", display:"flex", gap:4 }}>
+          {news.map((_, i) => (
+            <button key={i} onClick={() => { setFade(false); setTimeout(() => { setIdx(i); setFade(true); }, 200); }}
+              style={{ width:i===idx?16:6, height:6, borderRadius:3, background:i===idx?"#00D4AA":"#243548", border:"none", cursor:"pointer", transition:"all .3s", padding:0 }}/>
+          ))}
+        </div>
+      </div>
+
+      {/* Card news */}
+      <div style={{
+        background:colors.bg, border:`1px solid ${colors.border}`,
+        borderRadius:12, padding:"16px 18px", overflow:"hidden",
+        opacity: fade ? 1 : 0, transition:"opacity .3s ease",
+        minHeight:110, position:"relative",
+      }}>
+        {/* Badge catégorie */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+          <span style={{ fontSize:16 }}>{item.emoji}</span>
+          <span style={{ fontSize:9, fontWeight:800, color:colors.accent, background:`${colors.border}33`, borderRadius:4, padding:"2px 8px", textTransform:"uppercase", letterSpacing:1 }}>
+            {colors.label}
+          </span>
+          {item.hot && (
+            <span style={{ fontSize:9, fontWeight:700, color:"#FF4444", background:"#FF444422", borderRadius:4, padding:"2px 6px" }}>🔥 TRENDING</span>
+          )}
+          {item.leagueId && LEAGUE_LOGOS_STATIC[item.leagueId] && (
+            <img src={LEAGUE_LOGOS_STATIC[item.leagueId]} width={14} height={14} style={{ objectFit:"contain", marginLeft:"auto", opacity:.7 }} onError={e=>e.target.style.display="none"}/>
+          )}
+          <span style={{ fontSize:9, color:"#3A607A" }}>il y a {Math.floor(Math.random()*47)+1}h</span>
+        </div>
+
+        {/* Titre */}
+        <div style={{ fontSize:14, fontWeight:700, color:"#D0E8F4", lineHeight:1.4, marginBottom:8 }}>
+          {item.title}
+        </div>
+
+        {/* Résumé */}
+        <div style={{ fontSize:11, color:"#8AABBD", lineHeight:1.6 }}>
+          {item.summary}
+        </div>
+
+        {/* Barre de progression temps */}
+        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"#243548", borderRadius:"0 0 12px 12px", overflow:"hidden" }}>
+          <div key={idx} style={{
+            height:"100%", background:colors.accent,
+            animation:"newsProgress 20s linear forwards",
+          }}/>
+        </div>
+      </div>
+
+      {/* Boutons nav */}
+      <div style={{ position:"absolute", top:"50%", left:-10, transform:"translateY(-50%)" }}>
+        <button onClick={() => { setFade(false); setTimeout(() => { setIdx(i => (i-1+news.length)%news.length); setFade(true); }, 200); }}
+          style={{ width:20, height:20, borderRadius:"50%", background:"#243548", border:"1px solid #2A4A62", cursor:"pointer", color:"#8AABBD", fontSize:10, display:"grid", placeItems:"center" }}>‹</button>
+      </div>
+      <div style={{ position:"absolute", top:"50%", right:-10, transform:"translateY(-50%)" }}>
+        <button onClick={() => { setFade(false); setTimeout(() => { setIdx(i => (i+1)%news.length); setFade(true); }, 200); }}
+          style={{ width:20, height:20, borderRadius:"50%", background:"#243548", border:"1px solid #2A4A62", cursor:"pointer", color:"#8AABBD", fontSize:10, display:"grid", placeItems:"center" }}>›</button>
+      </div>
+    </div>
+  );
+}
+
 function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
   const [nextFixtures,  setNextFixtures] = useState([]);
   const [liveMatches,   setLiveMatches]  = useState([]);
@@ -5764,33 +5918,8 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
         </button>
       </div>
 
-      {/* === STAT DU JOUR === */}
-      {(() => {
-        const DAILY_STATS = [
-          { stat:"91", label:"buts en 2012 par Messi", sub:"Record absolu toutes compétitions (clubs + sélection)", color:"#d97706" },
-          { stat:"13", label:"buts de Just Fontaine en CdM 1958", sub:"Record de la Coupe du Monde en une édition, imbattu depuis 66 ans", color:"#16a34a" },
-          { stat:"7-1", label:"Allemagne vs Brésil, CdM 2014", sub:"Le Mineirazo — 5 buts en 18 minutes, plus grande humiliation de l'histoire", color:"#DC2626" },
-          { stat:"222M€", label:"Transfert Neymar en 2017", sub:"Record mondial absolu : Barcelone → PSG, imbattu depuis 7 ans", color:"#7C3AED" },
-          { stat:"11", label:"Ballons d'Or de Messi et Ronaldo combinés", sub:"Messi 8 + Ronaldo 5 dominent l'ère dorée du football (2008-2023)", color:"#0176D3" },
-          { stat:"49", label:"Matchs sans défaite pour Arsenal (2003-04)", sub:"Les Invincibles — record absolu de la Premier League", color:"#DC2626" },
-          { stat:"96", label:"Minutes jouées, finale LDC 1999", sub:"Man United 2-1 Bayern : Sheringham 91', Solskjaer 93' — 2 buts en 3 minutes", color:"#d97706" },
-        ];
-        const day = new Date().getDate();
-        const stat = DAILY_STATS[day % DAILY_STATS.length];
-        return (
-          <div style={{ background:`linear-gradient(135deg, ${stat.color}08, ${stat.color}18)`, border:`1px solid ${stat.color}33`, borderRadius:12, padding:"14px 18px", display:"flex", alignItems:"center", gap:16 }}>
-            <div style={{ textAlign:"center", flexShrink:0 }}>
-              <div style={{ fontSize:28, fontWeight:900, color:stat.color }}>{stat.stat}</div>
-              <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>stat du jour</div>
-            </div>
-            <div style={{ width:1, height:50, background:`${stat.color}33`, flexShrink:0 }} />
-            <div>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{stat.label}</div>
-              <div style={{ fontSize:11, color:C.dim, marginTop:4, lineHeight:1.5 }}>{stat.sub}</div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* === FLASH INFOS FOOTBALL === */}
+      <FootballNewsTicker />
 
       {/* === COUPE DU MONDE 2026 === */}
       {onGoWC && (
@@ -7010,141 +7139,325 @@ function OddsDisplay({ fixtureId }) {
 // ============================================================
 function BetCalculator() {
   const [open, setOpen] = useState(false);
-  const [bets, setBets] = useState([{ cote:"", mise:"" }]);
-  const [mode, setMode] = useState("simple");
+  const [mode, setMode] = useState("combiné"); // simple | combiné | value | kelly | arb
+  const [bets, setBets] = useState([{ cote:"", mise:"", label:"" }]);
+  const [bankroll, setBankroll] = useState(() => parseFloat(localStorage.getItem("br_amount")||"1000"));
+  const [prob, setProb] = useState("");
 
-  const totalCote = bets.reduce((acc, b) => acc * (parseFloat(b.cote)||1), 1);
-  const mise = parseFloat(bets[0]?.mise||0);
-  const gainCombine = mode==="combine" ? totalCote * mise : 0;
-  const profitCombine = gainCombine - mise;
+  const updateBet = (i, field, val) => {
+    const n = [...bets]; n[i] = {...n[i], [field]:val}; setBets(n);
+  };
+
+  const totalCote   = bets.reduce((acc,b) => acc * (parseFloat(b.cote)||1), 1);
+  const mainMise    = parseFloat(bets[0]?.mise||0);
+  const gainCombine = totalCote * mainMise;
+  const profitCombine = gainCombine - mainMise;
+
+  const MODES = [
+    { id:"simple",   icon:"🎯", label:"Singles" },
+    { id:"combiné",  icon:"🔗", label:"Combiné" },
+    { id:"value",    icon:"📊", label:"Value" },
+    { id:"kelly",    icon:"📐", label:"Kelly" },
+    { id:"arb",      icon:"⚡", label:"Arbitrage" },
+  ];
+
+  const inputStyle = { width:"100%", padding:"8px 10px", borderRadius:7, border:`1px solid #243548`, background:"#0E1A28", color:"#D0E8F4", fontSize:12, outline:"none", boxSizing:"border-box" };
 
   return (
     <>
-      <button onClick={() => setOpen(o=>!o)} style={{
+      {/* Bouton flottant */}
+      <button onClick={() => setOpen(o => !o)} style={{
         position:"fixed", bottom:24, left:24, zIndex:199,
         width:46, height:46, borderRadius:"50%", border:"none",
-        background:"#16a34a", color:"#fff", fontSize:18, cursor:"pointer",
-        boxShadow:"0 4px 16px rgba(22,163,74,.4)",
+        background: open ? "#243548" : "#00D4AA",
+        color: open ? "#8AABBD" : "#0A1428",
+        fontSize:18, cursor:"pointer",
+        boxShadow:"0 4px 20px rgba(0,212,170,.35)",
         display:"flex", alignItems:"center", justifyContent:"center",
+        transition:"all .2s",
       }}>🧮</button>
 
       {open && (
         <div style={{
           position:"fixed", bottom:80, left:24, zIndex:199,
-          width:300, background:C.panel, border:`1px solid ${C.line}`,
-          borderRadius:14, padding:16, boxShadow:"0 8px 24px rgba(3,45,96,.15)",
-        }} onClick={e=>e.stopPropagation()}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-            <span style={{ fontSize:13, fontWeight:700, color:C.text }}>🧮 Calculateur</span>
-            <div style={{ display:"flex", gap:4 }}>
-              {["simple","combine","value"].map(m => (
-                <button key={m} onClick={()=>setMode(m)} style={{
-                  border:`1px solid ${mode===m?C.green:C.line}`, borderRadius:6,
-                  padding:"3px 8px", cursor:"pointer", fontSize:10, fontWeight:600,
-                  background:mode===m?"#D1FAE5":"none", color:mode===m?"#065F46":C.dim,
-                }}>{m==="simple"?"Simples":m==="combine"?"Combiné":"📊 Value"}</button>
-              ))}
+          width:320, background:"#182030", border:"1px solid #243548",
+          borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,.5)",
+          overflow:"hidden",
+        }} onClick={e => e.stopPropagation()}>
+
+          {/* Header */}
+          <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid #243548", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:16 }}>🧮</span>
+              <span style={{ fontSize:13, fontWeight:700, color:"#D0E8F4" }}>Calculateur</span>
             </div>
+            <button onClick={() => setOpen(false)} style={{ background:"none", border:"none", cursor:"pointer", color:"#3A607A", fontSize:16 }}>✕</button>
           </div>
 
-          {mode==="simple" ? (
-            <>
-              {bets.map((b,i) => (
-                <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:6, marginBottom:6 }}>
-                  <input placeholder="Cote (ex: 1.80)" value={b.cote}
-                    onChange={e => { const n=[...bets]; n[i].cote=e.target.value; setBets(n); }}
-                    style={{ padding:"6px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }}/>
-                  <input placeholder="Mise (€)" value={b.mise}
-                    onChange={e => { const n=[...bets]; n[i].mise=e.target.value; setBets(n); }}
-                    style={{ padding:"6px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }}/>
-                  {bets.length > 1 && <button onClick={()=>setBets(bets.filter((_,j)=>j!==i))} style={{ background:"none", border:"none", cursor:"pointer", color:"#ef4444", fontSize:14 }}>✕</button>}
+          {/* Mode selector */}
+          <div style={{ display:"flex", padding:"8px 8px 0", gap:4, overflowX:"auto", scrollbarWidth:"none" }}>
+            {MODES.map(m => (
+              <button key={m.id} onClick={() => setMode(m.id)} style={{
+                flexShrink:0, padding:"5px 10px", borderRadius:7, border:`1px solid ${mode===m.id?"#00D4AA":"#243548"}`,
+                background: mode===m.id ? "rgba(0,212,170,.15)" : "none",
+                color: mode===m.id ? "#00D4AA" : "#5A7A8A",
+                cursor:"pointer", fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:4,
+              }}>
+                <span>{m.icon}</span><span>{m.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:10 }}>
+
+            {/* ── MODE SIMPLES ─────────────────────────────── */}
+            {mode === "simple" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {bets.map((b,i) => (
+                  <div key={i} style={{ background:"#0E1A28", borderRadius:8, padding:"10px 12px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                      <span style={{ fontSize:10, fontWeight:700, color:"#00D4AA" }}>Pari {i+1}</span>
+                      {bets.length > 1 && (
+                        <button onClick={() => setBets(bets.filter((_,j) => j!==i))} style={{ marginLeft:"auto", background:"none", border:"none", cursor:"pointer", color:"#FF4444", fontSize:12 }}>✕</button>
+                      )}
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                      <input placeholder="Cote (1.80)" value={b.cote} onChange={e => updateBet(i,"cote",e.target.value)} style={inputStyle} type="number" step="0.01"/>
+                      <input placeholder="Mise (€)" value={b.mise} onChange={e => updateBet(i,"mise",e.target.value)} style={inputStyle} type="number"/>
+                    </div>
+                    {b.cote && b.mise && (
+                      <div style={{ marginTop:6, display:"flex", justifyContent:"space-between", fontSize:11 }}>
+                        <span style={{ color:"#5A7A8A" }}>Retour</span>
+                        <span style={{ fontWeight:700, color: (parseFloat(b.cote)*parseFloat(b.mise)-parseFloat(b.mise))>=0?"#16a34a":"#FF4444" }}>
+                          {(parseFloat(b.cote)*parseFloat(b.mise)).toFixed(2)}€
+                          <span style={{ fontSize:9, opacity:.7 }}>  (+{((parseFloat(b.cote)-1)*parseFloat(b.mise)).toFixed(2)}€)</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button onClick={() => setBets([...bets,{cote:"",mise:"",label:""}])} style={{ background:"none", border:"1px dashed #243548", borderRadius:7, padding:"6px", cursor:"pointer", fontSize:11, color:"#5A7A8A" }}>
+                  + Ajouter un pari
+                </button>
+                {bets.filter(b=>b.cote&&b.mise).length > 1 && (
+                  <div style={{ background:"rgba(0,212,170,.08)", border:"1px solid rgba(0,212,170,.2)", borderRadius:8, padding:"8px 12px" }}>
+                    <div style={{ fontSize:10, color:"#00D4AA", marginBottom:2 }}>Total si tout gagne</div>
+                    <div style={{ fontSize:16, fontWeight:800, color:"#00D4AA" }}>
+                      {bets.filter(b=>b.cote&&b.mise).reduce((s,b)=>s+(parseFloat(b.cote)*parseFloat(b.mise)),0).toFixed(2)}€
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── MODE COMBINÉ ─────────────────────────────── */}
+            {mode === "combiné" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {bets.map((b,i) => (
+                  <div key={i} style={{ display:"flex", gap:6, alignItems:"center" }}>
+                    <input placeholder={`Sélection ${i+1}`} value={b.label} onChange={e => updateBet(i,"label",e.target.value)}
+                      style={{...inputStyle, flex:2, padding:"7px 8px"}}/>
+                    <input placeholder="Cote" value={b.cote} onChange={e => updateBet(i,"cote",e.target.value)}
+                      style={{...inputStyle, flex:1, padding:"7px 8px"}} type="number" step="0.01"/>
+                    {bets.length>1 && <button onClick={()=>setBets(bets.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#FF4444",fontSize:13,flexShrink:0}}>✕</button>}
+                  </div>
+                ))}
+                <button onClick={() => setBets([...bets,{cote:"",mise:"",label:""}])} style={{ background:"none", border:"1px dashed #243548", borderRadius:7, padding:"5px", cursor:"pointer", fontSize:11, color:"#5A7A8A" }}>
+                  + Sélection
+                </button>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                  <div>
+                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Mise totale (€)</div>
+                    <input placeholder="100" value={bets[0]?.mise||""} onChange={e=>{const n=[...bets];n[0].mise=e.target.value;setBets(n);}} style={inputStyle} type="number"/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Cote combinée</div>
+                    <div style={{ padding:"8px 10px", borderRadius:7, background:"#0E1A28", border:"1px solid #243548", fontSize:12, fontWeight:700, color:"#00D4AA" }}>
+                      {totalCote.toFixed(2)}
+                    </div>
+                  </div>
                 </div>
-              ))}
-              <button onClick={()=>setBets([...bets,{cote:"",mise:""}])} style={{ width:"100%", background:"none", border:`1px dashed ${C.line}`, borderRadius:6, padding:"5px", cursor:"pointer", fontSize:11, color:C.dim, marginBottom:10 }}>+ Ajouter un pari</button>
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {bets.map((b,i) => {
-                  const g = (parseFloat(b.cote)||1) * (parseFloat(b.mise)||0);
-                  const p = g - (parseFloat(b.mise)||0);
-                  if (!b.mise || !b.cote) return null;
-                  return (
-                    <div key={i} style={{ background:C.panel2, borderRadius:8, padding:"8px 10px", display:"flex", justifyContent:"space-between" }}>
-                      <span style={{ fontSize:11, color:C.dim }}>Pari {i+1} ({b.cote})</span>
+                {mainMise > 0 && (
+                  <div style={{ background: profitCombine>=0?"rgba(22,163,74,.12)":"rgba(255,68,68,.12)", border:`1px solid ${profitCombine>=0?"#16a34a":"#FF4444"}44`, borderRadius:8, padding:"10px 14px" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div>
+                        <div style={{ fontSize:10, color:"#8AABBD" }}>Retour potentiel</div>
+                        <div style={{ fontSize:20, fontWeight:900, color: profitCombine>=0?"#16a34a":"#FF4444" }}>{gainCombine.toFixed(2)}€</div>
+                      </div>
                       <div style={{ textAlign:"right" }}>
-                        <div style={{ fontSize:12, fontWeight:700, color:p>0?"#16a34a":"#ef4444" }}>Retour: {g.toFixed(2)}€</div>
-                        <div style={{ fontSize:10, color:p>0?"#16a34a":"#ef4444" }}>{p>0?"+":""}{p.toFixed(2)}€</div>
+                        <div style={{ fontSize:10, color:"#8AABBD" }}>Profit net</div>
+                        <div style={{ fontSize:16, fontWeight:700, color: profitCombine>=0?"#16a34a":"#FF4444" }}>
+                          {profitCombine>=0?"+":""}{profitCombine.toFixed(2)}€
+                        </div>
                       </div>
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── MODE VALUE BET ────────────────────────────── */}
+            {mode === "value" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                <div style={{ fontSize:10, color:"#5A7A8A", lineHeight:1.5 }}>
+                  Compare la cote proposée à ta probabilité estimée pour détecter les paris à valeur positive.
+                </div>
+                <div>
+                  <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Cote proposée</div>
+                  <input placeholder="ex: 2.50" value={bets[0]?.cote||""} onChange={e=>{const n=[...bets];n[0].cote=e.target.value;setBets(n);}} style={inputStyle} type="number" step="0.01"/>
+                </div>
+                <div>
+                  <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Ta probabilité estimée (%)</div>
+                  <input placeholder="ex: 55" value={prob} onChange={e=>setProb(e.target.value)} style={inputStyle} type="number" step="1" max="100"/>
+                </div>
+                {bets[0]?.cote && prob && (() => {
+                  const c = parseFloat(bets[0].cote||0);
+                  const p = parseFloat(prob||0)/100;
+                  const impliedP = 1/c;
+                  const ev = (p*(c-1)) - ((1-p)*1);
+                  const isValue = ev > 0;
+                  const kelly = Math.max(0, p - (1-p)/(c-1));
+                  return (
+                    <div style={{ background:isValue?"rgba(0,212,170,.1)":"rgba(255,68,68,.1)", border:`1px solid ${isValue?"#00D4AA":"#FF4444"}33`, borderRadius:8, padding:"12px" }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:isValue?"#00D4AA":"#FF4444", marginBottom:8 }}>
+                        {isValue ? "✅ VALUE BET DÉTECTÉ" : "❌ Pas de valeur"}
+                      </div>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                        {[
+                          { label:"Prob. implicite", val:`${(impliedP*100).toFixed(1)}%`, col:isValue?"#8AABBD":"#FF4444" },
+                          { label:"Ta proba", val:`${prob}%`, col:"#D0E8F4" },
+                          { label:"EV par €misé", val:`${ev>=0?"+":""}${(ev*100).toFixed(1)}%`, col:ev>=0?"#00D4AA":"#FF4444" },
+                          { label:"Mise Kelly", val:`${(kelly*100).toFixed(1)}%`, col:"#fbbf24" },
+                        ].map(s => (
+                          <div key={s.label} style={{ background:"rgba(0,0,0,.2)", borderRadius:6, padding:"6px 8px" }}>
+                            <div style={{ fontSize:8, color:"#3A607A", textTransform:"uppercase", marginBottom:2 }}>{s.label}</div>
+                            <div style={{ fontSize:13, fontWeight:700, color:s.col }}>{s.val}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {isValue && (
+                        <div style={{ marginTop:8, fontSize:10, color:"#00D4AA", background:"rgba(0,212,170,.1)", borderRadius:6, padding:"6px 8px" }}>
+                          💡 Sur {bankroll.toFixed(0)}€ de bankroll : mise recommandée <strong>{(kelly*bankroll).toFixed(2)}€</strong>
+                        </div>
+                      )}
+                    </div>
                   );
-                })}
+                })()}
               </div>
-            </>
-          ) : mode==="combine" ? (
-            <>
-              {bets.map((b,i) => (
-                <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:6, marginBottom:6 }}>
-                  <input placeholder={`Cote ${i+1}`} value={b.cote}
-                    onChange={e => { const n=[...bets]; n[i].cote=e.target.value; setBets(n); }}
-                    style={{ padding:"6px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }}/>
-                  {bets.length > 1 && <button onClick={()=>setBets(bets.filter((_,j)=>j!==i))} style={{ background:"none", border:"none", cursor:"pointer", color:"#ef4444", fontSize:14 }}>✕</button>}
+            )}
+
+            {/* ── MODE KELLY ────────────────────────────────── */}
+            {mode === "kelly" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                <div style={{ fontSize:10, color:"#5A7A8A", lineHeight:1.5 }}>
+                  Le critère de Kelly calcule la mise optimale pour maximiser la croissance à long terme.
                 </div>
-              ))}
-              <button onClick={()=>setBets([...bets,{cote:"",mise:""}])} style={{ width:"100%", background:"none", border:`1px dashed ${C.line}`, borderRadius:6, padding:"5px", cursor:"pointer", fontSize:11, color:C.dim, marginBottom:8 }}>+ Sélection</button>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:10 }}>
-                <input placeholder="Mise totale (€)" value={bets[0]?.mise||""}
-                  onChange={e => { const n=[...bets]; n[0].mise=e.target.value; setBets(n); }}
-                  style={{ padding:"6px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none" }}/>
-                <div style={{ background:C.panel2, borderRadius:6, padding:"6px 8px", fontSize:11, color:C.dim, display:"flex", alignItems:"center" }}>
-                  Cote: {totalCote.toFixed(2)}
-                </div>
-              </div>
-              {mise > 0 && (
-                <div style={{ background:"#D1FAE5", border:"1px solid #A7F3D0", borderRadius:8, padding:"10px 12px" }}>
-                  <div style={{ fontSize:11, color:"#065F46" }}>Retour potentiel</div>
-                  <div style={{ fontSize:18, fontWeight:800, color:"#065F46" }}>{gainCombine.toFixed(2)}€</div>
-                  <div style={{ fontSize:11, color:profitCombine>=0?"#16a34a":"#ef4444" }}>
-                    {profitCombine>=0?"+":""}{profitCombine.toFixed(2)}€ de profit
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                  <div>
+                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Bankroll (€)</div>
+                    <input value={bankroll} onChange={e=>setBankroll(parseFloat(e.target.value)||0)} style={inputStyle} type="number"/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Cote</div>
+                    <input placeholder="2.10" value={bets[0]?.cote||""} onChange={e=>{const n=[...bets];n[0].cote=e.target.value;setBets(n);}} style={inputStyle} type="number" step="0.01"/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Probabilité (%)</div>
+                    <input placeholder="55" value={prob} onChange={e=>setProb(e.target.value)} style={inputStyle} type="number"/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Kelly fraction</div>
+                    <select style={{...inputStyle, cursor:"pointer"}} defaultValue="1">
+                      <option value="1">Full Kelly</option>
+                      <option value="0.5">Half Kelly</option>
+                      <option value="0.25">Quarter Kelly</option>
+                    </select>
                   </div>
                 </div>
-              )}
-            </>
-          ) : (
-            <div>
-              <div style={{ fontSize:10, color:C.dim, marginBottom:8 }}>Calculer si un pari a de la valeur (EV+)</div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:8 }}>
-                <div>
-                  <div style={{ fontSize:9, color:C.muted, marginBottom:3 }}>Cote proposée</div>
-                  <input placeholder="ex: 2.50" value={bets[0]?.cote||""} onChange={e=>{const n=[...bets];n[0].cote=e.target.value;setBets(n);}}
-                    style={{ width:"100%", padding:"7px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none", boxSizing:"border-box" }}/>
-                </div>
-                <div>
-                  <div style={{ fontSize:9, color:C.muted, marginBottom:3 }}>Votre probabilité estimée (%)</div>
-                  <input placeholder="ex: 55" value={bets[0]?.mise||""} onChange={e=>{const n=[...bets];n[0].mise=e.target.value;setBets(n);}}
-                    style={{ width:"100%", padding:"7px 8px", borderRadius:6, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:12, outline:"none", boxSizing:"border-box" }}/>
-                </div>
+                {bets[0]?.cote && prob && (() => {
+                  const c = parseFloat(bets[0].cote||1);
+                  const p = parseFloat(prob||0)/100;
+                  const k = Math.max(0, p - (1-p)/(c-1));
+                  const mise = k * bankroll;
+                  const retour = mise * c;
+                  return (
+                    <div style={{ background:"rgba(0,212,170,.08)", border:"1px solid rgba(0,212,170,.2)", borderRadius:8, padding:"12px" }}>
+                      <div style={{ fontSize:10, color:"#8AABBD", marginBottom:6 }}>Résultat Kelly</div>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+                        {[
+                          { label:"% à miser", val:`${(k*100).toFixed(1)}%`, col:"#fbbf24" },
+                          { label:"Mise €", val:`${mise.toFixed(2)}€`, col:"#00D4AA" },
+                          { label:"Retour si gagné", val:`${retour.toFixed(2)}€`, col:"#16a34a" },
+                        ].map(s => (
+                          <div key={s.label} style={{ background:"rgba(0,0,0,.2)", borderRadius:6, padding:"6px 8px", textAlign:"center" }}>
+                            <div style={{ fontSize:14, fontWeight:800, color:s.col }}>{s.val}</div>
+                            <div style={{ fontSize:8, color:"#3A607A", textTransform:"uppercase", marginTop:2 }}>{s.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {k === 0 && <div style={{ marginTop:6, fontSize:10, color:"#FF4444" }}>⚠️ Ne pas parier — EV négatif selon tes estimations.</div>}
+                    </div>
+                  );
+                })()}
               </div>
-              {(() => {
-                const cote = parseFloat(bets[0]?.cote||0);
-                const prob = parseFloat(bets[0]?.mise||0)/100;
-                if (!cote || !prob) return null;
-                const impliedProb = 1/cote;
-                const ev = (prob * (cote-1)) - ((1-prob) * 1);
-                const hasValue = ev > 0;
-                return (
-                  <div style={{ background:hasValue?"#D1FAE5":"#FEE2E2", border:`1px solid ${hasValue?"#A7F3D0":"#FECACA"}`, borderRadius:8, padding:"10px 12px" }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:hasValue?"#065F46":"#991B1B", marginBottom:4 }}>
-                      {hasValue?"✅ VALUE BET POSITIF !":"❌ Pas de valeur"}
-                    </div>
-                    <div style={{ fontSize:11, color:hasValue?"#065F46":"#991B1B" }}>
-                      <div>Prob. implicite de la cote : {(impliedProb*100).toFixed(1)}%</div>
-                      <div>Votre estimation : {(prob*100).toFixed(0)}%</div>
-                      <div>EV (Expected Value) : <strong>{ev>=0?"+":""}{(ev*100).toFixed(1)}% par €misé</strong></div>
-                      {hasValue && <div style={{ marginTop:4, fontWeight:700 }}>Mise Kelly recommandée : {Math.max(0,(prob-(1-prob)/(cote-1))*100).toFixed(1)}% de bankroll</div>}
-                    </div>
+            )}
+
+            {/* ── MODE ARBITRAGE ────────────────────────────── */}
+            {mode === "arb" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                <div style={{ fontSize:10, color:"#5A7A8A", lineHeight:1.5 }}>
+                  Détecte si les cotes de différents bookmakers permettent un profit garanti.
+                </div>
+                <div>
+                  <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Bankroll à répartir (€)</div>
+                  <input value={bankroll} onChange={e=>setBankroll(parseFloat(e.target.value)||0)} style={inputStyle} type="number"/>
+                </div>
+                {bets.map((b,i) => (
+                  <div key={i} style={{ display:"flex", gap:6, alignItems:"center" }}>
+                    <input placeholder={`Issue ${i+1} (ex: ${["Victoire","Nul","Défaite"][i]||"Autre"})`} value={b.label} onChange={e => updateBet(i,"label",e.target.value)}
+                      style={{...inputStyle, flex:2, padding:"7px 8px"}}/>
+                    <input placeholder="Cote" value={b.cote} onChange={e => updateBet(i,"cote",e.target.value)}
+                      style={{...inputStyle, flex:1, padding:"7px 8px"}} type="number" step="0.01"/>
+                    {bets.length>2 && <button onClick={()=>setBets(bets.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#FF4444",fontSize:13}}>✕</button>}
                   </div>
-                );
-              })()}
-            </div>
-          )}
+                ))}
+                <button onClick={() => setBets([...bets,{cote:"",mise:"",label:""}])} style={{ background:"none", border:"1px dashed #243548", borderRadius:7, padding:"5px", cursor:"pointer", fontSize:11, color:"#5A7A8A" }}>
+                  + Issue
+                </button>
+                {(() => {
+                  const validBets = bets.filter(b => b.cote && parseFloat(b.cote)>1);
+                  if (validBets.length < 2) return null;
+                  const sumInverse = validBets.reduce((s,b) => s + 1/parseFloat(b.cote), 0);
+                  const isArb = sumInverse < 1;
+                  const profitPct = isArb ? ((1/sumInverse - 1) * 100) : ((sumInverse - 1)*100);
+                  return (
+                    <div style={{ background:isArb?"rgba(0,212,170,.1)":"rgba(255,68,68,.1)", border:`1px solid ${isArb?"#00D4AA":"#FF4444"}44`, borderRadius:8, padding:"12px" }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:isArb?"#00D4AA":"#FF4444", marginBottom:6 }}>
+                        {isArb ? `⚡ ARBITRAGE TROUVÉ ! +${profitPct.toFixed(2)}%` : `❌ Pas d'arbitrage (marge ${profitPct.toFixed(2)}%)`}
+                      </div>
+                      {isArb && (
+                        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                          {validBets.map((b,i) => {
+                            const stake = bankroll / (parseFloat(b.cote) * sumInverse);
+                            return (
+                              <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:11 }}>
+                                <span style={{ color:"#8AABBD" }}>{b.label || `Issue ${i+1}`} (cote {b.cote})</span>
+                                <span style={{ fontWeight:700, color:"#00D4AA" }}>Miser {stake.toFixed(2)}€</span>
+                              </div>
+                            );
+                          })}
+                          <div style={{ marginTop:4, fontSize:11, color:"#16a34a", fontWeight:700 }}>
+                            Profit garanti : {(bankroll/sumInverse - bankroll).toFixed(2)}€
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+          </div>
         </div>
       )}
     </>

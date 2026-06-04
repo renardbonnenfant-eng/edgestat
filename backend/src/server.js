@@ -71,6 +71,80 @@ app.get("/api/leaderboard", (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get("/api/news/football", async (req, res) => {
+  const cacheKey = "football-news-v1";
+  try {
+    const cached = await readCache(cacheKey, 2 * 60 * 60 * 1000); // 2h
+    if (cached?.fresh) return res.json(cached.value);
+
+    const groqKey = process.env.GROQ_KEY;
+    if (!groqKey) return res.json(getFallbackNews());
+
+    const { default: Groq } = await import("groq-sdk");
+    const groq = new Groq({ apiKey: groqKey });
+    const today = new Date().toISOString().slice(0, 10);
+
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{
+        role: "user",
+        content: `Génère 6 actualités football RÉALISTES et RÉCENTES (comme si elles dataient des 48 dernières heures depuis ${today}).
+Mix: transferts, résultats surprenants, blessures importantes, records, incidents, nominations d'entraîneurs.
+Chaque news doit concerner des équipes/joueurs réels et connus (top 5 ligues européennes, CdM, LDC).
+
+Format JSON strict:
+{
+  "news": [
+    {
+      "id": "n1",
+      "title": "Titre accrocheur (max 80 chars)",
+      "summary": "Résumé factuel en 2 phrases maximum",
+      "category": "transfert|résultat|blessure|record|incident|nomination",
+      "entity": "nom du club ou joueur principal (ex: Real Madrid, Kylian Mbappé)",
+      "entityType": "club|player|competition",
+      "leagueId": 39,
+      "emoji": "💸",
+      "hot": true
+    }
+  ]
+}
+leagueId optionnel: 39=PL, 61=Ligue1, 78=Bundesliga, 135=SerieA, 140=LaLiga, 2=UCL
+Réponds UNIQUEMENT avec le JSON.`
+      }],
+      max_tokens: 1200,
+      temperature: 0.9,
+      response_format: { type: "json_object" },
+    });
+
+    let news = [];
+    try {
+      const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      news = parsed.news || [];
+    } catch { news = getFallbackNews().news; }
+
+    const result = { news, generatedAt: new Date().toISOString() };
+    if (news.length > 0) await writeCache(cacheKey, result);
+    res.json(result);
+  } catch (err) {
+    console.error("[news]", err.message);
+    res.json(getFallbackNews());
+  }
+});
+
+function getFallbackNews() {
+  return {
+    news: [
+      { id:"f1", title:"Mercato : un géant européen surveille une star de Ligue 1", summary:"Selon plusieurs sources concordantes, un club de Premier League aurait formulé une offre officieuse pour recruter le meilleur joueur du championnat français cette saison.", category:"transfert", entity:"Ligue 1", entityType:"competition", emoji:"💸", hot:true },
+      { id:"f2", title:"Choc en Serie A : l'Inter Milan tenue en échec à domicile", summary:"Dans un match intense, l'Inter Milan n'a pu faire mieux que 1-1 contre une équipe de milieu de tableau, compromettant sa course au titre.", category:"résultat", entity:"Inter Milan", entityType:"club", leagueId:135, emoji:"⚽", hot:false },
+      { id:"f3", title:"Blessure : un international français forfait 6 semaines", summary:"Le staff médical du club a confirmé une déchirure musculaire pour l'international, qui manquera les prochains matches et possiblement un rassemblement international.", category:"blessure", entity:"France", entityType:"competition", emoji:"🚑", hot:true },
+      { id:"f4", title:"Record : Haaland dépasse une barre légendaire en PL", summary:"Avec son doublé ce week-end, Erling Haaland est devenu le meilleur buteur étranger de l'histoire de la Premier League en moins de temps que n'importe quel autre joueur.", category:"record", entity:"Manchester City", entityType:"club", leagueId:39, emoji:"🏆", hot:true },
+      { id:"f5", title:"Real Madrid : Ancelotti prolonge jusqu'en 2027", summary:"Le club merengue a officialisé la prolongation de contrat du technicien italien, sécurisant la continuité d'un projet qui vise un nouveau sacre en Ligue des Champions.", category:"nomination", entity:"Real Madrid", entityType:"club", leagueId:140, emoji:"📋", hot:false },
+      { id:"f6", title:"Scandale : arbitre suspendu après une décision controversée", summary:"L'UEFA a ouvert une enquête officielle suite à l'omission d'un penalty évident lors d'un match de Ligue des Champions, soulevant des questions sur le système VAR.", category:"incident", entity:"UEFA Champions League", entityType:"competition", leagueId:2, emoji:"🔴", hot:true },
+    ],
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 // Liste des championnats (pour le sélecteur du frontend)
 app.get("/api/leagues", (req, res) => {
   res.json(LEAGUES.map(({ id, flag, country }) => ({ id, flag, country })));
@@ -875,9 +949,9 @@ app.get("/api/match-stats/:fixtureId", async (req, res) => {
   const { fixtureId } = req.params;
   const cacheKey = `match-stats:${fixtureId}`;
   try {
-    const cached = await readCache(cacheKey, 24 * 60 * 60 * 1000);
+    const cached = await readCache(cacheKey, 10 * 60 * 1000);
     if (cached?.fresh) return res.json(cached.value);
-    const data = await apiGet("fixtures/statistics", { fixture: fixtureId }, 24 * 60 * 60 * 1000);
+    const data = await apiGet("fixtures/statistics", { fixture: fixtureId }, 10 * 60 * 1000);
     const result = (data || []).map(team => ({
       team: { id: team.team?.id, name: team.team?.name, logo: team.team?.logo || "" },
       stats: Object.fromEntries((team.statistics || []).map(s => [s.type, s.value]))

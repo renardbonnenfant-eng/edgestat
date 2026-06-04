@@ -236,3 +236,9 @@ export async function fetchLeaderboard() {
   if (!res.ok) return [];
   return res.json().catch(() => []);
 }
+
+export async function fetchFootballNews() {
+  const res = await fetch("/api/news/football");
+  if (!res.ok) return { news: [] };
+  return res.json().catch(() => ({ news: [] }));
+}
