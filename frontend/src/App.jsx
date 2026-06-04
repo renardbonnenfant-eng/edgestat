@@ -1263,6 +1263,8 @@ const TABS = [
   { id:"compo",       label:"Compo ⚽" },
   { id:"meteo",       label:"🌤 Météo" },
   { id:"classement",  label:"Classement" },
+  { id:"h2h_deep",    label:"⚔️ H2H" },
+  { id:"records_comp",label:"📊 Records" },
 ];
 
 function TabBar({ tab, setTab }) {
@@ -4726,16 +4728,47 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
         const month = today.getMonth()+1;
 
         const HISTORY_FACTS = [
-          { m:5, d:25, year:1967, text:"Le Celtic Glasgow devient le premier club britannique à remporter la Coupe d'Europe (2-1 vs Inter Milan à Lisbonne). Les 'Lions de Lisbonne'." },
-          { m:5, d:26, year:1999, text:"Manchester United gagne la Ligue des Champions contre le Bayern Munich 2-1 après deux buts en arrêts de jeu (Sheringham 91', Solskjaer 93')." },
-          { m:5, d:29, year:1985, text:"Tragédie du Heysel : 39 morts lors de la finale Juventus-Liverpool. L'UEFA interdit les clubs anglais de coupe d'Europe." },
-          { m:6, d:11, year:2010, text:"Le Mondial 2010 s'ouvre en Afrique du Sud — 1ère CdM sur le continent africain. Bafana Bafana fait match nul contre le Mexique 1-1." },
-          { m:7, d:13, year:1930, text:"Le tout premier match de Coupe du Monde de l'histoire : France 4-1 Mexique. Lucien Laurent inscrit le 1er but de l'histoire des CdM." },
-          { m:7, d:30, year:1966, text:"L'Angleterre remporte sa seule et unique Coupe du Monde à Wembley, 4-2 contre l'Allemagne. Hat-trick de Geoff Hurst." },
-          { m:6, d:4,  year:2012, text:"Chelsea remporte sa 1ère Ligue des Champions (1-1 ap vs Bayern, t.a.b. 4-3). Didier Drogba marque à la 88e puis le penalty décisif." },
-          { m:5, d:22, year:1999, text:"Manchester United bat la Juventus en demi-finale de LDC (3-2) après avoir été menés 2-0. Roy Keane, suspendu pour la finale, signe une performance légendaire." },
-          { m:4, d:6,  year:2005, text:"AC Milan mène 3-0 à la mi-temps de la finale UCL vs Liverpool... Le reste est de l'histoire (miracle d'Istanbul)." },
-          { m:5, d:25, year:2005, text:"Le miracle d'Istanbul : Liverpool remonte un 0-3 contre l'AC Milan et gagne aux tirs au but (3-3 ap, 3-2 aux pen)." },
+          // Janvier
+          { m:1, d:1,  year:1992, text:"La Premier League est officiellement fondée par les 22 clubs de Division 1. Elle débute en août 1992." },
+          { m:1, d:17, year:1995, text:"Eric Cantona est suspendu 9 mois après avoir réalisé un kung-fu kick sur un supporter de Crystal Palace." },
+          { m:1, d:22, year:2009, text:"José Mourinho est nommé entraîneur de l'Inter Milan après une saison sans titre avec le Chelsea." },
+          // Février
+          { m:2, d:6,  year:1958, text:"Tragédie de Munich : le vol de Manchester United s'écrase à l'aéroport de Munich. 8 joueurs décèdent (les Busby Babes)." },
+          { m:2, d:6,  year:1999, text:"Arsenal bat Sheffield United 2-1 en FA Cup. Peter Schmeichel réalise un arrêt légendaire." },
+          { m:2, d:25, year:1956, text:"Première édition de la Coupe d'Europe des Clubs Champions (UCL): Real Madrid bat Stade de Reims 4-3 à Paris." },
+          // Mars
+          { m:3, d:14, year:2012, text:"Lionel Messi marque 5 buts pour le Barça contre Bayer Leverkusen en UCL (7-1). Exploit historique." },
+          // Avril
+          { m:4, d:6,  year:2005, text:"Barcelona-Chelsea (4-2 agg): les débuts de la domination Barça sous Rijkaard avec Ronaldinho au sommet." },
+          { m:4, d:15, year:1989, text:"Tragédie d'Hillsborough : 96 supporters de Liverpool meurent lors de la demi-finale de FA Cup. Le pire drame du football anglais." },
+          { m:4, d:26, year:1999, text:"Manchester United remonte 0-2 contre la Juventus (3-2) en demi de LDC. Prestation légendaire de Roy Keane." },
+          // Mai
+          { m:5, d:7,  year:1999, text:"Arsenal bat Leeds 5-0 — Nicolas Anelka marque 2 buts. Mais le titre échappe à Arsenal au bénéfice de Man United." },
+          { m:5, d:22, year:1999, text:"Manchester United bat Juventus en demi-finale de LDC (3-2) malgré un 0-2. Roy Keane, suspendu pour la finale, signe une performance légendaire." },
+          { m:5, d:25, year:1967, text:"Celtic Glasgow devient le premier club britannique à remporter la Coupe d'Europe (2-1 vs Inter Milan, Lisbonne)." },
+          { m:5, d:25, year:2005, text:"Le miracle d'Istanbul : Liverpool remonte 0-3 contre l'AC Milan et gagne aux tirs au but. Le but de Dudek en Papillon reste légendaire." },
+          { m:5, d:26, year:1999, text:"Manchester United gagne la LDC 2-1 contre le Bayern Munich grâce à Sheringham (90'+1) et Solskjaer (90'+3)." },
+          { m:5, d:29, year:1985, text:"Tragédie du Heysel : 39 morts lors de la finale Juventus-Liverpool. UEFA interdit les clubs anglais 5 ans." },
+          // Juin
+          { m:6, d:4,  year:2012, text:"Chelsea remporte sa première LDC (1-1 ap vs Bayern, 4-3 aux tirs). Drogba marque à la 88e puis arrête le tir de Cech côté." },
+          { m:6, d:11, year:2010, text:"Le Mondial 2010 s'ouvre en Afrique du Sud — 1ère CdM sur le continent africain. Le bruit des vuvuzelas envahit le monde." },
+          { m:6, d:25, year:1994, text:"Brésil-Italie : 0-0 après 120 min, le seul finale CdM décidé aux penaltys. Roberto Baggio rate le dernier." },
+          // Juillet
+          { m:7, d:7,  year:2014, text:"Allemagne 7-1 Brésil en demi-finale CdM (le Mineirazo). 5 buts en 18 minutes — le plus grand choc de l'histoire du football." },
+          { m:7, d:13, year:1930, text:"Premier match de CdM : France 4-1 Mexique. Lucien Laurent marque le tout 1er but de l'histoire des Coupes du Monde." },
+          { m:7, d:30, year:1966, text:"L'Angleterre remporte sa seule Coupe du Monde (4-2 vs Allemagne). Hat-trick de Hurst dont le fameux but de la barre." },
+          // Août
+          { m:8, d:5,  year:2001, text:"Ronaldo signe au Real Madrid pour 46M€ (record mondial). Porto → Inter → Barça → Real." },
+          { m:8, d:9,  year:2017, text:"Neymar signe au PSG pour 222M€ — record mondial toujours imbattu. Barcelone refuse d'abord la libération, Neymar paie lui-même sa clause." },
+          // Septembre
+          { m:9, d:23, year:2000, text:"Lors du classique Real-Barcelone, Figo revient avec Barcelone et est accueilli à coups d'objets dont une tête de cochon." },
+          // Octobre
+          { m:10, d:4, year:2009, text:"Lionel Messi reçoit son 1er Ballon d'Or. Il en remportera 8 au total, record absolu." },
+          // Novembre
+          { m:11, d:16,year:2022, text:"Messi et l'Argentine gagnent le Mondial 2022 au Qatar aux tirs au but contre la France (3-3 ap, 4-2 tab). Mbappé marque 3 buts en vain." },
+          // Décembre
+          { m:12, d:1, year:2010, text:"Le Qatar est désigné organisateur du Mondial 2022 — première fois dans un pays arabe et en hiver (nov-déc)." },
+          { m:12, d:10,year:2023, text:"Ballon d'Or 2023 : 8ème Ballon d'Or de Messi après la CdM 2022. Erling Haaland termine 2ème." },
         ];
 
         const facts = HISTORY_FACTS.filter(f => f.m===month && f.d===day);
@@ -4843,6 +4876,216 @@ function TabClassement({ compId }) {
       <div style={{ marginTop:10, display:"flex", gap:16, fontSize:10, color:C.muted }}>
         <span style={{ color:C.accent }}>■ Zone qualificative</span>
         <span style={{ color:"#ef4444" }}>■ Zone de relégation</span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Onglet : H2H approfondi avec tendances
+// ============================================================
+function TabH2HDeep({ m }) {
+  const h2h = m.h2h || [];
+  if (h2h.length === 0) return <InfoPanel>Aucune confrontation directe disponible.</InfoPanel>;
+
+  // Calculer les tendances
+  const homeWins  = h2h.filter(h=>h.winner==="home").length;
+  const awayWins  = h2h.filter(h=>h.winner==="away").length;
+  const draws     = h2h.filter(h=>h.winner==="draw").length;
+  const total     = h2h.length;
+
+  const bttsList  = h2h.filter(h => {
+    const parts = (h.score||"").split(" - ").map(Number);
+    return parts.length===2 && parts[0]>0 && parts[1]>0;
+  });
+  const overList  = h2h.filter(h => {
+    const parts = (h.score||"").split(" - ").map(Number);
+    return parts.length===2 && parts[0]+parts[1] > 2;
+  });
+  const totalGoals = h2h.reduce((s,h) => {
+    const parts=(h.score||"").split(" - ").map(Number);
+    return s + (parts.length===2 ? parts[0]+parts[1] : 0);
+  }, 0);
+  const avgGoals = total > 0 ? (totalGoals/total).toFixed(1) : "—";
+
+  const PieBar = ({ a, b, c, labels }) => {
+    const t = a+b+c || 1;
+    return (
+      <div>
+        <div style={{ display:"flex", height:10, borderRadius:99, overflow:"hidden", marginBottom:6 }}>
+          <div style={{ width:`${(a/t)*100}%`, background:C.accent }}/>
+          <div style={{ width:`${(c/t)*100}%`, background:C.panel2 }}/>
+          <div style={{ width:`${(b/t)*100}%`, background:C.blue }}/>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", fontSize:10, color:C.dim }}>
+          <span style={{ color:C.accent, fontWeight:600 }}>{labels[0]}: {a} ({Math.round(a/t*100)}%)</span>
+          <span style={{ textAlign:"center" }}>Nul: {c} ({Math.round(c/t*100)}%)</span>
+          <span style={{ textAlign:"right", color:C.blue, fontWeight:600 }}>{labels[1]}: {b} ({Math.round(b/t*100)}%)</span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {/* Résumé stats */}
+      <div style={{ background:C.panel2, borderRadius:12, padding:"14px 16px", marginBottom:16 }}>
+        <div style={{ fontSize:10, color:C.dim, fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:12 }}>
+          Résumé sur {total} confrontations
+        </div>
+        <PieBar a={homeWins} b={awayWins} c={draws} labels={[m.home.name, m.away.name]} />
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginTop:14 }}>
+          {[
+            { label:"Moy. buts", val:avgGoals, color:C.text },
+            { label:"BTTS", val:`${Math.round(bttsList.length/total*100)}%`, color:"#7C3AED" },
+            { label:"Over 2.5", val:`${Math.round(overList.length/total*100)}%`, color:"#d97706" },
+            { label:"Total buts", val:totalGoals, color:C.accent },
+          ].map(s => (
+            <div key={s.label} style={{ textAlign:"center", background:C.panel, borderRadius:8, padding:"8px" }}>
+              <div style={{ fontSize:16, fontWeight:800, color:s.color }}>{s.val}</div>
+              <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.5 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Liste des confrontations */}
+      <div style={{ fontSize:10, color:C.dim, fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:8 }}>
+        Confrontations récentes
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        {h2h.map((h,i) => {
+          const parts = (h.score||"").split(" - ").map(Number);
+          const btts = parts.length===2 && parts[0]>0 && parts[1]>0;
+          const over = parts.length===2 && parts[0]+parts[1]>2;
+          return (
+            <div key={i} style={{
+              background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"10px 14px",
+              display:"grid", gridTemplateColumns:"80px 1fr auto 1fr 80px", alignItems:"center", gap:8,
+              borderLeft:`3px solid ${h.winner==="home"?C.accent:h.winner==="away"?C.blue:C.line}`,
+            }}>
+              <span style={{ fontSize:10, color:C.muted }}>{h.date}</span>
+              <span style={{ fontSize:12, fontWeight:h.winner==="home"?700:400, color:h.winner==="home"?C.accent:C.dim, textAlign:"right" }}>{m.home?.short||m.home?.name}</span>
+              <span style={{ fontSize:14, fontWeight:800, color:C.text, textAlign:"center", background:C.panel2, borderRadius:6, padding:"3px 10px", whiteSpace:"nowrap" }}>{h.score}</span>
+              <span style={{ fontSize:12, fontWeight:h.winner==="away"?700:400, color:h.winner==="away"?C.blue:C.dim }}>{m.away?.short||m.away?.name}</span>
+              <div style={{ display:"flex", gap:3, justifyContent:"flex-end" }}>
+                {btts && <span style={{ fontSize:8, background:"#EDE9FE", color:"#7C3AED", borderRadius:4, padding:"1px 4px" }}>BTTS</span>}
+                {over && <span style={{ fontSize:8, background:"#FEF3C7", color:"#d97706", borderRadius:4, padding:"1px 4px" }}>O2.5</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Onglet : Records de la compétition
+// ============================================================
+function TabRecordsComp({ compId, stored }) {
+  const RECORDS = {
+    fr: {
+      name:"Ligue 1",
+      mostTitles: { club:"PSG", count:12, years:"2012-2024" },
+      topScorer: { name:"Delio Onnis", goals:299, period:"1971-1986" },
+      biggestWin: "Marseille 8-0 Valenciennes (2006)" ,
+      mostExpensiveTransfer: "Kylian Mbappé : Metz→Monaco puis Monaco→PSG (180M€, 2017)",
+      attendance: "Parc des Princes : 48 500 spectateurs",
+      mostCapped: "Didier Deschamps : 35 saisons de L1 jouées",
+      funFact: "La Ligue 1 est le seul championnat majeur où une équipe (Marseille, 1993) a été rétrogradée pour corruption alors qu'elle venait de gagner la LDC.",
+    },
+    en: {
+      name:"Premier League",
+      mostTitles: { club:"Manchester United", count:13, years:"1993-2013" },
+      topScorer: { name:"Alan Shearer", goals:260, period:"1992-2006" },
+      biggestWin: "Leicester 9-0 Southampton (2019)",
+      mostExpensiveTransfer: "Enzo Fernández : Benfica→Chelsea (121M€, 2023)",
+      attendance: "Old Trafford : 74 879 spectateurs",
+      mostCapped: "Gareth Barry : 653 matchs de PL",
+      funFact: "En 2015-16, Leicester City est champion à 5000:1 selon les bookmakers — le plus grand exploit de l'histoire du sport.",
+    },
+    de: {
+      name:"Bundesliga",
+      mostTitles: { club:"Bayern Munich", count:33, years:"1969-2023" },
+      topScorer: { name:"Gerd Müller", goals:365, period:"1965-1979" },
+      biggestWin: "Borussia M'gladbach 12-0 Dortmund (1978)",
+      mostExpensiveTransfer: "Lucas Hernandez : Atletico Madrid→Bayern (80M€, 2019)",
+      attendance: "Signal Iduna Park (BVB) : 81 365 spectateurs",
+      mostCapped: "Karl-Heinz Körbel : 602 matchs de Bundesliga (Francfort)",
+      funFact: "Le Bayern Munich a été relégué une fois en 1955 et a failli descendre à nouveau en 1960. Depuis 1965, ils n'ont jamais quitté la 1ère division.",
+    },
+    es: {
+      name:"La Liga",
+      mostTitles: { club:"Real Madrid", count:36, years:"1932-2024" },
+      topScorer: { name:"Lionel Messi", goals:474, period:"2004-2021" },
+      biggestWin: "Deportivo La Coruña 8-0 Seville (2011)",
+      mostExpensiveTransfer: "Kylian Mbappé : PSG→Real Madrid (0€, 2024, mais prime à la signature estimée 150M+)",
+      attendance: "Camp Nou : 99 354 spectateurs",
+      mostCapped: "Andoni Zubizarreta : 622 matchs de Liga",
+      funFact: "Real Madrid vs Barcelone (El Clasico) est le match de club le plus regardé au monde, avec jusqu'à 650 millions de téléspectateurs.",
+    },
+    it: {
+      name:"Serie A",
+      mostTitles: { club:"Juventus", count:36, years:"1926-2020" },
+      topScorer: { name:"Silvio Piola", goals:274, period:"1929-1954" },
+      biggestWin: "Pro Patria 0-11 Milan (1959)",
+      mostExpensiveTransfer: "Romelu Lukaku : Man United→Inter (80M€, 2019)",
+      attendance: "San Siro : 80 018 spectateurs",
+      mostCapped: "Paolo Maldini : 647 matchs de Serie A",
+      funFact: "Calciopoli (2006) : le plus grand scandale de trucage de l'histoire du football. Juventus relégué, AC Milan -8 points. L'arbitre Moggi au centre du scandale.",
+    },
+    ucl: {
+      name:"UEFA Champions League",
+      mostTitles: { club:"Real Madrid", count:15, years:"1956-2024" },
+      topScorer: { name:"Cristiano Ronaldo", goals:140, period:"2003-2023" },
+      biggestWin: "Benfica 0-18 Anderlecht (1962, sur 2 matchs)",
+      mostExpensiveTransfer: "N/A — compétition, pas un club",
+      attendance: "Camp Nou (LDC 1999) : 90 000 spectateurs",
+      mostCapped: "Iker Casillas : 177 matchs de LDC",
+      funFact: "Le Real Madrid est le seul club à avoir remporté la LDC 3 fois consécutivement dans l'ère moderne (2016-2017-2018) sous Zidane.",
+    },
+  };
+
+  const rec = RECORDS[compId];
+  if (!rec) return <InfoPanel>Records non disponibles pour cette compétition.</InfoPanel>;
+
+  return (
+    <div>
+      <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:16 }}>Records — {rec.name}</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
+        <div style={{ background:C.panel2, borderRadius:10, padding:"12px 14px", borderLeft:`3px solid #d97706` }}>
+          <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:4 }}>🏆 Club le plus titré</div>
+          <div style={{ fontSize:16, fontWeight:800, color:C.text }}>{rec.mostTitles.club}</div>
+          <div style={{ fontSize:12, color:"#d97706", fontWeight:600 }}>{rec.mostTitles.count} titres</div>
+          <div style={{ fontSize:10, color:C.dim }}>{rec.mostTitles.years}</div>
+        </div>
+        <div style={{ background:C.panel2, borderRadius:10, padding:"12px 14px", borderLeft:`3px solid ${C.accent}` }}>
+          <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:4 }}>⚽ Meilleur buteur all-time</div>
+          <div style={{ fontSize:16, fontWeight:800, color:C.text }}>{rec.topScorer.name}</div>
+          <div style={{ fontSize:12, color:C.accent, fontWeight:600 }}>{rec.topScorer.goals} buts</div>
+          <div style={{ fontSize:10, color:C.dim }}>{rec.topScorer.period}</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {[
+          { icon:"💥", label:"Plus grand score", val:rec.biggestWin },
+          { icon:"💰", label:"Transfert record", val:rec.mostExpensiveTransfer },
+          { icon:"🏟", label:"Affluence record", val:rec.attendance },
+          { icon:"👑", label:"Plus capé", val:rec.mostCapped },
+        ].map(item => (
+          <div key={item.label} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"10px 14px", display:"flex", gap:10, alignItems:"flex-start" }}>
+            <span style={{ fontSize:16, flexShrink:0 }}>{item.icon}</span>
+            <div>
+              <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.5, marginBottom:2 }}>{item.label}</div>
+              <div style={{ fontSize:12, color:C.text }}>{item.val}</div>
+            </div>
+          </div>
+        ))}
+        <div style={{ background:`${C.accent}0a`, border:`1px solid ${C.accent}33`, borderRadius:10, padding:"12px 14px" }}>
+          <div style={{ fontSize:9, color:C.accent, textTransform:"uppercase", letterSpacing:.8, marginBottom:4 }}>💡 Le saviez-vous ?</div>
+          <div style={{ fontSize:12, color:C.text, lineHeight:1.7 }}>{rec.funFact}</div>
+        </div>
       </div>
     </div>
   );
@@ -5979,6 +6222,8 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
               {tab==="compo"       && <TabCompo homeId={homeTeamId} awayId={awayTeamId} homeName={m.home.name} awayName={m.away.name} season={currentSeason} fixtureId={selectedId ?? defaultId} />}
               {tab==="meteo"       && <TabMeteo compId={compId} fixtureId={selectedId ?? defaultId} />}
               {tab==="classement"  && <TabClassement compId={compId} />}
+              {tab==="h2h_deep"    && <TabH2HDeep m={m} />}
+              {tab==="records_comp"&& <TabRecordsComp compId={compId} stored={stored} />}
             </div>
           </div>
         </>
