@@ -6974,69 +6974,205 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
         );
       })()}
 
-      {/* === TOUS LES MATCHS À VENIR === */}
-      <div>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-          <span style={{ fontSize:18 }}>📅</span>
-          <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>Matchs à venir</span>
-          {!nextLoading && <span style={{ background:C.accentBg, color:C.accent, fontSize:10, fontWeight:700, borderRadius:20, padding:"2px 8px", border:"1px solid #B3D9F2" }}>{nextFixtures.length}</span>}
-        </div>
-        {nextLoading ? (
-          <div style={{ color:C.dim, fontSize:12, padding:"16px 0" }}>Chargement des prochains matchs…</div>
-        ) : nextError ? (
-          <div style={{ color:C.red, fontSize:12 }}>{nextError}</div>
-        ) : nextFixtures.length === 0 ? (
-          <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"20px", textAlign:"center", color:C.dim, fontSize:12 }}>
-            Aucun match à venir trouvé.
-          </div>
-        ) : (() => {
-          const byDate = {};
-          nextFixtures.forEach(f => {
-            const d = new Date(f.date).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
-            if (!byDate[d]) byDate[d] = [];
-            byDate[d].push(f);
-          });
-          return Object.entries(byDate).map(([dateLabel, matches]) => (
-            <div key={dateLabel} style={{ marginBottom:20 }}>
-              <div style={{ fontSize:11, fontWeight:600, color:C.dim, textTransform:"capitalize", letterSpacing:.5, marginBottom:8, borderLeft:`3px solid ${C.accent}`, paddingLeft:8 }}>
-                {dateLabel}
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {matches.map(f => {
-                  const homeLogo = logoRegistry[f.home?.id] || f.home?.logo || "";
-                  const awayLogo = logoRegistry[f.away?.id] || f.away?.logo || "";
-                  const t = new Date(f.date).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
-                  return (
-                    <div key={f.id}
-                      onClick={() => f.compId && onMatchClick?.(f)}
-                      style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"10px 14px", display:"grid", gridTemplateColumns:"1fr auto 1fr auto", alignItems:"center", gap:10, cursor:f.compId?"pointer":"default", transition:"border-color .1s" }}
-                      onMouseEnter={e=>{ if(f.compId) e.currentTarget.style.borderColor=C.accent; }}
-                      onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.line; }}
-                    >
-                      <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
-                        <TeamLogo url={homeLogo} size={20} name={f.home?.name||"?"} />
-                        <span style={{ fontSize:12, fontWeight:500, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.home?.name}</span>
-                      </div>
-                      <div style={{ textAlign:"center", minWidth:50 }}>
-                        <div style={{ fontSize:12, fontWeight:600, color:C.accent }}>{t}</div>
-                      </div>
-                      <div style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", minWidth:0 }}>
-                        <span style={{ fontSize:12, fontWeight:500, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"right" }}>{f.away?.name}</span>
-                        <TeamLogo url={awayLogo} size={20} name={f.away?.name||"?"} />
-                      </div>
-                      <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                        <FlagImg emoji={countryFlag(f.country)} height={12} />
-                        {f.leagueLogo && <img src={f.leagueLogo} width={13} height={13} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
-                        <span style={{ fontSize:10, color:C.dim, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.league}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+      {/* === TOUS LES MATCHS À VENIR + FILTRES === */}
+      {(() => {
+        const [filterLeague, setFilterLeague] = React.useState("");
+        const [filterTeam,   setFilterTeam]   = React.useState("");
+        const [searchTeam,   setSearchTeam]   = React.useState("");
+        const [showFilters,  setShowFilters]  = React.useState(false);
+
+        // Listes uniques pour les filtres
+        const leagues = [...new Map(nextFixtures.map(f => [f.league, { id:f.leagueId, name:f.league, logo:f.leagueLogo, flag:f.country }])).values()]
+          .filter(l => l.name)
+          .sort((a,b) => a.name.localeCompare(b.name));
+
+        const teams = [...new Map(nextFixtures.flatMap(f => [
+          [f.home?.id, { id:f.home?.id, name:f.home?.name, logo:logoRegistry[f.home?.id]||f.home?.logo||"" }],
+          [f.away?.id, { id:f.away?.id, name:f.away?.name, logo:logoRegistry[f.away?.id]||f.away?.logo||"" }],
+        ]).filter(([id,t]) => id && t.name)).values()]
+          .filter(t => !searchTeam || t.name?.toLowerCase().includes(searchTeam.toLowerCase()))
+          .sort((a,b) => (a.name||"").localeCompare(b.name||""));
+
+        // Appliquer les filtres
+        const filtered = nextFixtures.filter(f => {
+          if (filterLeague && f.league !== filterLeague) return false;
+          if (filterTeam && f.home?.id !== filterTeam && f.away?.id !== filterTeam) return false;
+          return true;
+        });
+
+        const activeFilters = (filterLeague ? 1 : 0) + (filterTeam ? 1 : 0);
+
+        const byDate = {};
+        filtered.forEach(f => {
+          const d = new Date(f.date).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
+          if (!byDate[d]) byDate[d] = [];
+          byDate[d].push(f);
+        });
+
+        return (
+          <div>
+            {/* Header + bouton filtres */}
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+              <span style={{ fontSize:18 }}>📅</span>
+              <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>Matchs à venir</span>
+              {!nextLoading && (
+                <span style={{ background:C.accentBg, color:C.accent, fontSize:10, fontWeight:700, borderRadius:20, padding:"2px 8px", border:`1px solid ${C.accent}44` }}>
+                  {filtered.length}/{nextFixtures.length}
+                </span>
+              )}
+              <button onClick={() => setShowFilters(v => !v)} style={{
+                marginLeft:"auto", display:"flex", alignItems:"center", gap:5,
+                background: activeFilters > 0 ? C.accentBg : C.panel2,
+                border:`1px solid ${activeFilters > 0 ? C.accent : C.line}`,
+                borderRadius:20, padding:"5px 12px", cursor:"pointer", fontSize:11,
+                color: activeFilters > 0 ? C.accent : C.dim, fontWeight: activeFilters > 0 ? 700 : 400,
+              }}>
+                <span>🔽</span>
+                Filtres
+                {activeFilters > 0 && <span style={{ background:C.accent, color:"#0A1428", borderRadius:10, padding:"0px 5px", fontSize:9, fontWeight:800 }}>{activeFilters}</span>}
+              </button>
             </div>
-          ));
-        })()}
-      </div>
+
+            {/* Panneau de filtres */}
+            {showFilters && (
+              <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"14px 16px", marginBottom:14, display:"flex", flexDirection:"column", gap:12 }}>
+
+                {/* Filtres actifs (chips) */}
+                {activeFilters > 0 && (
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {filterLeague && (
+                      <div style={{ display:"flex", alignItems:"center", gap:5, background:C.accentBg, border:`1px solid ${C.accent}44`, borderRadius:20, padding:"3px 10px" }}>
+                        <span style={{ fontSize:11, color:C.accent }}>{filterLeague}</span>
+                        <button onClick={() => setFilterLeague("")} style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, fontSize:13, lineHeight:1, padding:0 }}>✕</button>
+                      </div>
+                    )}
+                    {filterTeam && (() => {
+                      const t = teams.find(t => t.id === filterTeam) || teams.filter(t => !searchTeam).find(t => t.id === filterTeam);
+                      return t ? (
+                        <div style={{ display:"flex", alignItems:"center", gap:5, background:`${C.blue}18`, border:`1px solid ${C.blue}44`, borderRadius:20, padding:"3px 10px" }}>
+                          {t.logo && <img src={t.logo} width={12} height={12} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                          <span style={{ fontSize:11, color:C.blue }}>{t.name}</span>
+                          <button onClick={() => { setFilterTeam(""); setSearchTeam(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:C.blue, fontSize:13, lineHeight:1, padding:0 }}>✕</button>
+                        </div>
+                      ) : null;
+                    })()}
+                    <button onClick={() => { setFilterLeague(""); setFilterTeam(""); setSearchTeam(""); }} style={{ background:"none", border:`1px solid ${C.line}`, borderRadius:20, padding:"3px 10px", cursor:"pointer", fontSize:10, color:C.muted }}>
+                      Tout effacer
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  {/* Filtre compétition */}
+                  <div>
+                    <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>🏆 Compétition</div>
+                    <div style={{ maxHeight:160, overflowY:"auto", display:"flex", flexDirection:"column", gap:3, scrollbarWidth:"thin" }}>
+                      <button onClick={() => setFilterLeague("")} style={{
+                        display:"flex", alignItems:"center", gap:7, padding:"5px 8px", borderRadius:7,
+                        background: !filterLeague ? C.accentBg : "none",
+                        border:`1px solid ${!filterLeague ? C.accent : "transparent"}`,
+                        cursor:"pointer", textAlign:"left", fontSize:11,
+                        color: !filterLeague ? C.accent : C.dim,
+                      }}>
+                        Toutes ({nextFixtures.length})
+                      </button>
+                      {leagues.map(l => (
+                        <button key={l.name} onClick={() => setFilterLeague(l.name === filterLeague ? "" : l.name)} style={{
+                          display:"flex", alignItems:"center", gap:7, padding:"5px 8px", borderRadius:7,
+                          background: filterLeague === l.name ? C.accentBg : "none",
+                          border:`1px solid ${filterLeague === l.name ? C.accent : "transparent"}`,
+                          cursor:"pointer", textAlign:"left",
+                        }}>
+                          <FlagImg emoji={countryFlag(l.flag)} height={11} />
+                          {l.logo && <img src={l.logo} width={13} height={13} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                          <span style={{ fontSize:11, color: filterLeague === l.name ? C.accent : C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{l.name}</span>
+                          <span style={{ fontSize:9, color:C.muted, flexShrink:0 }}>
+                            {nextFixtures.filter(f => f.league === l.name).length}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Filtre équipe */}
+                  <div>
+                    <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>👕 Équipe</div>
+                    <input
+                      value={searchTeam} onChange={e => setSearchTeam(e.target.value)}
+                      placeholder="Rechercher une équipe…"
+                      style={{ width:"100%", padding:"6px 8px", borderRadius:7, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:11, outline:"none", marginBottom:6, boxSizing:"border-box" }}
+                    />
+                    <div style={{ maxHeight:130, overflowY:"auto", display:"flex", flexDirection:"column", gap:2, scrollbarWidth:"thin" }}>
+                      {teams.slice(0, 40).map(t => (
+                        <button key={t.id} onClick={() => setFilterTeam(filterTeam === t.id ? "" : t.id)} style={{
+                          display:"flex", alignItems:"center", gap:7, padding:"4px 8px", borderRadius:6,
+                          background: filterTeam === t.id ? `${C.blue}18` : "none",
+                          border:`1px solid ${filterTeam === t.id ? C.blue : "transparent"}`,
+                          cursor:"pointer", textAlign:"left",
+                        }}>
+                          {t.logo && <img src={t.logo} width={14} height={14} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                          <span style={{ fontSize:11, color: filterTeam === t.id ? C.blue : C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</span>
+                        </button>
+                      ))}
+                      {!searchTeam && teams.length > 40 && <div style={{ fontSize:10, color:C.muted, padding:"4px 8px" }}>Cherche par nom…</div>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Liste des matchs filtrés */}
+            {nextLoading ? (
+              <div style={{ color:C.dim, fontSize:12, padding:"16px 0" }}>Chargement des prochains matchs…</div>
+            ) : nextError ? (
+              <div style={{ color:C.red, fontSize:12 }}>{nextError}</div>
+            ) : filtered.length === 0 ? (
+              <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"20px", textAlign:"center", color:C.dim, fontSize:12 }}>
+                {activeFilters > 0 ? "Aucun match trouvé avec ces filtres." : "Aucun match à venir trouvé."}
+              </div>
+            ) : Object.entries(byDate).map(([dateLabel, matches]) => (
+              <div key={dateLabel} style={{ marginBottom:20 }}>
+                <div style={{ fontSize:11, fontWeight:600, color:C.dim, textTransform:"capitalize", letterSpacing:.5, marginBottom:8, borderLeft:`3px solid ${C.accent}`, paddingLeft:8 }}>
+                  {dateLabel} · <span style={{ color:C.muted }}>{matches.length} match{matches.length>1?"s":""}</span>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                  {matches.map(f => {
+                    const homeLogo = logoRegistry[f.home?.id] || f.home?.logo || "";
+                    const awayLogo = logoRegistry[f.away?.id] || f.away?.logo || "";
+                    const t = new Date(f.date).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+                    const isTeamMatch = filterTeam && (f.home?.id === filterTeam || f.away?.id === filterTeam);
+                    return (
+                      <div key={f.id}
+                        onClick={() => f.compId && onMatchClick?.(f)}
+                        style={{ background:C.panel, border:`1px solid ${isTeamMatch ? C.blue : C.line}`, borderRadius:10, padding:"10px 14px", display:"grid", gridTemplateColumns:"1fr auto 1fr auto", alignItems:"center", gap:10, cursor:f.compId?"pointer":"default", transition:"border-color .1s" }}
+                        onMouseEnter={e=>{ if(f.compId) e.currentTarget.style.borderColor=C.accent; }}
+                        onMouseLeave={e=>{ e.currentTarget.style.borderColor=isTeamMatch?C.blue:C.line; }}
+                      >
+                        <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
+                          <TeamLogo url={homeLogo} size={20} name={f.home?.name||"?"} />
+                          <span style={{ fontSize:12, fontWeight: f.home?.id===filterTeam?700:500, color: f.home?.id===filterTeam?C.blue:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.home?.name}</span>
+                        </div>
+                        <div style={{ textAlign:"center", minWidth:50 }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.accent }}>{t}</div>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", minWidth:0 }}>
+                          <span style={{ fontSize:12, fontWeight: f.away?.id===filterTeam?700:500, color: f.away?.id===filterTeam?C.blue:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"right" }}>{f.away?.name}</span>
+                          <TeamLogo url={awayLogo} size={20} name={f.away?.name||"?"} />
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                          <FlagImg emoji={countryFlag(f.country)} height={12} />
+                          {f.leagueLogo && <img src={f.leagueLogo} width={13} height={13} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
+                          <span style={{ fontSize:10, color:C.dim, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.league}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* === CE JOUR DANS L'HISTOIRE === */}
       {(() => {
