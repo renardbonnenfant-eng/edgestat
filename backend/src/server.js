@@ -786,6 +786,57 @@ Sois précis, cite des noms et chiffres. Mentionne si certaines infos datent. R�
   }
 });
 
+// Événements complets d'un match (buts, cartons, remplacements…)
+app.get("/api/match-events/:fixtureId", async (req, res) => {
+  const { fixtureId } = req.params;
+  const cacheKey = `events-full:${fixtureId}`;
+  try {
+    const cached = await readCache(cacheKey, 24 * 60 * 60 * 1000);
+    if (cached?.fresh) return res.json(cached.value);
+    const data = await apiGet("fixtures/events", { fixture: fixtureId }, 24 * 60 * 60 * 1000);
+    const events = (data || []).map(e => ({
+      minute:     e.time?.elapsed || 0,
+      extra:      e.time?.extra || null,
+      type:       e.type,
+      detail:     e.detail,
+      teamId:     e.team?.id,
+      teamName:   e.team?.name,
+      playerId:   e.player?.id,
+      playerName: e.player?.name || "",
+      assistId:   e.assist?.id,
+      assistName: e.assist?.name || "",
+    })).sort((a,b) => a.minute - b.minute);
+    await writeCache(cacheKey, events);
+    res.json(events);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// Blessés / Suspendus d'une équipe
+app.get("/api/injuries/:teamId", async (req, res) => {
+  const { teamId } = req.params;
+  const { currentSeason: cs } = await import("./config.js");
+  const season = Number(req.query.season) || cs();
+  const cacheKey = `injuries:${teamId}:${season}`;
+  try {
+    const cached = await readCache(cacheKey, 6 * 60 * 60 * 1000);
+    if (cached?.fresh) return res.json(cached.value);
+    const data = await apiGet("injuries", { team: teamId, season }, 6 * 60 * 60 * 1000);
+    const result = (data || []).slice(0, 12).map(p => ({
+      playerId:    p.player?.id,
+      playerName:  p.player?.name || "",
+      playerPhoto: p.player?.photo || "",
+      type:        p.fixture?.status?.short || "OUT",
+      reason:      p.player?.reason || "",
+    }));
+    await writeCache(cacheKey, result);
+    res.json(result);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
 // Statistiques d'un match (tirs, corners, possession…)
 app.get("/api/match-stats/:fixtureId", async (req, res) => {
   const { fixtureId } = req.params;

@@ -138,6 +138,19 @@ export async function fetchMatchEvents(fixtureId) {
   return res.json().catch(() => []);
 }
 
+export async function fetchFullMatchEvents(fixtureId) {
+  const res = await fetch(`/api/match-events/${fixtureId}`);
+  if (!res.ok) return [];
+  return res.json().catch(() => []);
+}
+
+export async function fetchInjuries(teamId, season) {
+  const url = `/api/injuries/${teamId}${season ? `?season=${season}` : ""}`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return res.json().catch(() => []);
+}
+
 export async function fetchSquad(teamId) {
   const res = await fetch(`/api/squad/${teamId}`);
   if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || `HTTP ${res.status}`);

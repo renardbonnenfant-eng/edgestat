@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats } from "./api.js";
+import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchFullMatchEvents, fetchInjuries } from "./api.js";
 import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 
 // ============================================================
@@ -1250,6 +1250,8 @@ function PeriodSelector({ period, onChange }) {
 const TABS = [
   { id:"resultat",    label:"V/D" },
   { id:"stats_match", label:"📊 Stats Match" },
+  { id:"timeline",    label:"📋 Timeline" },
+  { id:"preview",     label:"🤖 Aperçu IA" },
   { id:"double",      label:"Double Chance" },
   { id:"ecart",       label:"Écart" },
   { id:"buteur",      label:"Buteur" },
@@ -1476,6 +1478,33 @@ function TabEcart({ m }) {
 function TabButeur({ m, period }) {
   return (
     <div>
+      {/* Comparaison top buteurs */}
+      {m.home.scorers?.length > 0 && m.away.scorers?.length > 0 && (
+        <div style={{ background:C.panel2, borderRadius:12, padding:"12px 16px", marginBottom:16 }}>
+          <div style={{ fontSize:10, color:C.dim, fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:10 }}>⚽ Buteurs clés</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"start", gap:12 }}>
+            {/* Home scorers */}
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {m.home.scorers.slice(0,3).map((s,i) => (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <div style={{ width:22, height:22, borderRadius:"50%", background:C.accentBg, display:"grid", placeItems:"center", fontSize:10, fontWeight:700, color:C.accent, flexShrink:0 }}>{s.scored}</div>
+                  <span style={{ fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ width:1, background:C.line, alignSelf:"stretch" }} />
+            {/* Away scorers */}
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {m.away.scorers.slice(0,3).map((s,i) => (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
+                  <span style={{ fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</span>
+                  <div style={{ width:22, height:22, borderRadius:"50%", background:`${C.blue}18`, display:"grid", placeItems:"center", fontSize:10, fontWeight:700, color:C.blue, flexShrink:0 }}>{s.scored}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ fontSize:11, color:C.dim, marginBottom:14, lineHeight:1.6 }}>{`Buts inscrits — ${periodLabel(period)}`} — données historiques uniquement.</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
         {[{team:m.home,color:C.accent,side:"home",label:"domicile"},{team:m.away,color:C.blue,side:"away",label:"extérieur"}].map(({team,color,side,label}) => (
@@ -4653,6 +4682,260 @@ function TabClassement({ compId }) {
   );
 }
 
+// ============================================================
+// Onglet : Timeline des événements d'un match
+// ============================================================
+function TabTimeline({ fixtureId, homeName, awayName, homeId }) {
+  const [events, setEvents] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!fixtureId) return;
+    setLoading(true);
+    fetchFullMatchEvents(fixtureId)
+      .then(d => { setEvents(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [fixtureId]);
+
+  if (loading) return <InfoPanel>Chargement de la timeline…</InfoPanel>;
+  if (!events || events.length === 0) return <InfoPanel>Timeline non disponible (match à venir ou données absentes).</InfoPanel>;
+
+  const getIcon = (type, detail) => {
+    if (type === "Goal") {
+      if (detail?.includes("Penalty")) return "⚽🥅";
+      if (detail?.includes("Own")) return "⚽😬";
+      return "⚽";
+    }
+    if (type === "Card") {
+      if (detail?.includes("Red")) return "🟥";
+      if (detail?.includes("Yellow Red")) return "🟨🟥";
+      return "🟨";
+    }
+    if (type === "subst") return "🔄";
+    if (type === "Var") return "📺";
+    return "•";
+  };
+
+  const getColor = (type, detail) => {
+    if (type === "Goal") return "#16a34a";
+    if (type === "Card" && detail?.includes("Red")) return "#dc2626";
+    if (type === "Card") return "#d97706";
+    if (type === "subst") return C.blue;
+    return C.dim;
+  };
+
+  return (
+    <div>
+      <div style={{ position:"relative", padding:"0 20px" }}>
+        {/* Ligne centrale */}
+        <div style={{ position:"absolute", left:"50%", top:0, bottom:0, width:2, background:C.line, transform:"translateX(-50%)" }} />
+
+        {/* Coup d'envoi */}
+        <div style={{ display:"flex", justifyContent:"center", marginBottom:16 }}>
+          <div style={{ background:C.accent, color:"#fff", borderRadius:20, padding:"4px 16px", fontSize:11, fontWeight:700, zIndex:1, position:"relative" }}>Coup d'envoi</div>
+        </div>
+
+        {/* Événements + Mi-temps */}
+        {(() => {
+          const items = [];
+          let halfAdded = false;
+          events.forEach((e, i) => {
+            if (e.minute >= 45 && !halfAdded) {
+              halfAdded = true;
+              items.push(
+                <div key="ht" style={{ display:"flex", justifyContent:"center", margin:"12px 0" }}>
+                  <div style={{ background:C.panel2, border:`1px solid ${C.line}`, borderRadius:20, padding:"3px 14px", fontSize:10, color:C.dim, fontWeight:600, zIndex:1, position:"relative" }}>Mi-temps</div>
+                </div>
+              );
+            }
+            const isHome = e.teamId === homeId;
+            const color = getColor(e.type, e.detail);
+            const icon  = getIcon(e.type, e.detail);
+
+            // Skip substitutions
+            if (e.type === "subst") return;
+
+            items.push(
+              <div key={`${e.minute}-${i}`} style={{
+                display:"grid", gridTemplateColumns:"1fr 50px 1fr",
+                alignItems:"center", gap:8, marginBottom:10,
+              }}>
+                {/* Côté domicile */}
+                {isHome ? (
+                  <div style={{ textAlign:"right", fontSize:12 }}>
+                    <div style={{ fontWeight:600, color }}>{e.playerName}</div>
+                    {e.assistName && <div style={{ fontSize:10, color:C.muted }}>pass. {e.assistName}</div>}
+                    {e.detail?.includes("Own") && <div style={{ fontSize:10, color:"#dc2626" }}>CSC</div>}
+                    {e.detail?.includes("Penalty") && <div style={{ fontSize:10, color:C.dim }}>Pénalty</div>}
+                  </div>
+                ) : <div />}
+
+                {/* Centre : minute + icône */}
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, zIndex:1, position:"relative" }}>
+                  <div style={{ background:C.panel, border:`2px solid ${color}`, borderRadius:"50%", width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>
+                    {icon}
+                  </div>
+                  <div style={{ fontSize:10, fontWeight:700, color }}>{e.minute}{e.extra?`+${e.extra}`:""}'</div>
+                </div>
+
+                {/* Côté extérieur */}
+                {!isHome ? (
+                  <div style={{ textAlign:"left", fontSize:12 }}>
+                    <div style={{ fontWeight:600, color }}>{e.playerName}</div>
+                    {e.assistName && <div style={{ fontSize:10, color:C.muted }}>pass. {e.assistName}</div>}
+                    {e.detail?.includes("Own") && <div style={{ fontSize:10, color:"#dc2626" }}>CSC</div>}
+                    {e.detail?.includes("Penalty") && <div style={{ fontSize:10, color:C.dim }}>Pénalty</div>}
+                  </div>
+                ) : <div />}
+              </div>
+            );
+          });
+          return items;
+        })()}
+
+        {/* Fin du match */}
+        <div style={{ display:"flex", justifyContent:"center", marginTop:16 }}>
+          <div style={{ background:C.panel2, border:`1px solid ${C.line}`, borderRadius:20, padding:"4px 16px", fontSize:11, fontWeight:700, color:C.dim, zIndex:1, position:"relative" }}>Fin du match</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Composant : Blessés / Suspendus
+// ============================================================
+function InjuryReport({ homeTeamId, awayTeamId, homeName, awayName }) {
+  const [homeInj, setHomeInj] = useState(null);
+  const [awayInj, setAwayInj] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!homeTeamId || !awayTeamId) return;
+    Promise.all([fetchInjuries(homeTeamId), fetchInjuries(awayTeamId)])
+      .then(([h, a]) => { setHomeInj(h); setAwayInj(a); });
+  }, [homeTeamId, awayTeamId]);
+
+  const total = (homeInj?.length||0) + (awayInj?.length||0);
+  if (total === 0) return null;
+
+  return (
+    <div style={{ marginBottom:10, background:C.panel, border:`1px solid #FED7AA`, borderRadius:10, overflow:"hidden" }}>
+      <button onClick={() => setOpen(v=>!v)} style={{
+        width:"100%", display:"flex", alignItems:"center", gap:8, padding:"9px 14px",
+        background:`#FFF7ED`, border:"none", cursor:"pointer", textAlign:"left",
+      }}>
+        <span style={{ fontSize:14 }}>🚑</span>
+        <span style={{ fontSize:12, fontWeight:600, color:"#C2410C" }}>Blessés / Suspendus</span>
+        <span style={{ background:"#FED7AA", color:"#C2410C", borderRadius:20, padding:"1px 8px", fontSize:10, fontWeight:700 }}>{total}</span>
+        <span style={{ marginLeft:"auto", color:"#C2410C", fontSize:11 }}>{open?"▴":"▾"}</span>
+      </button>
+      {open && (
+        <div style={{ padding:"10px 14px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          {[{ team:homeName, inj:homeInj||[] }, { team:awayName, inj:awayInj||[] }].map(({ team, inj }) => (
+            <div key={team}>
+              <div style={{ fontSize:10, color:C.dim, fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>{team} ({inj.length})</div>
+              {inj.length===0 ? (
+                <div style={{ fontSize:11, color:C.muted }}>Aucun blessé connu ✅</div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                  {inj.slice(0,5).map(p => (
+                    <div key={p.playerId} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      {p.playerPhoto && <img src={p.playerPhoto} width={18} height={18} style={{ borderRadius:"50%", objectFit:"cover" }} onError={e=>e.target.style.display="none"} />}
+                      <span style={{ fontSize:11, color:C.text }}>{p.playerName}</span>
+                      <span style={{ marginLeft:"auto", fontSize:9, background:"#FEE2E2", color:"#DC2626", borderRadius:4, padding:"1px 5px" }}>{p.type}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Onglet : Aperçu IA du match
+// ============================================================
+function TabPreview({ m, compId }) {
+  const [preview, setPreview]   = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [generated, setGenerated] = useState(false);
+
+  async function generate() {
+    setLoading(true);
+    try {
+      const context = {
+        league: m.league, date: m.date, score: m.score,
+        home: { name:m.home.name, form:m.home.form, avgGoalsScored:m.home.avgGoalsScored, avgGoalsConceded:m.home.avgGoalsConceded, btts:m.home.btts, cleanSheet:m.home.cleanSheet, doubleChance:m.home.doubleChance, homeRecord:m.home.homeRecord },
+        away: { name:m.away.name, form:m.away.form, avgGoalsScored:m.away.avgGoalsScored, avgGoalsConceded:m.away.avgGoalsConceded, btts:m.away.btts, cleanSheet:m.away.cleanSheet, doubleChance:m.away.doubleChance, awayRecord:m.away.awayRecord },
+        h2h: m.h2h,
+      };
+      const question = `Génère un aperçu COMPLET de ce match pour un parieur professionnel. Inclus:
+1. ANALYSE DES FORCES (forme, stats offensives/défensives)
+2. FACE-À-FACE (tendances historiques)
+3. ANGLES DE PARIS (avec pourcentages et cotes indicatives):
+   - Résultat (1X2)
+   - Over/Under 2.5 buts
+   - BTTS (les deux marquent)
+   - Double chance
+   - Handicap asiatique
+4. PARI À VALEUR (meilleure opportunité selon les stats)
+5. AVERTISSEMENTS (absences supposées, conditions météo typiques, enjeux)
+
+Sois précis avec des chiffres. Format clair avec sections.`;
+      const res = await fetch("/api/chat", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ question, context, history:[], teamDatabase:{} }),
+      });
+      const data = await res.json();
+      setPreview(data.answer || "");
+      setGenerated(true);
+    } catch (e) {
+      setPreview("Erreur lors de la génération.");
+      setGenerated(true);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div>
+      {!generated ? (
+        <div style={{ textAlign:"center", padding:"32px 20px" }}>
+          <div style={{ fontSize:48, marginBottom:12 }}>🤖</div>
+          <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:8 }}>Aperçu IA du match</div>
+          <div style={{ fontSize:12, color:C.dim, marginBottom:20, maxWidth:380, margin:"0 auto 20px" }}>
+            Analyse complète basée sur les statistiques historiques : forces/faiblesses, H2H, angles de paris avec probabilités.
+          </div>
+          <button onClick={generate} disabled={loading} style={{
+            background:C.accent, color:"#fff", border:"none", borderRadius:10,
+            padding:"12px 28px", fontSize:14, fontWeight:700, cursor:loading?"not-allowed":"pointer",
+            boxShadow:`0 4px 16px ${C.accent}44`, opacity:loading?.7:1,
+          }}>
+            {loading ? "Génération en cours…" : "🚀 Générer l'aperçu"}
+          </button>
+        </div>
+      ) : (
+        <div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+            <div style={{ fontSize:11, color:C.dim }}>🤖 Généré par IA (Groq llama-3.3-70b) · Pas de garantie de résultat</div>
+            <button onClick={() => { setGenerated(false); setPreview(""); }} style={{ background:"none", border:`1px solid ${C.line}`, borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim }}>↻ Regénérer</button>
+          </div>
+          <div style={{ background:C.panel2, borderRadius:12, padding:"16px", fontSize:12, color:C.text, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
+            {preview}
+          </div>
+          <div style={{ marginTop:10, padding:"8px 12px", background:"#FEF3C7", border:"1px solid #FCD34D", borderRadius:8, fontSize:10, color:"#92400E" }}>
+            ⚠️ Ces analyses sont basées sur des données statistiques historiques. Les paris comportent un risque de perte financière. Pariez de façon responsable.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Onglet Météo — statistiques V/N/D par conditions climatiques
 // ============================================================
 function TabMeteo({ compId, fixtureId }) {
@@ -5429,11 +5712,21 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
             </div>
           )}
           <OddsDisplay fixtureId={selectedId ?? defaultId} />
+          {matchSelected && currentFixture && (
+            <InjuryReport
+              homeTeamId={currentFixture.home?.id}
+              awayTeamId={currentFixture.away?.id}
+              homeName={m.home.name}
+              awayName={m.away.name}
+            />
+          )}
           <div style={{ marginTop:20 }}>
             <TabBar tab={tab} setTab={setTab} />
             <div style={{ marginTop:20 }}>
               {tab==="resultat"    && <TabResultat m={m} period={period} />}
               {tab==="stats_match" && <TabMatchStats fixtureId={selectedId ?? defaultId} />}
+              {tab==="timeline"    && <TabTimeline fixtureId={selectedId ?? defaultId} homeName={m.home.name} awayName={m.away.name} homeId={currentFixture?.home?.id} />}
+              {tab==="preview"     && <TabPreview m={m} compId={compId} />}
               {tab==="double"      && <TabDoubleChance m={m} />}
               {tab==="ecart"       && <TabEcart m={m} />}
               {tab==="buteur"      && <TabButeur m={m} period={period} />}
