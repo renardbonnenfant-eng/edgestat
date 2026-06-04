@@ -2102,10 +2102,11 @@ function ChatWidget({ matchContext, teamDatabase = {} }) {
 // Modal Fiche Club
 // ============================================================
 function ClubModal({ teamId, teamName, teamLogo, onClose, isFav, onToggleFav }) {
-  const [data,      setData]      = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState("");
-  const [activeTab, setActiveTab] = useState("info");
+  const [data,         setData]        = useState(null);
+  const [loading,      setLoading]     = useState(true);
+  const [error,        setError]       = useState("");
+  const [activeTab,    setActiveTab]   = useState("info");
+  const [visibleCount, setVisibleCount]= useState(10); // pagination historique matchs
 
   useEffect(() => {
     if (!teamId) return;
@@ -2271,7 +2272,6 @@ function ClubModal({ teamId, teamName, teamLogo, onClose, isFav, onToggleFav }) 
 
                   {/* Historique des matchs avec pagination */}
                   {(() => {
-                    const [visibleCount, setVisibleCount] = React.useState(10);
                     const allMatches = data?.recentForm || [];
                     const visible = allMatches.slice(0, visibleCount);
                     return (
@@ -5080,11 +5080,12 @@ function livePrestige(f) {
 }
 
 function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
-  const [nextFixtures, setNextFixtures] = useState([]);
-  const [liveMatches,  setLiveMatches]  = useState([]);
-  const [nextLoading,  setNextLoading]  = useState(true);
-  const [liveLoading,  setLiveLoading]  = useState(true);
-  const [nextError,    setNextError]    = useState("");
+  const [nextFixtures,  setNextFixtures] = useState([]);
+  const [liveMatches,   setLiveMatches]  = useState([]);
+  const [nextLoading,   setNextLoading]  = useState(true);
+  const [liveLoading,   setLiveLoading]  = useState(true);
+  const [nextError,     setNextError]    = useState("");
+  const [showAllLive,   setShowAllLive]  = useState(false); // dropdown "X autres matchs live"
 
   useEffect(() => {
     fetchNext(60)
@@ -5256,7 +5257,6 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
 
       {/* === EN DIRECT === */}
       {(() => {
-        const [showAllLive, setShowAllLive] = React.useState(false);
         const sorted  = [...liveMatches].sort((a,b) => livePrestige(b) - livePrestige(a));
         const top4    = sorted.slice(0, 4);
         const rest    = sorted.slice(4);
