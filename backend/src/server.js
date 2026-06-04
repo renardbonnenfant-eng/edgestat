@@ -72,35 +72,38 @@ app.get("/api/leaderboard", (req, res) => {
 });
 
 app.get("/api/news/football", async (req, res) => {
-  // Cache 1h — données fraîches basées sur les vrais résultats
-  const cacheKey = `football-news-v3:${new Date().toISOString().slice(0,13)}`; // reset toutes les heures
+  // Cache 30 min — news basées uniquement sur vrais résultats des 48h
+  const cacheKey = `football-news-v4:${Math.floor(Date.now() / (30*60*1000))}`;
   try {
-    const cached = await readCache(cacheKey, 60 * 60 * 1000);
+    const cached = await readCache(cacheKey, 30 * 60 * 1000);
     if (cached?.fresh) return res.json(cached.value);
 
-    const groqKey = process.env.GROQ_KEY;
-    if (!groqKey) return res.json(getFallbackNews());
-
-    // ── Collecter les vrais résultats des dernières 48h ──────────
+    // ── Collecter les vrais résultats des 48h depuis les fixtures en cache ──
     const now = Date.now();
     const h48 = now - 48 * 60 * 60 * 1000;
+    const TOP_LEAGUES = new Set([39, 61, 78, 135, 140, 94, 2, 3, 848, 1, 4, 9, 6, 11, 13]);
     const recentResults = [];
 
     try {
-      // Lire le payload football en cache
       const payload = await readCache("payload:football:v2", 24 * 60 * 60 * 1000);
       if (payload?.value) {
-        for (const [lgId, lg] of Object.entries(payload.value.leagues || {})) {
+        for (const [, lg] of Object.entries(payload.value.leagues || {})) {
           for (const f of (lg.recentFixtures || [])) {
             const d = new Date(f.date).getTime();
-            if (d > h48 && d < now && f.score && f.status === "FT") {
+            if (d > h48 && d <= now && f.score && (f.status === "FT" || f.status === "AET" || f.status === "PEN")) {
               const [h, a] = (f.score||"").split(" - ").map(Number);
               if (!isNaN(h) && !isNaN(a)) {
+                const ageH = Math.round((now - d) / 3600000);
                 recentResults.push({
-                  home: f.home?.name, away: f.away?.name,
-                  score: f.score, league: lg.league,
-                  diff: Math.abs(h-a),
-                  total: h+a,
+                  id: String(f.id || ""),
+                  home: f.home?.name || "?",
+                  away: f.away?.name || "?",
+                  score: f.score,
+                  league: lg.league || "",
+                  leagueId: lg.apiId,
+                  diff: Math.abs(h - a),
+                  total: h + a,
+                  ageH,
                   date: f.date,
                 });
               }
@@ -110,79 +113,93 @@ app.get("/api/news/football", async (req, res) => {
       }
     } catch {}
 
-    // Trier par intérêt (gros score en premier)
-    recentResults.sort((a,b) => (b.diff+b.total) - (a.diff+a.total));
-    const top5 = recentResults.slice(0, 5);
-
-    const { default: Groq } = await import("groq-sdk");
-    const groq = new Groq({ apiKey: groqKey });
-    const today = new Date().toISOString().slice(0, 10);
-
-    const resultsContext = top5.length > 0
-      ? `\n\nRésultats RÉELS des dernières 48h disponibles:\n${top5.map(r => `- ${r.home} ${r.score} ${r.away} (${r.league})`).join('\n')}`
-      : "";
-
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [{
-        role: "user",
-        content: `Tu es un journaliste sportif. Date du jour: ${today}.
-${resultsContext}
-
-Génère 6 actualités football basées sur ce qui s'est VRAIMENT passé dans les 48 dernières heures.
-${top5.length > 0 ? "Utilise les résultats réels fournis ci-dessus comme base pour les news." : ""}
-Mix: analyse des résultats, transferts chauds de l'été 2026, blessures, impacts sur les pronostics.
-IMPORTANT: Rends les news UTILES pour un parieur sportif (impacts sur les cotes, équipes en forme, etc.)
-
-Format JSON strict:
-{
-  "news": [
-    {
-      "id": "n1",
-      "title": "Titre max 80 chars",
-      "summary": "2 phrases. Impact pour les parieurs si pertinent.",
-      "category": "résultat|transfert|blessure|forme|tactique|incident",
-      "entity": "club ou joueur principal",
-      "entityType": "club|player|competition",
-      "leagueId": 61,
-      "emoji": "⚽",
-      "hot": true,
-      "betImpact": "court texte sur l'impact pour les paris (optionnel)"
-    }
-  ]
-}
-Réponds UNIQUEMENT avec le JSON.`
-      }],
-      max_tokens: 1500,
-      temperature: 0.7,
-      response_format: { type: "json_object" },
+    // Trier : top ligues d'abord, puis par intérêt (gros écarts), puis récents
+    recentResults.sort((a, b) => {
+      const aTop = TOP_LEAGUES.has(a.leagueId) ? 1 : 0;
+      const bTop = TOP_LEAGUES.has(b.leagueId) ? 1 : 0;
+      if (bTop !== aTop) return bTop - aTop;
+      return (b.diff + b.total) - (a.diff + a.total);
     });
 
-    let news = [];
-    try {
-      const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
-      news = parsed.news || [];
-    } catch { news = getFallbackNews().news; }
+    // Convertir directement en news — AUCUNE IA, uniquement les vraies données
+    const EMOJIS = { 0:"😐", 1:"⚽", 2:"🔥", 3:"💥", 4:"🚀" };
+    const CATS   = ["résultat","résultat","résultat","résultat","résultat"];
 
-    const result = { news, generatedAt: new Date().toISOString(), realResults: top5.length };
-    if (news.length > 0) await writeCache(cacheKey, result);
+    const news = recentResults.slice(0, 8).map((r, i) => {
+      const [h, a] = r.score.split(" - ").map(Number);
+      const winner = h > a ? r.home : a > h ? r.away : null;
+      const isUpset = r.diff >= 3;
+      const isBigScore = r.total >= 5;
+      const isDraw = h === a;
+
+      let title = "";
+      let summary = "";
+      let betImpact = "";
+
+      if (isUpset) {
+        title = `${r.league} : ${winner} s'impose largement (${r.score})`;
+        summary = `${r.home} ${r.score} ${r.away}. ${winner ? `${winner} domine nettement avec ${Math.max(h,a)} buts marqués.` : ""}`;
+        betImpact = `${winner} en grande forme — à surveiller pour les prochains paris.`;
+      } else if (isBigScore) {
+        title = `Festival de buts : ${r.home} ${r.score} ${r.away}`;
+        summary = `${r.total} buts au total dans ${r.league}. Les défenses en difficulté.`;
+        betImpact = `Over 2.5 dans le prochain match de ces équipes à envisager.`;
+      } else if (isDraw) {
+        title = `${r.league} : match nul entre ${r.home} et ${r.away} (${r.score})`;
+        summary = `Partage des points entre les deux équipes.`;
+        betImpact = "";
+      } else {
+        title = `${r.league} : ${winner} l'emporte ${r.score} contre ${h < a ? r.home : r.away}`;
+        summary = `${r.home} ${r.score} ${r.away} — victoire serrée en ${r.league}.`;
+        betImpact = `${winner} conserve sa dynamique.`;
+      }
+
+      return {
+        id: `r${i}`,
+        title: title.slice(0, 90),
+        summary,
+        category: "résultat",
+        entity: winner || r.home,
+        entityType: "club",
+        leagueId: r.leagueId,
+        emoji: isUpset ? "🔥" : isBigScore ? "💥" : isDraw ? "🤝" : "⚽",
+        hot: isUpset || isBigScore,
+        betImpact: betImpact || undefined,
+        ageH: r.ageH,
+        score: r.score,
+        homeTeam: r.home,
+        awayTeam: r.away,
+      };
+    });
+
+    // Si aucun résultat réel → afficher une news générique datée d'aujourd'hui
+    if (news.length === 0) {
+      const d = new Date().toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
+      news.push({
+        id:"empty",
+        title:`Aucun résultat disponible pour les dernières 48h`,
+        summary:`Les données de matchs se chargent. Reviens dans quelques minutes pour voir les derniers résultats du ${d}.`,
+        category:"résultat", entity:"Football", entityType:"competition",
+        emoji:"⏳", hot:false, ageH:0,
+      });
+    }
+
+    const result = { news, generatedAt: new Date().toISOString(), source: "real-fixtures" };
+    await writeCache(cacheKey, result);
     res.json(result);
   } catch (err) {
     console.error("[news]", err.message);
-    res.json(getFallbackNews());
+    // Fallback minimal basé sur la date du jour
+    const d = new Date().toLocaleDateString("fr-FR");
+    res.json({ news: [{ id:"err", title:`Flash infos du ${d} — données en cours de chargement`, summary:"Actualisation des résultats en cours. Recharge dans quelques minutes.", emoji:"⏳", category:"résultat", hot:false, ageH:0 }], generatedAt: new Date().toISOString() });
   }
 });
 
 function getFallbackNews() {
+  const d = new Date().toLocaleDateString("fr-FR");
+  const d2 = new Date().toLocaleDateString("fr-FR");
   return {
-    news: [
-      { id:"f1", title:"Mercato : un géant européen surveille une star de Ligue 1", summary:"Selon plusieurs sources concordantes, un club de Premier League aurait formulé une offre officieuse pour recruter le meilleur joueur du championnat français cette saison.", category:"transfert", entity:"Ligue 1", entityType:"competition", emoji:"💸", hot:true },
-      { id:"f2", title:"Choc en Serie A : l'Inter Milan tenue en échec à domicile", summary:"Dans un match intense, l'Inter Milan n'a pu faire mieux que 1-1 contre une équipe de milieu de tableau, compromettant sa course au titre.", category:"résultat", entity:"Inter Milan", entityType:"club", leagueId:135, emoji:"⚽", hot:false },
-      { id:"f3", title:"Blessure : un international français forfait 6 semaines", summary:"Le staff médical du club a confirmé une déchirure musculaire pour l'international, qui manquera les prochains matches et possiblement un rassemblement international.", category:"blessure", entity:"France", entityType:"competition", emoji:"🚑", hot:true },
-      { id:"f4", title:"Record : Haaland dépasse une barre légendaire en PL", summary:"Avec son doublé ce week-end, Erling Haaland est devenu le meilleur buteur étranger de l'histoire de la Premier League en moins de temps que n'importe quel autre joueur.", category:"record", entity:"Manchester City", entityType:"club", leagueId:39, emoji:"🏆", hot:true },
-      { id:"f5", title:"Real Madrid : Ancelotti prolonge jusqu'en 2027", summary:"Le club merengue a officialisé la prolongation de contrat du technicien italien, sécurisant la continuité d'un projet qui vise un nouveau sacre en Ligue des Champions.", category:"nomination", entity:"Real Madrid", entityType:"club", leagueId:140, emoji:"📋", hot:false },
-      { id:"f6", title:"Scandale : arbitre suspendu après une décision controversée", summary:"L'UEFA a ouvert une enquête officielle suite à l'omission d'un penalty évident lors d'un match de Ligue des Champions, soulevant des questions sur le système VAR.", category:"incident", entity:"UEFA Champions League", entityType:"competition", leagueId:2, emoji:"🔴", hot:true },
-    ],
+    news: [{ id:"f0", title:`Derniers résultats du ${d2}`, summary:"Données en cours de chargement depuis API-Football.", emoji:"⏳", category:"résultat", hot:false, ageH:0 }],
     generatedAt: new Date().toISOString(),
   };
 }

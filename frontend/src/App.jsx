@@ -6449,17 +6449,27 @@ function FootballNewsTicker() {
           {item.leagueId && LEAGUE_LOGOS_STATIC[item.leagueId] && (
             <img src={LEAGUE_LOGOS_STATIC[item.leagueId]} width={14} height={14} style={{ objectFit:"contain", marginLeft:"auto", opacity:.7 }} onError={e=>e.target.style.display="none"}/>
           )}
-          <span style={{ fontSize:9, color:"#3A607A" }}>il y a {Math.floor(Math.random()*47)+1}h</span>
+          <span style={{ fontSize:9, color:"#3A607A" }}>{item.ageH != null ? `il y a ${item.ageH}h` : "récent"}</span>
         </div>
 
+        {/* Score en évidence si disponible */}
+        {item.score && item.homeTeam && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8, background:"rgba(0,0,0,.2)", borderRadius:8, padding:"6px 10px" }}>
+            <span style={{ fontSize:11, color:"#D0E8F4", flex:1, textAlign:"right", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.homeTeam}</span>
+            <span style={{ fontSize:16, fontWeight:900, color:colors.accent, flexShrink:0 }}>{item.score}</span>
+            <span style={{ fontSize:11, color:"#D0E8F4", flex:1, textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.awayTeam}</span>
+          </div>
+        )}
+
         {/* Titre */}
-        <div style={{ fontSize:14, fontWeight:700, color:"#D0E8F4", lineHeight:1.4, marginBottom:8 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:"#D0E8F4", lineHeight:1.4, marginBottom:6 }}>
           {item.title}
         </div>
 
         {/* Résumé */}
         <div style={{ fontSize:11, color:"#8AABBD", lineHeight:1.6 }}>
           {item.summary}
+          {item.betImpact && <span style={{ display:"block", marginTop:4, color:colors.accent, fontStyle:"italic" }}>💡 {item.betImpact}</span>}
         </div>
 
         {/* Barre de progression temps */}
@@ -6799,9 +6809,12 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
 
       {/* === EN DIRECT === */}
       {(() => {
-        const sorted  = [...liveMatches].sort((a,b) => livePrestige(b) - livePrestige(a));
-        const top4    = sorted.slice(0, 4);
-        const rest    = sorted.slice(4);
+        // Filtrer : seulement top 5 ligues + compétitions nationales/européennes
+        const TOP_LIVE = new Set([39,61,78,135,140,94,2,3,848,1,4,9,6,11,13,5,10]);
+        const filtered = liveMatches.filter(f => TOP_LIVE.has(f.leagueId));
+        const sorted   = [...filtered].sort((a,b) => livePrestige(b) - livePrestige(a));
+        const top4     = sorted.slice(0, 4);
+        const rest     = sorted.slice(4);
 
         return (
           <div>
@@ -6818,13 +6831,26 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
 
             {liveLoading && <div style={{ color:C.dim, fontSize:12 }}>Vérification des matchs en direct…</div>}
 
-            {!liveLoading && liveMatches.length === 0 && (
-              <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"20px", textAlign:"center", color:C.dim, fontSize:12 }}>
-                Aucun match en direct pour le moment.
-              </div>
-            )}
+            {!liveLoading && sorted.length === 0 && (() => {
+              // Pas de live top → afficher la prochaine grosse affiche
+              const TOP_NEXT = new Set([39,61,78,135,140,94,2,3,848,1,4,9,6]);
+              const nextBig = nextFixtures
+                .filter(f => TOP_NEXT.has(f.leagueId) && f.compId)
+                .sort((a,b) => livePrestige(b) - livePrestige(a))[0];
+              if (!nextBig) return (
+                <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"16px", textAlign:"center", color:C.dim, fontSize:12 }}>
+                  Aucun match de haut niveau en direct · {liveMatches.length > 0 ? `${liveMatches.length} petit(s) match(s) ailleurs` : ""}
+                </div>
+              );
+              return (
+                <div>
+                  <div style={{ fontSize:10, color:C.muted, marginBottom:8 }}>Aucun live top niveau · Prochaine grosse affiche :</div>
+                  <UpcomingCard f={nextBig} onSelect={onMatchClick} />
+                </div>
+              );
+            })()}
 
-            {!liveLoading && liveMatches.length > 0 && (
+            {!liveLoading && sorted.length > 0 && (
               <>
                 {/* Top 4 — 2 colonnes */}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom: rest.length > 0 ? 10 : 0 }}>
