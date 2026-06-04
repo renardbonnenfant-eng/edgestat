@@ -1183,6 +1183,41 @@ function MatchPanel({ fixtures, selectedId, defaultId, onSelect, loading, logoRe
         </div>
       </div>
 
+      {/* Résumé de forme si une seule équipe filtrée */}
+      {filterTeamIds?.length === 1 && (() => {
+        const wins   = past.filter(f => {
+          const isH = f.home?.id===filterTeamIds[0];
+          const [gf,ga] = (f.score||"").split(" - ").map(Number);
+          if(isNaN(gf)||isNaN(ga)) return false;
+          const tGf=isH?gf:ga, tGa=isH?ga:gf;
+          return tGf>tGa;
+        }).length;
+        const draws  = past.filter(f => {
+          const [gf,ga]=(f.score||"").split(" - ").map(Number);
+          return !isNaN(gf)&&!isNaN(ga)&&gf===ga;
+        }).length;
+        const losses = past.length - wins - draws;
+        const lastForm = past.slice(0,5).map(f=>{
+          const isH=f.home?.id===filterTeamIds[0];
+          const [gf,ga]=(f.score||"").split(" - ").map(Number);
+          if(isNaN(gf)||isNaN(ga)) return "?";
+          const tGf=isH?gf:ga,tGa=isH?ga:gf;
+          return tGf>tGa?"W":tGf<tGa?"L":"D";
+        });
+        if (past.length === 0) return null;
+        return (
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", background:C.panel2, borderRadius:8, marginBottom:8 }}>
+            <div style={{ display:"flex", gap:3 }}>
+              {lastForm.map((r,i)=>(
+                <span key={i} style={{ width:18, height:18, borderRadius:4, display:"grid", placeItems:"center", fontSize:9, fontWeight:700,
+                  background:r==="W"?"#16a34a":r==="L"?"#DC2626":r==="D"?"#d97706":"#94a3b8", color:"#fff" }}>{r}</span>
+              ))}
+            </div>
+            <span style={{ fontSize:10, color:C.dim }}>{wins}V {draws}N {losses}D sur {past.length} matchs</span>
+          </div>
+        );
+      })()}
+
       {/* 2 colonnes */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
         {/* Colonne "À venir" */}
@@ -1657,6 +1692,47 @@ function TabBTTS({ m, period }) {
 // Onglet : Penalty
 // ============================================================
 function TabPenalty({ m }) {
+  return (
+    <div>
+      {/* Mini visualisation but penalty */}
+      <div style={{ marginBottom:16, display:"flex", justifyContent:"center" }}>
+        <svg width="200" height="120" viewBox="0 0 200 120">
+          {/* Fond gazon */}
+          <rect width="200" height="120" fill="#2D8045" rx="8"/>
+          {/* But */}
+          <rect x="40" y="20" width="120" height="60" fill="none" stroke="white" strokeWidth="2"/>
+          {/* Filets */}
+          {[50,60,70,80,90,100,110,120,130,140,150].map(x=>(
+            <line key={x} x1={x} y1="20" x2={x} y2="80" stroke="rgba(255,255,255,.2)" strokeWidth="1"/>
+          ))}
+          {[30,40,50,60,70].map(y=>(
+            <line key={y} x1="40" y1={y} x2="160" y2={y} stroke="rgba(255,255,255,.2)" strokeWidth="1"/>
+          ))}
+          {/* Point de penalty */}
+          <circle cx="100" cy="100" r="3" fill="white"/>
+          <line x1="100" y1="97" x2="100" y2="85" stroke="white" strokeWidth="1" strokeDasharray="2"/>
+          {/* Stats penalty home */}
+          {m.home?.penalties && (
+            <text x="70" y="110" fill={C.accent} fontSize="9" textAnchor="middle" fontWeight="bold">
+              {m.home.name?.split(" ").slice(-1)[0]}: {m.home.penalties.scored||0}/{(m.home.penalties.scored||0)+(m.home.penalties.missed||0)} pen.
+            </text>
+          )}
+          {/* Stats penalty away */}
+          {m.away?.penalties && (
+            <text x="130" y="110" fill={C.blue} fontSize="9" textAnchor="middle" fontWeight="bold">
+              {m.away.name?.split(" ").slice(-1)[0]}: {m.away.penalties.scored||0}/{(m.away.penalties.scored||0)+(m.away.penalties.missed||0)} pen.
+            </text>
+          )}
+          {/* Label */}
+          <text x="100" y="115" fill="rgba(255,255,255,.6)" fontSize="8" textAnchor="middle">Statistiques Penalties</text>
+        </svg>
+      </div>
+      <TabPenaltyContent m={m} />
+    </div>
+  );
+}
+
+function TabPenaltyContent({ m }) {
   const Pen = ({ team, color, label }) => {
     const p = team.penalties||{awarded:0,scored:0,played:0,conceded:null};
     const rate = p.played>0 ? (p.awarded/p.played).toFixed(2) : "—";
@@ -5267,6 +5343,7 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
         const now = Date.now();
         const in7d = now + 7*24*60*60*1000;
         const MAJOR = new Set([2,3,39,140,78,135,61,1,4,9,848]);
+        const MAJOR_PRESTIGE = new Set([2, 1, 4, 39, 140, 78, 135]); // UCL + WC + Euro + top 4 ligues
         const featured = nextFixtures.filter(f => {
           const d = new Date(f.date).getTime();
           return d > now && d < in7d && MAJOR.has(f.leagueId);
@@ -5305,6 +5382,9 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
                       <span style={{ marginLeft:"auto", fontSize:9, background: daysUntil<=1?"#FEE2E2":daysUntil<=3?C.accentBg:C.panel2, color:daysUntil<=1?"#DC2626":daysUntil<=3?C.accent:C.dim, borderRadius:20, padding:"1px 7px", fontWeight:600 }}>
                         {daysUntil<=0?"Aujourd'hui":daysUntil===1?"Demain":`Dans ${daysUntil}j`}
                       </span>
+                      {MAJOR_PRESTIGE.has(f.leagueId) && (
+                        <span style={{ fontSize:8, background:"#FEF3C7", color:"#92400E", borderRadius:4, padding:"1px 4px", fontWeight:700 }}>⭐ CHOC</span>
+                      )}
                     </div>
                     {/* Équipes */}
                     <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:8 }}>
@@ -5464,6 +5544,34 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
           </div>
         );
       })()}
+
+      {/* === LÉGENDES ACTUELLES / RECORDS À BATTRE === */}
+      <div>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+          <span style={{ fontSize:18 }}>⚽</span>
+          <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>Records à battre</span>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          {[
+            { player:"Cristiano Ronaldo", record:"Meilleur buteur international", value:"130+ buts", icon:"🇵🇹", detail:"A dépassé Ali Daei (109 buts) en 2021" },
+            { player:"Miroslav Klose", record:"Meilleur buteur CdM all-time", value:"16 buts", icon:"🇩🇪", detail:"Battu en 2014, imbattu depuis. Kylian Mbappé (9) est le plus proche actif." },
+            { player:"Real Madrid", record:"Plus de titres UCL", value:"15 titres", icon:"🏆", detail:"Aucun club n'est à moins de 8 titres derrière. Record quasi-inatteignable." },
+            { player:"Just Fontaine", record:"Plus de buts en une CdM", value:"13 buts (1958)", icon:"🇫🇷", detail:"Record imbattu depuis 66 ans. Aucun joueur moderne n'en a marqué plus de 8 en une édition." },
+          ].map((item, i) => (
+            <div key={i} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"14px 16px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                <span style={{ fontSize:20 }}>{item.icon}</span>
+                <div>
+                  <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{item.player}</div>
+                  <div style={{ fontSize:10, color:C.dim }}>{item.record}</div>
+                </div>
+              </div>
+              <div style={{ fontSize:18, fontWeight:900, color:C.accent, marginBottom:4 }}>{item.value}</div>
+              <div style={{ fontSize:11, color:C.muted, lineHeight:1.5 }}>{item.detail}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -6531,6 +6639,13 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
       .catch(e => { setCompError(e.message); setCompLoading(false); });
   }, [compId]);
 
+  // Écouter les changements de tab depuis la QuickNav
+  useEffect(() => {
+    const handler = (e) => setTab(e.detail);
+    window.addEventListener("edgestat:setTab", handler);
+    return () => window.removeEventListener("edgestat:setTab", handler);
+  }, []);
+
   async function handleSelectFixture(fixtureId) {
     // Comparaison stricte en nombre pour éviter les faux positifs string vs number
     const numId = Number(fixtureId);
@@ -7161,7 +7276,40 @@ export default function App() {
         </div>
 
         {/* Zone centrale + colonne pub */}
-        <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          {/* Quick Nav — accès rapide aux sections */}
+          {sport === "foot" && !loading && (
+            <div style={{
+              display:"flex", gap:6, padding:"8px 20px", overflowX:"auto", scrollbarWidth:"none",
+              borderBottom:`1px solid ${C.line}`, background:C.panel, flexShrink:0,
+            }}>
+              <span style={{ fontSize:11, color:C.muted, alignSelf:"center", marginRight:4, flexShrink:0 }}>Aller à :</span>
+              {[
+                { icon:"📊", label:"Stats",      tab:"resultat" },
+                { icon:"⚔️",  label:"H2H",       tab:"h2h_deep" },
+                { icon:"🤖",  label:"Aperçu IA", tab:"preview" },
+                { icon:"📋",  label:"Timeline",  tab:"timeline" },
+                { icon:"🏟",  label:"Compo",     tab:"compo" },
+                { icon:"🌤",  label:"Météo",     tab:"meteo" },
+                { icon:"📊",  label:"Records",   tab:"records_comp" },
+                { icon:"📈",  label:"Classement",tab:"classement" },
+              ].map(nav => (
+                <button key={nav.tab} onClick={() => {
+                  window.dispatchEvent(new CustomEvent("edgestat:setTab", { detail: nav.tab }));
+                }} style={{
+                  background:"none", border:`1px solid ${C.line}`, borderRadius:20,
+                  padding:"4px 12px", cursor:"pointer", fontSize:11, color:C.dim,
+                  display:"flex", alignItems:"center", gap:4, flexShrink:0, transition:"all .15s",
+                  whiteSpace:"nowrap",
+                }}
+                  onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.line; e.currentTarget.style.color=C.dim; }}
+                >
+                  <span>{nav.icon}</span>{nav.label}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Zone d'analyse — scrollable */}
           <div style={{ flex:1, overflowY:"auto", scrollbarWidth:"thin", scrollbarColor:`${C.line} transparent` }}>
             <div style={{ padding:"20px 24px", maxWidth:860, width:"100%", boxSizing:"border-box" }}>
