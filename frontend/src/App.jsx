@@ -6504,12 +6504,37 @@ function FootballNewsTicker() {
 // ============================================================
 // FootballHub — Page d'accueil Football
 // ============================================================
+// URL logos API-Sports pour les compétitions lazy (non chargées au démarrage)
+const STATIC_LOGOS = {
+  wc:          "https://media.api-sports.io/football/leagues/1.png",
+  euro:        "https://media.api-sports.io/football/leagues/4.png",
+  copa:        "https://media.api-sports.io/football/leagues/9.png",
+  nl:          "https://media.api-sports.io/football/leagues/5.png",
+  can:         "https://media.api-sports.io/football/leagues/6.png",
+  en:          "https://media.api-sports.io/football/leagues/39.png",
+  es:          "https://media.api-sports.io/football/leagues/140.png",
+  de:          "https://media.api-sports.io/football/leagues/78.png",
+  it:          "https://media.api-sports.io/football/leagues/135.png",
+  fr:          "https://media.api-sports.io/football/leagues/61.png",
+  pt:          "https://media.api-sports.io/football/leagues/94.png",
+  en_ch:       "https://media.api-sports.io/football/leagues/40.png",
+  fr_l2:       "https://media.api-sports.io/football/leagues/62.png",
+  de_b2:       "https://media.api-sports.io/football/leagues/79.png",
+  es_l2:       "https://media.api-sports.io/football/leagues/141.png",
+  it_sb:       "https://media.api-sports.io/football/leagues/136.png",
+  ucl:         "https://media.api-sports.io/football/leagues/2.png",
+  uel:         "https://media.api-sports.io/football/leagues/3.png",
+  uecl:        "https://media.api-sports.io/football/leagues/848.png",
+  intfriendly: "https://media.api-sports.io/football/leagues/10.png",
+  clubfriendly:"https://media.api-sports.io/football/leagues/667.png",
+};
+
 const FOOT_SECTIONS = [
   {
     title: "🏆 Compétitions Internationales",
     comps: [
       { id:"wc",    name:"Coupe du Monde 2026", flag:"🌍" },
-      { id:"euro",  name:"UEFA Euro",           flag:"🇪🇺" },
+      { id:"euro",  name:"UEFA Euro 2024",      flag:"🇪🇺" },
       { id:"copa",  name:"Copa América",        flag:"🌎" },
       { id:"nl",    name:"UEFA Nations League", flag:"🏴" },
       { id:"can",   name:"CAN",                 flag:"🌍" },
@@ -6528,10 +6553,12 @@ const FOOT_SECTIONS = [
   {
     title: "🥈 Autres Ligues",
     comps: [
-      { id:"pt",    name:"Liga Portugal",     flag:"🇵🇹" },
-      { id:"en_ch", name:"Championship",      flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-      { id:"fr_l2", name:"Ligue 2",           flag:"🇫🇷" },
-      { id:"de_b2", name:"2. Bundesliga",     flag:"🇩🇪" },
+      { id:"pt",    name:"Liga Portugal",  flag:"🇵🇹" },
+      { id:"en_ch", name:"Championship",   flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+      { id:"fr_l2", name:"Ligue 2",        flag:"🇫🇷" },
+      { id:"de_b2", name:"2. Bundesliga",  flag:"🇩🇪" },
+      { id:"es_l2", name:"La Liga 2",      flag:"🇪🇸" },
+      { id:"it_sb", name:"Serie B",        flag:"🇮🇹" },
     ]
   },
   {
@@ -6577,7 +6604,7 @@ function FootballHub({ allData, leagueLogos, logoRegistry, loading, onSelectComp
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:10 }}>
               {available.map(comp => {
                 const data     = allData[comp.id];
-                const logo     = data?.leagueLogo || leagueLogos[comp.id];
+                const logo     = data?.leagueLogo || leagueLogos[comp.id] || STATIC_LOGOS[comp.id];
                 const hasLive  = data?.recentFixtures?.some(f => ["1H","2H","HT","ET","BT","P"].includes(f.status));
                 const upcomingCount = data?.recentFixtures?.filter(f => f.status === "NS" || f.status === "upcoming")?.length || 0;
                 return (
