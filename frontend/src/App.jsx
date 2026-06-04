@@ -412,14 +412,7 @@ function AuthModal({ mode, onSwitchMode, onClose, onSuccess }) {
         onClick={e => e.stopPropagation()}>
         {/* Logo */}
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
-          <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
-            <line x1="3" y1="3" x2="23" y2="3" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-            <line x1="4" y1="7" x2="22" y2="7" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-            <line x1="6" y1="11" x2="20" y2="11" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-            <line x1="8" y1="15" x2="18" y2="15" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-            <line x1="10" y1="19" x2="16" y2="19" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-            <circle cx="13" cy="23" r="1.8" fill="#00D4AA"/>
-          </svg>
+          <img src="/fox-mascot.avif" width="28" height="28" style={{ objectFit:"contain", borderRadius:6 }} alt="FoxLab" />
           <span style={{ fontSize:16, fontWeight:800, color:C.text }}>FoxLab</span>
         </div>
 
@@ -818,14 +811,7 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         onMouseEnter={e=>e.currentTarget.style.background="rgba(0,212,170,.08)"}
         onMouseLeave={e=>e.currentTarget.style.background="none"}
       >
-        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" flexShrink="0">
-          <line x1="3" y1="3" x2="23" y2="3" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="4" y1="7" x2="22" y2="7" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="6" y1="11" x2="20" y2="11" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="8" y1="15" x2="18" y2="15" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="10" y1="19" x2="16" y2="19" stroke="#00D4AA" strokeWidth="1.8" strokeLinecap="round"/>
-          <circle cx="13" cy="23" r="1.8" fill="#00D4AA"/>
-        </svg>
+        <img src="/fox-mascot.avif" width="32" height="32" style={{ objectFit:"contain", borderRadius:6, flexShrink:0 }} alt="FoxLab" />
         <span style={{ color:"#D0E8F4", fontWeight:800, fontSize:16, letterSpacing:.5 }}>FoxLab</span>
       </button>
 
