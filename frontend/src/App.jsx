@@ -9827,10 +9827,10 @@ export default function App() {
     if (Object.keys(dbUpdates).length) setTeamDatabase(prev => ({ ...prev, ...dbUpdates }));
   }
 
-  const [footHub, setFootHub] = useState(false);
+  const [footHub, setFootHub] = useState(true); // Hub affiché par défaut au premier clic Football
 
   function handleSelectComp(id) {
-    setFootHub(false);
+    setFootHub(false); // cache le hub dès qu'une compétition est choisie
     setCompId(id);
     if (allData[id]) setActiveMatch(mapLeague(allData[id]));
   }
@@ -9941,9 +9941,24 @@ export default function App() {
                 <div style={{ width:16, height:2, background:mobileSidebarOpen?C.accent:C.text, borderRadius:1, transition:"all .2s" }}/>
                 <div style={{ width:16, height:2, background:mobileSidebarOpen?C.accent:C.text, borderRadius:1, transition:"all .2s" }}/>
               </button>
-            <div style={{ fontSize:13, color:C.text, fontWeight:500 }}>
-              {allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
-              {" "}{allData[compId]?.league || "FoxLab"}
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {/* Fil d'Ariane Football → compétition */}
+              {sport === "foot" && !footHub && (
+                <button onClick={() => setFootHub(true)} style={{
+                  display:"flex", alignItems:"center", gap:4, background:"none", border:`1px solid ${C.line}`,
+                  borderRadius:6, padding:"3px 8px", cursor:"pointer", fontSize:10, color:C.muted,
+                  transition:"all .15s",
+                }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;e.currentTarget.style.color=C.muted;}}
+                >
+                  ← Football
+                </button>
+              )}
+              <div style={{ fontSize:13, color:C.text, fontWeight:500 }}>
+                {allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
+                {" "}{allData[compId]?.league || "FoxLab"}
+              </div>
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
