@@ -4031,6 +4031,7 @@ const QUIZ_CATEGORIES = [
 ];
 
 const DIFFICULTIES = [
+  { id:"mixte",     label:"Mixte",    color:"#06b6d4", xp:25 },
   { id:"facile",    label:"Facile",   color:"#16a34a", xp:10 },
   { id:"moyen",     label:"Moyen",    color:"#d97706", xp:20 },
   { id:"difficile", label:"Difficile",color:"#DC2626", xp:35 },
@@ -4880,12 +4881,7 @@ function MultiplayerQuiz({ userAccount, onBack }) {
           <div style={{ background:C.panel2, borderRadius:99, height:6, marginBottom:12, overflow:"hidden" }}>
             <div style={{ height:"100%", width:`${(timeLeft/(question.timeLimit||20))*100}%`, transition:"width 1s linear", background:timeLeft>10?"#16a34a":timeLeft>5?"#d97706":"#FF4444" }}/>
           </div>
-          {question?.img && (
-            <div style={{ width:"100%", height:90, marginBottom:12, borderRadius:10, overflow:"hidden", background:C.panel2, display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <img src={question.img} alt="" style={{ maxHeight:90, maxWidth:"100%", objectFit:"contain" }}
-                onError={e => { e.target.parentElement.style.display="none"; }}/>
-            </div>
-          )}
+          {/* Image masquée pendant la question — révélée avec la réponse */}
           <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"16px", marginBottom:12 }}>
             <div style={{ fontSize:9, color:C.accent, fontWeight:700, textTransform:"uppercase", marginBottom:6 }}>{timeLeft}s · {question.pts} pts</div>
             <div style={{ fontSize:14, fontWeight:600, color:C.text, lineHeight:1.6 }}>{question.q}</div>
@@ -4941,6 +4937,14 @@ function MultiplayerQuiz({ userAccount, onBack }) {
               <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{roundResult.correctText}</div>
             </div>
           </div>
+
+          {/* Image révélée APRÈS la réponse */}
+          {question.img && (
+            <div style={{ borderRadius:10, overflow:"hidden", background:C.panel2, display:"flex", alignItems:"center", justifyContent:"center", padding:8, marginBottom:10 }}>
+              <img src={question.img} alt="" style={{ maxHeight:90, maxWidth:"100%", objectFit:"contain" }}
+                onError={e => { e.target.parentElement.style.display="none"; }}/>
+            </div>
+          )}
 
           {/* Anecdote */}
           {roundResult.fact && (
@@ -5047,16 +5051,22 @@ function QuizView({ userAccount }) {
       // Générer via IA
       const cats = ["records","champions_league","world_cup","joueurs","clubs"];
       const randomCat = cats[Math.floor(Math.random()*cats.length)];
-      pool = await generateQuizQuestions(randomCat, difficulty, 10);
+      const diff = difficulty === "mixte" ? ["facile","moyen","difficile","expert"][Math.floor(Math.random()*4)] : difficulty;
+      pool = await generateQuizQuestions(randomCat, diff, 10);
       if (pool.length === 0) {
-        // Fallback vers seed
         const all = Object.values(QUIZ_SEED).flat();
-        pool = shuffle(all).slice(0, 10);
+        pool = shuffle(all).slice(0, 15);
       }
+    } else if (difficulty === "mixte" && !category) {
+      // Mixte sans catégorie : tout QUIZ_SEED mélangé
+      const all = Object.values(QUIZ_SEED).flat();
+      pool = shuffle(all).slice(0, 20);
     } else {
-      // Utiliser seed + éventuellement générer plus
       const seed = QUIZ_SEED[category] || [];
-      if (seed.length >= 10) {
+      if (difficulty === "mixte") {
+        // Mixte avec catégorie : prendre toutes les questions de la catégorie
+        pool = shuffle(seed).slice(0, 20);
+      } else if (seed.length >= 10) {
         pool = shuffle(seed).slice(0, 15);
       } else {
         // Compléter avec IA
@@ -5282,10 +5292,20 @@ function QuizView({ userAccount }) {
         })}
       </div>
 
-      {/* Explication */}
-      {showAnswer && currentQ.explanation && (
-        <div style={{ background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:10, padding:"12px 16px", fontSize:12, color:"#1e40af", lineHeight:1.6 }}>
-          💡 <strong>Explication :</strong> {currentQ.explanation}
+      {/* Image + Explication — affichés APRÈS la réponse */}
+      {showAnswer && (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {currentQ.img && (
+            <div style={{ borderRadius:10, overflow:"hidden", background:C.panel2, display:"flex", alignItems:"center", justifyContent:"center", padding:8 }}>
+              <img src={currentQ.img} alt="" style={{ maxHeight:100, maxWidth:"100%", objectFit:"contain" }}
+                onError={e => { e.target.parentElement.style.display="none"; }}/>
+            </div>
+          )}
+          {currentQ.explanation && (
+            <div style={{ background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:10, padding:"12px 16px", fontSize:12, color:"#1e40af", lineHeight:1.6 }}>
+              💡 <strong>Explication :</strong> {currentQ.explanation}
+            </div>
+          )}
         </div>
       )}
     </div>
