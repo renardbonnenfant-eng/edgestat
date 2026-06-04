@@ -965,13 +965,13 @@ app.get("/api/match-stats/:fixtureId", async (req, res) => {
 
 // Génération de questions de quiz via Groq
 app.post("/api/quiz/generate", express.json(), async (req, res) => {
-  const { category, difficulty, count = 10, exclude = [] } = req.body || {};
+  const { category, difficulty, count = 10, exclude = [], seed = 0 } = req.body || {};
   const groqKey = process.env.GROQ_KEY;
   if (!groqKey) return res.status(500).json({ error: "GROQ_KEY manquante" });
 
-  const cacheKey = `quiz-gen:${category}:${difficulty}:${Math.floor(Date.now()/3600000)}`; // renouvelle chaque heure
+  const cacheKey = `quiz-gen:${category}:${difficulty}:${Math.floor(Date.now()/1800000)}:${(seed||0)%10}`; // cache 30 min par seed
   try {
-    const cached = await readCache(cacheKey, 60 * 60 * 1000);
+    const cached = await readCache(cacheKey, 30 * 60 * 1000);
     if (cached?.fresh && cached.value?.length >= count) {
       return res.json(cached.value.slice(0, count));
     }
@@ -980,7 +980,9 @@ app.post("/api/quiz/generate", express.json(), async (req, res) => {
     const groq = new Groq({ apiKey: groqKey });
 
     const difficultyMap = { facile:"débutant (faits connus de tous)", moyen:"connaisseur", difficile:"expert passionné", expert:"statisticien professionnel" };
-    const prompt = `Génère exactement ${count} questions de quiz sur le football pour niveau ${difficultyMap[difficulty]||"moyen"}, catégorie: ${category}.
+    const topics = ["joueurs actuels","records historiques","statistiques","anecdotes","palmarès","transferts","entraîneurs"];
+    const topicFocus = topics[(seed||0) % topics.length];
+    const prompt = `Génère exactement ${count} questions DE FOOTBALL uniques et variées pour niveau ${difficultyMap[difficulty]||"moyen"}, catégorie: ${category}. Focus thématique cette fois: ${topicFocus}.
 
 Chaque question DOIT être différente des précédentes. Les questions doivent être précises, vérifiables et intéressantes.
 

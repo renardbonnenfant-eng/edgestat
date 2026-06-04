@@ -5005,7 +5005,11 @@ function MultiplayerQuiz({ userAccount, onBack }) {
             const chosenText = r.answerIdx >= 0 ? question.options[r.answerIdx] : "—";
             return (
               <div key={r.userId} style={{ display:"flex", alignItems:"center", gap:8, background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"8px 12px", marginBottom:5 }}>
-                <span style={{ fontSize:14, flexShrink:0 }}>{r.correct ? "✅" : "❌"}</span>
+                <span style={{ fontSize:16, flexShrink:0 }}>
+                  {r.correct
+                    ? (r.speedRank === 1 ? "🥇" : r.speedRank === 2 ? "🥈" : r.speedRank === 3 ? "🥉" : "✅")
+                    : "❌"}
+                </span>
                 <div style={{ width:22, height:22, borderRadius:"50%", background:r.avatarColor||"#00D4AA", display:"grid", placeItems:"center", fontSize:9, fontWeight:800, color:"#0A1428", flexShrink:0 }}>
                   {r.username?.[0]?.toUpperCase()}
                 </div>
@@ -5115,13 +5119,15 @@ function QuizView({ userAccount }) {
     setLoading(true);
     let pool = [];
     const cat = category || "all";
+    // Ajouter un timestamp pour varier les requêtes IA
+    const uniqueSeed = Date.now() % 1000;
 
     if (category === "ai_mix") {
       // IA pure — nouvelles questions à chaque fois
       const cats = ["records","champions_league","world_cup","joueurs","clubs","stades","entraineurs","euros"];
       const randomCat = cats[Math.floor(Math.random()*cats.length)];
       const diff = difficulty === "mixte" ? ["facile","moyen","difficile","expert"][Math.floor(Math.random()*4)] : difficulty;
-      const aiQ = await generateQuizQuestions(randomCat, diff, 15);
+      const aiQ = await generateQuizQuestions(randomCat, diff, 15, uniqueSeed);
       pool = aiQ.length > 0 ? aiQ : shuffle(Object.values(QUIZ_SEED).flat()).slice(0, 15);
 
     } else if (difficulty === "mixte" && !category) {
@@ -5139,7 +5145,7 @@ function QuizView({ userAccount }) {
         if (fresh.length >= 10) {
           pool = shuffle(fresh).slice(0, 20);
         } else {
-          const aiQ = await generateQuizQuestions(category, "moyen", 15);
+          const aiQ = await generateQuizQuestions(category, "moyen", 15, uniqueSeed);
           pool = shuffle([...fresh, ...aiQ]).slice(0, 20);
         }
       } else if (fresh.length >= 8) {
@@ -5147,7 +5153,7 @@ function QuizView({ userAccount }) {
         pool = shuffle(fresh).slice(0, 15);
       } else {
         // Compléter avec IA (nouvelles questions générées)
-        const aiQ = await generateQuizQuestions(category, difficulty, 15);
+        const aiQ = await generateQuizQuestions(category, difficulty, 15, uniqueSeed);
         const allAvail = shuffle([...fresh, ...aiQ]);
         pool = allAvail.slice(0, 15);
       }
@@ -7829,6 +7835,89 @@ function OddsDisplay({ fixtureId }) {
 }
 
 // ============================================================
+// Calculateur Poisson — probabilités de scores
+// ============================================================
+function PoissonCalc() {
+  const [hAtt, setHAtt] = useState("1.5");
+  const [hDef, setHDef] = useState("1.2");
+  const [aAtt, setAAtt] = useState("1.1");
+  const [aDef, setADef] = useState("1.3");
+
+  const leagueAvgH = 1.35;
+  const leagueAvgA = 1.05;
+  const lambdaH = (parseFloat(hAtt)||1) * (parseFloat(aDef)||1) / leagueAvgA;
+  const lambdaA = (parseFloat(aAtt)||1) * (parseFloat(hDef)||1) / leagueAvgH;
+
+  function poisson(lambda, k) {
+    let r = Math.exp(-lambda);
+    for (let i = 1; i <= k; i++) r *= lambda / i;
+    return r;
+  }
+
+  const maxG = 4;
+  let pHome = 0, pDraw = 0, pAway = 0;
+  const cells = [];
+  for (let h = 0; h <= maxG; h++) {
+    for (let a = 0; a <= maxG; a++) {
+      const p = poisson(lambdaH, h) * poisson(lambdaA, a) * 100;
+      cells.push({ h, a, p });
+      if (h > a) pHome += p;
+      else if (h === a) pDraw += p;
+      else pAway += p;
+    }
+  }
+  const total = pHome + pDraw + pAway || 100;
+  const pH = pHome/total*100, pD = pDraw/total*100, pA = pAway/total*100;
+  const imp = p => (100/p).toFixed(2);
+  const inpS = { padding:"6px 8px", borderRadius:6, border:"1px solid #243548", background:"#0E1A28", color:"#D0E8F4", fontSize:11, outline:"none", width:"100%", boxSizing:"border-box" };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      <div style={{ fontSize:10, color:"#5A7A8A", lineHeight:1.5 }}>
+        Entre les moyennes de buts marqués/encaissés (disponibles dans l'onglet Classement).
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+        {[
+          { label:"Dom. att. (buts/match)", val:hAtt, set:setHAtt },
+          { label:"Dom. déf. (encaissés)", val:hDef, set:setHDef },
+          { label:"Ext. att. (buts/match)", val:aAtt, set:setAAtt },
+          { label:"Ext. déf. (encaissés)",  val:aDef, set:setADef },
+        ].map(f => (
+          <div key={f.label}>
+            <div style={{ fontSize:9, color:"#3A607A", marginBottom:2 }}>{f.label}</div>
+            <input value={f.val} onChange={e=>f.set(e.target.value)} style={inpS} type="number" step="0.1" min="0" max="5"/>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:4 }}>
+        {[
+          { label:"Domicile", pct:pH, col:"#3b82f6" },
+          { label:"Nul",      pct:pD, col:"#d97706" },
+          { label:"Extérieur",pct:pA, col:"#00D4AA" },
+        ].map(x => (
+          <div key={x.label} style={{ background:`${x.col}18`, border:`1px solid ${x.col}44`, borderRadius:8, padding:"8px", textAlign:"center" }}>
+            <div style={{ fontSize:18, fontWeight:900, color:x.col }}>{x.pct.toFixed(1)}%</div>
+            <div style={{ fontSize:9, color:"#5A7A8A", marginBottom:2 }}>{x.label}</div>
+            <div style={{ fontSize:11, fontWeight:700, color:x.col }}>cote {imp(x.pct)}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize:9, color:"#3A607A", textTransform:"uppercase", letterSpacing:.8 }}>Top 6 scores les + probables</div>
+      <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+        {[...cells].sort((a,b)=>b.p-a.p).slice(0,6).map(c => (
+          <div key={`${c.h}-${c.a}`} style={{ background:"#0E1A28", border:"1px solid #243548", borderRadius:6, padding:"5px 10px", fontSize:12, fontWeight:700, color:"#D0E8F4" }}>
+            {c.h}-{c.a} <span style={{ fontSize:9, color:"#5A7A8A" }}>{c.p.toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize:9, color:"#3A607A", lineHeight:1.5, padding:"6px 8px", background:"#0E1A28", borderRadius:6 }}>
+        Basé sur la distribution de Poisson. Les probabilités sont indicatives et ne tiennent pas compte des formes récentes.
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Calculateur de paris flottant
 // ============================================================
 function BetCalculator() {
@@ -7853,6 +7942,7 @@ function BetCalculator() {
     { id:"value",    icon:"📊", label:"Value" },
     { id:"kelly",    icon:"📐", label:"Kelly" },
     { id:"arb",      icon:"⚡", label:"Arbitrage" },
+    { id:"poisson",  icon:"📐", label:"Poisson" },
   ];
 
   const inputStyle = { width:"100%", padding:"8px 10px", borderRadius:7, border:`1px solid #243548`, background:"#0E1A28", color:"#D0E8F4", fontSize:12, outline:"none", boxSizing:"border-box" };
@@ -8151,10 +8241,81 @@ function BetCalculator() {
               </div>
             )}
 
+            {/* ── MODE POISSON ──────────────────────────────── */}
+            {mode === "poisson" && <PoissonCalc />}
+
           </div>
         </div>
       )}
     </>
+  );
+}
+
+// ============================================================
+// Quick Bettor Panel — indicateurs paris express
+// ============================================================
+function QuickBettorPanel({ m }) {
+  if (!m?.home || !m?.away) return null;
+
+  const home = m.home;
+  const away = m.away;
+
+  const avgTotalGoals = ((home.avgGoalsScored||0) + (away.avgGoalsScored||0)).toFixed(1);
+  const bttsHome = home.btts || 0;
+  const bttsAway = away.btts || 0;
+  const bttsCombined = Math.round((bttsHome + bttsAway) / 2);
+  const overCombined = Math.round(((home.over25||0) + (away.over25||0)) / 2);
+
+  const confidence = Math.min(100, Math.round(
+    (bttsCombined * 0.3) +
+    (overCombined * 0.3) +
+    (parseFloat(avgTotalGoals) > 2.5 ? 40 : 0)
+  ));
+
+  const Indicator = ({ label, value, color, icon, sub }) => (
+    <div style={{ background:"#0E1A28", border:"1px solid #243548", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+      <div style={{ fontSize:10, color:"#3A607A", marginBottom:2 }}>{icon} {label}</div>
+      <div style={{ fontSize:18, fontWeight:800, color }}>{value}</div>
+      {sub && <div style={{ fontSize:9, color:"#5A7A8A", marginTop:1 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ marginBottom:10, background:"#182030", border:"1px solid #243548", borderRadius:12, padding:"10px 14px" }}>
+      <div style={{ fontSize:9, color:"#00D4AA", fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:8 }}>
+        Paris express
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:8 }}>
+        <Indicator label="Moy. buts" value={avgTotalGoals} color="#D0E8F4" icon="⚽" sub="total prévu" />
+        <Indicator label="BTTS" value={`${bttsCombined}%`} color={bttsCombined>55?"#16a34a":"#d97706"} icon="🎯" sub="les 2 marquent" />
+        <Indicator label="Over 2.5" value={`${overCombined}%`} color={overCombined>55?"#16a34a":"#d97706"} icon="📈" sub="3+ buts" />
+        <Indicator label="Signal" value={confidence>60?"FORT":confidence>40?"MOYEN":"FAIBLE"} color={confidence>60?"#00D4AA":confidence>40?"#d97706":"#5A7A8A"} icon="📡" sub={`${confidence}/100`} />
+      </div>
+      <div style={{ marginBottom:6 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:9, color:"#3A607A", marginBottom:3 }}>
+          <span>BTTS — {home.name?.split(" ")[0]}</span>
+          <span>{bttsHome}% / {bttsAway}%</span>
+          <span>{away.name?.split(" ").slice(-1)[0]}</span>
+        </div>
+        <div style={{ display:"flex", height:6, borderRadius:99, overflow:"hidden", gap:2 }}>
+          <div style={{ width:`${bttsHome}%`, background:`${bttsHome>55?"#16a34a":"#d97706"}`, borderRadius:"99px 0 0 99px" }}/>
+          <div style={{ flex:1, background:"#1C2A3A" }}/>
+          <div style={{ width:`${bttsAway}%`, background:`${bttsAway>55?"#16a34a":"#d97706"}`, borderRadius:"0 99px 99px 0" }}/>
+        </div>
+      </div>
+      {(bttsCombined > 60 || overCombined > 60) && (
+        <div style={{ fontSize:10, color:"#00D4AA", background:"rgba(0,212,170,.08)", border:"1px solid rgba(0,212,170,.2)", borderRadius:6, padding:"5px 10px", display:"flex", gap:6 }}>
+          <span>💡</span>
+          <span>
+            {bttsCombined > 60 && overCombined > 60
+              ? `Match ouvert : BTTS ${bttsCombined}% et Over 2.5 ${overCombined}% — profil offensif des deux équipes.`
+              : bttsCombined > 60
+              ? `Les deux équipes marquent dans ${bttsCombined}% des cas — BTTS à envisager.`
+              : `Over 2.5 dans ${overCombined}% des matchs de ces équipes.`}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -8603,6 +8764,7 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
               </div>
             );
           })()}
+          <QuickBettorPanel m={m} />
           <div style={{ marginTop:20 }}>
             <TabBar tab={tab} setTab={setTab} />
             <div style={{ marginTop:20 }}>

@@ -347,6 +347,9 @@ IMPORTANT: mélange l'index correct (0,1,2 ou 3 aléatoirement). Réponds UNIQUE
       .filter(([, a]) => a.correct)
       .sort((a, b) => a[1].responseMs - b[1].responseMs);
 
+    // Attribuer le rang de vitesse (1 = le plus rapide parmi les bons)
+    const speedRankMap = new Map(corrects.map(([uid], idx) => [uid, idx + 1]));
+
     const roundResults = [];
     for (const [uid, p] of this.players) {
       const ans = this.currentAnswers.get(uid);
@@ -369,6 +372,7 @@ IMPORTANT: mélange l'index correct (0,1,2 ou 3 aléatoirement). Réponds UNIQUE
         ptsEarned,
         score:      p.score,
         responseMs: ans?.responseMs ?? null,
+        speedRank:  ans?.correct ? (speedRankMap.get(uid) || 99) : null,
       });
     }
 
