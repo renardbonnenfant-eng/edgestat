@@ -20,6 +20,18 @@
         from { width: 0%; }
         to   { width: 100%; }
       }
+      /* ── Responsive mobile ──────────────────────────────── */
+      @media screen and (max-width: 900px) {
+        .vdk-ad-column   { display: none !important; }
+        .vdk-sidebar     { position: fixed !important; top: 0; left: 0; z-index: 199;
+                           box-shadow: 4px 0 24px rgba(0,0,0,.6) !important; }
+        .vdk-sidebar-hidden { display: none !important; }
+        .vdk-hamburger   { display: flex !important; }
+        .vdk-username-desktop { display: none !important; }
+      }
+      @media screen and (min-width: 901px) {
+        .vdk-hamburger   { display: none !important; }
+      }
     </style>
   </head>
   <body>

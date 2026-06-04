@@ -799,12 +799,12 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
   const mobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
-    <div style={{
+    <div className="vdk-sidebar" style={{
       width:220, flexShrink:0, background:C.sidebar,
       borderRight:`1px solid ${C.sidebarBorder}`,
       height:"100vh", overflowY:"auto",
-      // Sur mobile : position fixed pour overlay
-      ...(mobile ? { position:"fixed", top:0, left:0, zIndex:199, boxShadow:"4px 0 24px rgba(0,0,0,.5)" } : { position:"sticky", top:0 }),
+      position: mobile ? "fixed" : "sticky", top:0,
+      ...(mobile ? { left:0, zIndex:199, boxShadow:"4px 0 24px rgba(0,0,0,.5)" } : {}),
       display:"flex", flexDirection:"column",
     }}>
       {/* Logo */}
@@ -8542,7 +8542,16 @@ export default function App() {
   const [authMode, setAuthMode] = useState("login");
   // Mobile : sidebar fermée par défaut sur petit écran
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  // Hook réactif mobile — se met à jour au resize, fiable sur tous les navigateurs
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 900 : false
+  );
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth <= 900);
+    window.addEventListener("resize", fn);
+    fn(); // recalcul immédiat après montage
+    return () => window.removeEventListener("resize", fn);
+  }, []);
 
   // Mode public : connexion automatique au premier chargement si le serveur le permet
   useEffect(() => {
@@ -8766,7 +8775,7 @@ export default function App() {
       )}
 
       {/* Sidebar — masquée sur mobile sauf si ouverte */}
-      {(!isMobile || mobileSidebarOpen) && (
+      <div className={isMobile && !mobileSidebarOpen ? "vdk-sidebar-hidden" : ""} style={{ flexShrink:0 }}>
       <Sidebar
         activeId={compId}
         onSelect={id => { handleSelectComp(id); if (isMobile) setMobileSidebarOpen(false); }}
@@ -8794,7 +8803,7 @@ export default function App() {
         onOpenPlayer={(id, name, tsdbId) => setGlobalPlayer({ id, name, tsdbId })}
         onOpenClub={club => setGlobalClub(club)}
       />
-      )}
+      </div>
 
       {/* Contenu principal */}
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
@@ -8805,18 +8814,16 @@ export default function App() {
           background:C.panel, zIndex:10, flexShrink:0, gap:8,
         }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            {/* Hamburger mobile */}
-            {isMobile && (
-              <button onClick={() => setMobileSidebarOpen(v => !v)} style={{
+            {/* Hamburger mobile — visible via CSS media query */}
+            <button className="vdk-hamburger" onClick={() => setMobileSidebarOpen(v => !v)} style={{
                 width:36, height:36, borderRadius:8, background:C.panel2,
                 border:`1px solid ${C.line}`, cursor:"pointer",
-                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, flexShrink:0,
+                flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, flexShrink:0,
               }}>
                 <div style={{ width:16, height:2, background:mobileSidebarOpen?C.accent:C.text, borderRadius:1, transition:"all .2s" }}/>
                 <div style={{ width:16, height:2, background:mobileSidebarOpen?C.accent:C.text, borderRadius:1, transition:"all .2s" }}/>
                 <div style={{ width:16, height:2, background:mobileSidebarOpen?C.accent:C.text, borderRadius:1, transition:"all .2s" }}/>
               </button>
-            )}
             <div style={{ fontSize:13, color:C.text, fontWeight:500 }}>
               {allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
               {" "}{allData[compId]?.league || "Verdikt"}
@@ -8945,8 +8952,10 @@ export default function App() {
             </div>
           </div>
 
-          {/* Colonne publicitaire droite — masquée sur mobile */}
-          {!isMobile && <AdColumn />}
+          {/* Colonne publicitaire droite — masquée sur mobile via CSS + JS */}
+          <div className="vdk-ad-column" style={{ display: isMobile ? "none" : undefined }}>
+            <AdColumn />
+          </div>
 
         </div>
       </div>
