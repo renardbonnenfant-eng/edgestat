@@ -848,6 +848,7 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
             { id:"home",         label:"Accueil",      icon:"🏠", color:"#032D60" },
             { id:"history", label:"Histoire", icon:"📚", color:"#7C3AED" },
             { id:"bracket", label:"Coupes",   icon:"🏆", color:"#0176D3" },
+            { id:"conseils", label:"Conseils", icon:"💡", color:"#d97706" },
             { id:"foot",    label:"Football", icon:"⚽", color:"#0176D3" },
             { id:"tennis",  label:"Tennis",   icon:"🎾", color:"#c2692d" },
           ].map(s => {
@@ -1263,7 +1264,7 @@ function MatchRow({ f, selected, loading, onSelect, logoRegistry = {}, compFlag,
 // ============================================================
 // Panel de sélection — 2 colonnes verticales
 // ============================================================
-function MatchPanel({ fixtures, selectedId, defaultId, onSelect, loading, logoRegistry = {}, filterTeamIds = null }) {
+function MatchPanel({ fixtures, selectedId, defaultId, onSelect, loading, logoRegistry = {}, filterTeamIds = null, compId = null }) {
   const [teamFilter, setTeamFilter] = useState("all");
 
   const teams = useMemo(() => {
@@ -1342,6 +1343,17 @@ function MatchPanel({ fixtures, selectedId, defaultId, onSelect, loading, logoRe
           </div>
         );
       })()}
+
+      {/* Bandeau amicaux si compétition nationale */}
+      {["wc","euro","copa","nl","can"].includes(compId) && (
+        <div style={{ margin:"6px 0 10px", padding:"8px 12px", background:C.accentBg, border:`1px solid ${C.accent}33`, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <span style={{ fontSize:11, color:C.accent }}>🌐 Les amicaux internationaux sont dans une section séparée</span>
+          <button style={{ background:C.accent, color:"#0A1428", border:"none", borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:10, fontWeight:700 }}
+            onClick={() => window.dispatchEvent(new CustomEvent("edgestat:navigate", { detail:"intfriendly" }))}>
+            Amicaux →
+          </button>
+        </div>
+      )}
 
       {/* 2 colonnes */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
@@ -2998,8 +3010,10 @@ function TabCompo({ homeId, awayId, homeName, awayName, season, fixtureId }) {
 // CompetitionOverview — affiché quand aucun match n'est sélectionné
 // ============================================================
 function CompetitionOverview({ stored, fixtures, leagueFlag }) {
-  const upcoming = fixtures.filter(f => f.status === "upcoming" || f.score == null);
-  const past     = fixtures.filter(f => f.status !== "upcoming" && f.score != null);
+  const LIVE_STATUSES = new Set(["1H","2H","HT","ET","BT","P","LIVE","INT","PEN"]);
+  const live     = fixtures.filter(f => LIVE_STATUSES.has(f.status));
+  const upcoming = fixtures.filter(f => f.status === "upcoming" || f.status === "NS" || f.score == null).filter(f => !LIVE_STATUSES.has(f.status));
+  const past     = fixtures.filter(f => f.status !== "upcoming" && f.status !== "NS" && f.score != null && !LIVE_STATUSES.has(f.status));
 
   return (
     <div style={{ background:C.panel, borderRadius:14, border:`1px solid ${C.line}`, padding:"48px 24px", textAlign:"center" }}>
@@ -3053,6 +3067,29 @@ function CompetitionOverview({ stored, fixtures, leagueFlag }) {
           <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>Résultats passés</div>
         </div>
       </div>
+
+      {/* Section En direct */}
+      {live.length > 0 && (
+        <div style={{ marginTop:24, textAlign:"left" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", animation:"verdikt-blink 1.2s infinite" }}/>
+            <span style={{ fontSize:12, fontWeight:700, color:"#FF4444", textTransform:"uppercase", letterSpacing:.8 }}>En direct</span>
+            <span style={{ background:"#FF4444", color:"#fff", fontSize:9, fontWeight:800, borderRadius:10, padding:"1px 7px" }}>{live.length}</span>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            {live.map(f => (
+              <div key={f.id} style={{ background:C.panel2, border:"1px solid #FF444433", borderRadius:10, padding:"10px 12px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                  <span style={{ fontSize:9, fontWeight:700, color:"#FF4444", animation:"verdikt-blink 1.5s infinite" }}>{f.status || "LIVE"}</span>
+                </div>
+                <div style={{ fontSize:11, color:C.text, fontWeight:500 }}>{f.home?.name}</div>
+                <div style={{ fontSize:14, fontWeight:900, color:"#FF4444", textAlign:"center", margin:"4px 0" }}>{f.score || "- -"}</div>
+                <div style={{ fontSize:11, color:C.text }}>{f.away?.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -4057,6 +4094,221 @@ function LeaderboardView({ userAccount }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// BettingAdviceView — Conseils Paris
+// ============================================================
+const BETTING_SECTIONS = [
+  {
+    id: "warning",
+    icon: "⚠️",
+    title: "Avertissement important",
+    color: "#FF4444",
+    bgColor: "rgba(255,68,68,.08)",
+    borderColor: "#FF444444",
+    content: [
+      {
+        type: "alert",
+        text: "Les paris sportifs sont un divertissement, pas une source de revenus. La grande majorité des parieurs perdent de l'argent sur le long terme. Ne misez jamais plus que ce que vous pouvez vous permettre de perdre.",
+      },
+      {
+        type: "stats",
+        items: [
+          { label: "Parieurs gagnants sur le long terme", value: "< 3%", color: "#FF4444" },
+          { label: "Marge des bookmakers", value: "5 à 15%", color: "#FF4444" },
+          { label: "Parieurs qui finissent dans le rouge", value: "> 97%", color: "#FF4444" },
+        ]
+      },
+      {
+        type: "contacts",
+        title: "Aide & Soutien",
+        items: [
+          { label: "Joueurs Info Service", value: "09 74 75 13 13", icon: "📞" },
+          { label: "Site officiel", value: "joueurs-info-service.fr", icon: "🌐" },
+          { label: "Addictions France", value: "addictions-france.org", icon: "🏥" },
+        ]
+      }
+    ]
+  },
+  {
+    id: "bankroll",
+    icon: "💰",
+    title: "Gestion de bankroll",
+    color: "#00D4AA",
+    bgColor: "rgba(0,212,170,.06)",
+    borderColor: "rgba(0,212,170,.2)",
+    content: [
+      { type: "rule", title: "Règle des 2-5%", text: "Ne misez jamais plus de 2 à 5% de votre bankroll sur un seul pari. Si votre bankroll est de 200€, une mise maximale de 4-10€ par pari vous protège d'une série de malchance." },
+      { type: "rule", title: "Séparer les fonds", text: "Utilisez un compte dédié aux paris, distinct de vos finances personnelles. Définissez un budget mensuel fixe que vous acceptez de perdre entièrement." },
+      { type: "rule", title: "La règle du stop-loss", text: "Définissez à l'avance votre limite de perte journalière/hebdomadaire. Si vous atteignez -30% de votre bankroll en une semaine, arrêtez et reprenez la semaine suivante." },
+      { type: "formula", label: "Mise recommandée", formula: "Bankroll × 2% = Mise standard", example: "200€ × 2% = 4€ par pari" },
+    ]
+  },
+  {
+    id: "value",
+    icon: "📊",
+    title: "Value Betting",
+    color: "#3b82f6",
+    bgColor: "rgba(59,130,246,.06)",
+    borderColor: "rgba(59,130,246,.2)",
+    content: [
+      { type: "rule", title: "Qu'est-ce que la valeur ?", text: "Un pari a de la valeur (EV+) quand votre estimation de probabilité est supérieure à la probabilité implicite de la cote. Ex: vous estimez 60% pour une victoire, mais la cote implique 45% → vous avez un avantage." },
+      { type: "formula", label: "Calcul EV", formula: "EV = (P × (Cote-1)) - (1-P)", example: "P=0.6, Cote=2.0 → EV = (0.6×1)-(0.4×1) = +0.2 (valeur positive !)" },
+      { type: "rule", title: "D'où vient votre edge ?", text: "Les bookmakers sont experts. Votre avantage doit venir d'une spécialisation : une ligue que vous suivez intensément, une équipe dont vous connaissez les compositions à l'avance, ou des inefficiences de marché sur les petites cotes." },
+      { type: "warning", text: "⚠️ Même avec un EV positif, vous perdrez des paris. La valeur ne garantit des profits que sur des centaines de paris." },
+    ]
+  },
+  {
+    id: "psychology",
+    icon: "🧠",
+    title: "Psychologie du parieur",
+    color: "#a78bfa",
+    bgColor: "rgba(167,139,250,.06)",
+    borderColor: "rgba(167,139,250,.2)",
+    content: [
+      { type: "rule", title: "Le biais de confirmation", text: "On tend à chercher des informations qui confirment ce qu'on veut parier. Forcez-vous à chercher des arguments CONTRE votre sélection avant de parier." },
+      { type: "rule", title: "Le tilt (chasser les pertes)", text: "Après une série de pertes, la tentation d'augmenter les mises pour 'se refaire' est le comportement le plus destructeur. Une perte ne justifie pas une mise plus grande." },
+      { type: "rule", title: "L'illusion de contrôle", text: "Des rituels, des 'systèmes' ou une analyse extensive ne changent pas les probabilités d'un événement aléatoire. La rigueur aide, mais ne garantit rien." },
+      { type: "checklist", title: "Avant de parier, demandez-vous :", items: ["Est-ce que je parie avec ma tête ou mes émotions ?", "Ai-je les moyens de perdre cette somme ?", "Suis-je sobre et dans un état d'esprit stable ?", "Ce pari respecte-t-il ma règle des 2-5% ?"] },
+    ]
+  },
+  {
+    id: "odds",
+    icon: "🎰",
+    title: "Comprendre les cotes",
+    color: "#fbbf24",
+    bgColor: "rgba(251,191,36,.06)",
+    borderColor: "rgba(251,191,36,.2)",
+    content: [
+      { type: "formula", label: "Probabilité implicite", formula: "Prob = 1 / Cote", example: "Cote 2.0 → 1/2.0 = 50% | Cote 1.5 → 66.7% | Cote 3.0 → 33.3%" },
+      { type: "rule", title: "La marge bookmaker", text: "Si vous additionnez les probabilités implicites de 1X2, le total dépasse 100% (ex: 110%). Les 10% supplémentaires représentent la marge du bookmaker, votre désavantage structurel." },
+      { type: "rule", title: "Cote décimale vs fractionnaire", text: "Cote 2.50 décimale = 6/4 fractionnaire = -150 américaine. Pour un mise de 10€ : retour = 25€, profit = 15€. Le retour INCLUT toujours la mise initiale." },
+      { type: "stats", items: [
+        { label: "Marge sur 1X2 PL", value: "~5-7%", color: "#fbbf24" },
+        { label: "Marge sur Over/Under", value: "~4-6%", color: "#fbbf24" },
+        { label: "Marge sur accumul.", value: "composée !", color: "#FF4444" },
+      ]},
+    ]
+  },
+];
+
+function BettingAdviceView() {
+  const [activeSection, setActiveSection] = useState("warning");
+  const section = BETTING_SECTIONS.find(s => s.id === activeSection);
+
+  return (
+    <div style={{ display:"flex", height:"calc(100vh - 110px)", overflow:"hidden" }}>
+      {/* Sidebar */}
+      <div style={{ width:220, flexShrink:0, borderRight:`1px solid ${C.line}`, overflowY:"auto", background:C.panel }}>
+        <div style={{ padding:"12px 14px", fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:.8, borderBottom:`1px solid ${C.line}` }}>
+          Conseils & Avertissements
+        </div>
+        {BETTING_SECTIONS.map(s => (
+          <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
+            width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+            background: activeSection===s.id ? `${s.color}18` : "none",
+            border:"none", borderLeft:`3px solid ${activeSection===s.id ? s.color : "transparent"}`,
+            cursor:"pointer", textAlign:"left",
+          }}>
+            <span style={{ fontSize:16 }}>{s.icon}</span>
+            <span style={{ fontSize:12, fontWeight: activeSection===s.id ? 700 : 400, color: activeSection===s.id ? s.color : C.text }}>{s.title}</span>
+            {s.id === "warning" && <span style={{ marginLeft:"auto", fontSize:8, background:"#FF444433", color:"#FF4444", borderRadius:4, padding:"1px 5px", fontWeight:700 }}>LU</span>}
+          </button>
+        ))}
+
+        {/* Disclaimer permanent */}
+        <div style={{ margin:"12px 10px", padding:"10px 12px", background:"rgba(255,68,68,.08)", border:"1px solid #FF444433", borderRadius:8 }}>
+          <div style={{ fontSize:9, fontWeight:700, color:"#FF4444", marginBottom:4 }}>AIDE AU JEU</div>
+          <div style={{ fontSize:9, color:C.muted, lineHeight:1.5 }}>Joueurs Info Service<br/><strong style={{color:"#FF4444"}}>09 74 75 13 13</strong><br/>Gratuit · 24h/24</div>
+        </div>
+      </div>
+
+      {/* Contenu */}
+      {section && (
+        <div style={{ flex:1, overflowY:"auto", padding:"20px 24px" }}>
+          {/* Header section */}
+          <div style={{ background:section.bgColor, border:`1px solid ${section.borderColor}`, borderRadius:14, padding:"16px 20px", marginBottom:20, display:"flex", alignItems:"center", gap:14 }}>
+            <span style={{ fontSize:28 }}>{section.icon}</span>
+            <div>
+              <div style={{ fontSize:18, fontWeight:800, color:section.color }}>{section.title}</div>
+              {section.id === "warning" && (
+                <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>À lire attentivement avant tout pari</div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            {section.content.map((block, i) => {
+              if (block.type === "alert") return (
+                <div key={i} style={{ background:"rgba(255,68,68,.1)", border:"1px solid #FF444455", borderRadius:12, padding:"16px 18px", display:"flex", gap:12 }}>
+                  <span style={{ fontSize:20, flexShrink:0 }}>🚨</span>
+                  <p style={{ fontSize:13, color:C.text, lineHeight:1.7, margin:0 }}>{block.text}</p>
+                </div>
+              );
+              if (block.type === "stats") return (
+                <div key={i} style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:8 }}>
+                  {block.items.map((item, j) => (
+                    <div key={j} style={{ background:C.panel2, borderRadius:10, padding:"12px 14px", borderLeft:`3px solid ${item.color}` }}>
+                      <div style={{ fontSize:18, fontWeight:900, color:item.color }}>{item.value}</div>
+                      <div style={{ fontSize:10, color:C.muted, marginTop:2, lineHeight:1.4 }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+              if (block.type === "contacts") return (
+                <div key={i} style={{ background:C.panel2, borderRadius:10, padding:"14px 16px" }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.text, marginBottom:10 }}>{block.title}</div>
+                  {block.items.map((item, j) => (
+                    <div key={j} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+                      <span style={{ fontSize:14 }}>{item.icon}</span>
+                      <span style={{ fontSize:12, color:C.dim }}>{item.label}</span>
+                      <span style={{ marginLeft:"auto", fontSize:12, fontWeight:700, color:"#FF4444" }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+              if (block.type === "rule") return (
+                <div key={i} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"14px 16px" }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:section.color, marginBottom:6 }}>{block.title}</div>
+                  <div style={{ fontSize:12, color:C.text, lineHeight:1.7 }}>{block.text}</div>
+                </div>
+              );
+              if (block.type === "formula") return (
+                <div key={i} style={{ background:`${section.color}0f`, border:`1px solid ${section.color}33`, borderRadius:10, padding:"14px 16px" }}>
+                  <div style={{ fontSize:10, color:section.color, fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>{block.label}</div>
+                  <div style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"monospace", marginBottom:4 }}>{block.formula}</div>
+                  <div style={{ fontSize:11, color:C.dim }}>{block.example}</div>
+                </div>
+              );
+              if (block.type === "warning") return (
+                <div key={i} style={{ background:"rgba(255,68,68,.08)", border:"1px solid #FF444433", borderRadius:8, padding:"10px 14px", fontSize:11, color:"#FF4444", lineHeight:1.6 }}>
+                  {block.text}
+                </div>
+              );
+              if (block.type === "checklist") return (
+                <div key={i} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"14px 16px" }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:10 }}>{block.title}</div>
+                  {block.items.map((item, j) => (
+                    <div key={j} style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom:6 }}>
+                      <span style={{ color:section.color, flexShrink:0, marginTop:1 }}>☐</span>
+                      <span style={{ fontSize:12, color:C.text, lineHeight:1.5 }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+              return null;
+            })}
+          </div>
+
+          {/* Footer disclaimer */}
+          <div style={{ marginTop:24, padding:"12px 16px", background:"rgba(255,68,68,.06)", border:"1px solid #FF444433", borderRadius:10, fontSize:10, color:C.muted, lineHeight:1.6 }}>
+            ⚠️ <strong>Verdikt est un outil d'analyse statistique.</strong> Les données et conseils présentés ne constituent pas des recommandations d'investissement. Les paris sportifs comportent un risque de perte financière. Si vous ressentez une dépendance, appelez le <strong style={{color:"#FF4444"}}>09 74 75 13 13</strong> (gratuit, anonyme, 24h/24). <strong>Jouer doit rester un plaisir.</strong>
+          </div>
         </div>
       )}
     </div>
@@ -5838,6 +6090,120 @@ function FootballNewsTicker() {
         <button onClick={() => { setFade(false); setTimeout(() => { setIdx(i => (i+1)%news.length); setFade(true); }, 200); }}
           style={{ width:20, height:20, borderRadius:"50%", background:"#243548", border:"1px solid #2A4A62", cursor:"pointer", color:"#8AABBD", fontSize:10, display:"grid", placeItems:"center" }}>›</button>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// FootballHub — Page d'accueil Football
+// ============================================================
+const FOOT_SECTIONS = [
+  {
+    title: "🏆 Compétitions Internationales",
+    comps: [
+      { id:"wc",    name:"Coupe du Monde 2026", flag:"🌍" },
+      { id:"euro",  name:"UEFA Euro",           flag:"🇪🇺" },
+      { id:"copa",  name:"Copa América",        flag:"🌎" },
+      { id:"nl",    name:"UEFA Nations League", flag:"🏴" },
+      { id:"can",   name:"CAN",                 flag:"🌍" },
+    ]
+  },
+  {
+    title: "⭐ Top 5 Ligues",
+    comps: [
+      { id:"en",  name:"Premier League",  flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+      { id:"es",  name:"La Liga",         flag:"🇪🇸" },
+      { id:"de",  name:"Bundesliga",      flag:"🇩🇪" },
+      { id:"it",  name:"Serie A",         flag:"🇮🇹" },
+      { id:"fr",  name:"Ligue 1",         flag:"🇫🇷" },
+    ]
+  },
+  {
+    title: "🥈 Autres Ligues",
+    comps: [
+      { id:"pt",    name:"Liga Portugal",     flag:"🇵🇹" },
+      { id:"en_ch", name:"Championship",      flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+      { id:"fr_l2", name:"Ligue 2",           flag:"🇫🇷" },
+      { id:"de_b2", name:"2. Bundesliga",     flag:"🇩🇪" },
+    ]
+  },
+  {
+    title: "🏅 Coupes Européennes",
+    comps: [
+      { id:"ucl",  name:"Ligue des Champions", flag:"⭐" },
+      { id:"uel",  name:"Europa League",        flag:"🟠" },
+      { id:"uecl", name:"Conference League",    flag:"🟢" },
+    ]
+  },
+  {
+    title: "🤝 Amicaux",
+    comps: [
+      { id:"intfriendly",  name:"Amicaux Internationaux", flag:"🌐" },
+      { id:"clubfriendly", name:"Amicaux Clubs",           flag:"🤝" },
+    ]
+  },
+];
+
+function FootballHub({ allData, leagueLogos, logoRegistry, loading, onSelectComp }) {
+  return (
+    <div style={{ padding:"24px" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:28 }}>
+        <div style={{ width:48, height:48, borderRadius:14, background:"rgba(0,212,170,.15)", display:"grid", placeItems:"center", fontSize:26 }}>⚽</div>
+        <div>
+          <div style={{ fontSize:22, fontWeight:900, color:C.text }}>Football</div>
+          <div style={{ fontSize:12, color:C.dim }}>Toutes les compétitions · Statistiques · Histoire</div>
+        </div>
+      </div>
+
+      {loading && <InfoPanel>Chargement des données…</InfoPanel>}
+
+      {FOOT_SECTIONS.map(section => {
+        const available = section.comps;
+        if (available.length === 0) return null;
+        return (
+          <div key={section.title} style={{ marginBottom:28 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
+              {section.title}
+              <div style={{ flex:1, height:1, background:C.line }} />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:10 }}>
+              {available.map(comp => {
+                const data     = allData[comp.id];
+                const logo     = data?.leagueLogo || leagueLogos[comp.id];
+                const hasLive  = data?.recentFixtures?.some(f => ["1H","2H","HT","ET","BT","P"].includes(f.status));
+                const upcomingCount = data?.recentFixtures?.filter(f => f.status === "NS" || f.status === "upcoming")?.length || 0;
+                return (
+                  <button key={comp.id} onClick={() => onSelectComp(comp.id)} style={{
+                    background:C.panel, border:`1px solid ${C.line}`, borderRadius:12,
+                    padding:"14px 16px", cursor:"pointer", textAlign:"left",
+                    transition:"all .15s", display:"flex", alignItems:"center", gap:12,
+                    position:"relative", overflow:"hidden",
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.background = C.accentBg; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.line;   e.currentTarget.style.background = C.panel;   }}
+                  >
+                    {logo ? (
+                      <img src={logo} width={36} height={36} style={{ objectFit:"contain", borderRadius:8, flexShrink:0 }} onError={e=>e.target.style.display="none"}/>
+                    ) : (
+                      <div style={{ width:36, height:36, borderRadius:8, background:C.panel2, display:"grid", placeItems:"center", fontSize:20, flexShrink:0 }}>{comp.flag}</div>
+                    )}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{comp.name}</div>
+                      <div style={{ fontSize:10, color:C.dim, marginTop:2 }}>
+                        {hasLive ? <span style={{ color:"#FF4444", fontWeight:700 }}>● Live</span> : upcomingCount > 0 ? <span>{upcomingCount} match{upcomingCount>1?"s":""} à venir</span> : <span>Voir les stats</span>}
+                      </div>
+                    </div>
+                    {hasLive && (
+                      <div style={{ width:8, height:8, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", flexShrink:0, animation:"verdikt-blink 1.2s infinite" }}/>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -7719,6 +8085,7 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
         loading={matchLoading}
         logoRegistry={logoRegistry}
         filterTeamIds={groupTeamIds}
+        compId={compId}
       />
 
       {/* Séries actuelles */}
@@ -8151,10 +8518,20 @@ export default function App() {
     if (Object.keys(dbUpdates).length) setTeamDatabase(prev => ({ ...prev, ...dbUpdates }));
   }
 
+  const [footHub, setFootHub] = useState(false);
+
   function handleSelectComp(id) {
+    setFootHub(false);
     setCompId(id);
     if (allData[id]) setActiveMatch(mapLeague(allData[id]));
   }
+
+  // Écoute l'event de navigation vers une compétition (depuis MatchPanel bandeau amicaux)
+  useEffect(() => {
+    const h = (e) => { setSport("foot"); setFootHub(false); setCompId(e.detail); };
+    window.addEventListener("edgestat:navigate", h);
+    return () => window.removeEventListener("edgestat:navigate", h);
+  }, []);
 
   // Navigation depuis l'accueil (live ou à venir) → page de la compétition + match sélectionné
   function handleMatchClick(f) {
@@ -8198,7 +8575,7 @@ export default function App() {
         onSelect={handleSelectComp}
         leagueLogos={leagueLogos}
         sport={sport}
-        onSportChange={setSport}
+        onSportChange={id => { if (id === "foot") setFootHub(true); setSport(id); }}
         token={token}
         onLoginClick={() => setShowLogin(true)}
         onLogout={() => { localStorage.removeItem("es_token"); setToken(""); }}
@@ -8262,7 +8639,7 @@ export default function App() {
           {/* Colonne principale : QuickNav + contenu scrollable */}
           <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
             {/* Quick Nav — accès rapide aux sections */}
-            {sport === "foot" && !loading && (
+            {sport === "foot" && !loading && !footHub && (
               <div style={{
                 display:"flex", gap:6, padding:"8px 20px", overflowX:"auto", scrollbarWidth:"none",
                 borderBottom:`1px solid ${C.line}`, background:C.panel, flexShrink:0,
@@ -8320,10 +8697,20 @@ export default function App() {
                     onGoHistory={() => setSport("history")}
                     onGoWC={() => { setSport("foot"); setCompId("wc"); }}
                   />
+                ) : sport === "conseils" ? (
+                  <BettingAdviceView />
                 ) : sport === "history" ? (
                   <HistoryView initialComp={historyInitComp} onConsumeInitComp={() => setHistoryInitComp(null)} />
                 ) : sport === "tennis" ? (
                   <TennisView tennisId={tennisId} />
+                ) : sport === "foot" && footHub ? (
+                  <FootballHub
+                    allData={allData}
+                    leagueLogos={leagueLogos}
+                    logoRegistry={logoRegistry}
+                    loading={loading}
+                    onSelectComp={id => { setFootHub(false); handleSelectComp(id); }}
+                  />
                 ) : (
                   <AnalysisZone compId={compId} allData={allData} onDataLoaded={handleDataLoaded} logoRegistry={logoRegistry} pendingFixture={pendingFixture} onClearPending={() => setPendingFixture(null)} pendingTeam={pendingTeam} onClearPendingTeam={() => setPendingTeam(null)}
                     onGoHistory={entry => { setHistoryInitComp(entry); setSport("history"); }}
