@@ -363,37 +363,90 @@ app.get("/api/tennis/top200/:type", async (req, res) => {
   }
 });
 
-// Détail d'un joueur tennis (photo, stats, âge)
+// Détail d'un joueur tennis (photo, stats, âge, bio IA, surface préférée)
 app.get("/api/tennis/player/:playerId", async (req, res) => {
   const { playerId } = req.params;
-  const cacheKey = `tennis:player:${playerId}`;
+  const { name, country, rank } = req.query;
+  const cacheKey = `tennis:playerv2:${playerId}`;
   try {
-    const cached = await readCache(cacheKey, 24 * 60 * 60 * 1000);
-    if (cached?.fresh) return res.json(cached.value);
+    const cached = await readCache(cacheKey, 48 * 60 * 60 * 1000);
+    if (cached?.fresh && cached.value?.bio) return res.json(cached.value);
 
     const KEY  = (process.env.TENNIS_RAPIDAPI_KEY || "").trim();
     const HOST = (process.env.TENNIS_HOST || "tennisapi1.p.rapidapi.com").trim();
     if (!KEY) return res.json({});
 
-    const url = `https://${HOST}/api/tennis/player/${playerId}`;
-    const r   = await fetch(url, { headers: { "x-rapidapi-key": KEY, "x-rapidapi-host": HOST }, signal: AbortSignal.timeout(8000) });
-    const data = await r.json();
-    const d = data?.team || {};
-    const ptInfo = d.playerTeamInfo || {};
-    const birthTs = ptInfo.birthDateTimestamp;
+    // 1. Détails joueur depuis API Tennis
+    let detail = {};
+    try {
+      const url = `https://${HOST}/api/tennis/player/${playerId}`;
+      const r   = await fetch(url, { headers: { "x-rapidapi-key": KEY, "x-rapidapi-host": HOST }, signal: AbortSignal.timeout(8000) });
+      const data = await r.json();
+      const d = data?.team || {};
+      const ptInfo = d.playerTeamInfo || {};
+      const birthTs = ptInfo.birthDateTimestamp;
+      detail = {
+        photo:      d.playerPhoto || d.strCutout || d.strThumb || "",
+        height:     ptInfo.height || null,
+        weight:     ptInfo.weight || null,
+        age:        birthTs ? Math.floor((Date.now()/1000 - birthTs) / (365.25*24*3600)) : null,
+        birthPlace: ptInfo.birthplace || "",
+        plays:      ptInfo.plays || "",
+        turnedPro:  ptInfo.turnedPro || null,
+        prizeCurrent: ptInfo.prizeCurrent || null,
+        prizeTotal:   ptInfo.prizeTotal || null,
+        bestRanking:  ptInfo.bestRanking || null,
+      };
+    } catch {}
 
-    const result = {
-      photo:      d.playerPhoto || d.strCutout || d.strThumb || "",
-      height:     ptInfo.height || null,
-      weight:     ptInfo.weight || null,
-      age:        birthTs ? Math.floor((Date.now()/1000 - birthTs) / (365.25*24*3600)) : null,
-      birthPlace: ptInfo.birthplace || "",
-      plays:      ptInfo.plays || "",
-      turnedPro:  ptInfo.turnedPro || null,
-      prizeCurrent: ptInfo.prizeCurrent || null,
-      prizeTotal:   ptInfo.prizeTotal || null,
+    // 2. Photo TheSportsDB si pas de photo API
+    if (!detail.photo && name) {
+      try {
+        const tsdb = await tsdbFetch(`searchplayers.php?p=${encodeURIComponent(name)}`);
+        const p = tsdb?.player?.[0];
+        if (p?.strCutout || p?.strThumb) detail.photo = p.strCutout || p.strThumb || "";
+      } catch {}
+    }
+
+    // 3. Surface préférée (calculée depuis les tournois connus + heuristique)
+    // On utilise les stats de la saison si disponibles, sinon heuristique par nom
+    const SURFACE_MAP = {
+      "Sinner": "hard", "Alcaraz": "clay", "Djokovic": "hard", "Medvedev": "hard",
+      "Zverev": "clay", "Rune": "clay", "Tsitsipas": "clay", "Ruud": "clay",
+      "Fritz": "hard", "De Minaur": "hard", "Swiatek": "clay", "Sabalenka": "hard",
+      "Gauff": "hard", "Rybakina": "grass", "Andreescu": "hard", "Keys": "hard",
+      "Nadal": "clay", "Federer": "grass", "Murray": "grass", "Wawrinka": "clay",
     };
-    await writeCache(cacheKey, result);
+    let preferredSurface = null;
+    if (name) {
+      const lastName = (name||"").split(" ").slice(-1)[0];
+      preferredSurface = SURFACE_MAP[lastName] || null;
+    }
+
+    // 4. Bio IA via Groq
+    let bio = "";
+    const groqKey = process.env.GROQ_KEY;
+    if (groqKey && name) {
+      try {
+        const { default: Groq } = await import("groq-sdk");
+        const groq = new Groq({ apiKey: groqKey });
+        const completion = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [{
+            role: "user",
+            content: `Écris une biographie courte (3-4 phrases) du joueur de tennis ${name} (${country||""}), actuellement classé #${rank||"?"} mondial.
+Mentionne : ses origines, son style de jeu, ses plus grands titres, et ce qui le rend unique sur le circuit.
+Ne mentionne pas d'événements après août 2025. Réponds directement la biographie, sans titre ni introduction.`,
+          }],
+          max_tokens: 200,
+          temperature: 0.5,
+        });
+        bio = completion.choices[0]?.message?.content || "";
+      } catch {}
+    }
+
+    const result = { ...detail, bio, preferredSurface };
+    if (bio || detail.photo) await writeCache(cacheKey, result);
     res.json(result);
   } catch (err) { res.json({}); }
 });

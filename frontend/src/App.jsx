@@ -613,7 +613,7 @@ function SidebarLive({ onMatchClick }) {
 // ============================================================
 // Barre de recherche globale (sidebar)
 // ============================================================
-function SidebarSearch({ allData, logoRegistry, onSelectComp, onSelectTeam, onOpenPlayer, onOpenClub }) {
+function SidebarSearch({ allData, logoRegistry, onSelectComp, onSelectTeam, onOpenPlayer, onOpenClub, onTennisSelect, onOpenTennisPlayer }) {
   const [query,   setQuery]   = useState("");
   const [results, setResults] = useState({ comps:[], teams:[], players:[] });
   const [loading, setLoading] = useState(false);
@@ -780,6 +780,80 @@ function SidebarSearch({ allData, logoRegistry, onSelectComp, onSelectTeam, onOp
                   ))}
                 </>
               )}
+
+              {/* Résultats tennis */}
+              {query.length >= 2 && (() => {
+                const TENNIS_PLAYERS = [
+                  { id:"206570", name:"Jannik Sinner",   country:"Italie",   rank:1, type:"atp", countryCode:"it" },
+                  { id:"226454", name:"Carlos Alcaraz",  country:"Espagne",  rank:2, type:"atp", countryCode:"es" },
+                  { id:"96473",  name:"Novak Djokovic",  country:"Serbie",   rank:3, type:"atp", countryCode:"rs" },
+                  { id:"188979", name:"Daniil Medvedev", country:"Russie",   rank:4, type:"atp", countryCode:"ru" },
+                  { id:"81586",  name:"Alexander Zverev",country:"Allemagne",rank:5, type:"atp", countryCode:"de" },
+                  { id:"244522", name:"Holger Rune",     country:"Danemark", rank:6, type:"atp", countryCode:"dk" },
+                  { id:"317478", name:"Iga Swiatek",     country:"Pologne",  rank:1, type:"wta", countryCode:"pl" },
+                  { id:"123474", name:"Aryna Sabalenka", country:"Biélorussie",rank:2, type:"wta", countryCode:"by" },
+                  { id:"344167", name:"Coco Gauff",      country:"USA",      rank:3, type:"wta", countryCode:"us" },
+                  { id:"186339", name:"Elena Rybakina",  country:"Kazakhstan",rank:4, type:"wta", countryCode:"kz" },
+                  { id:"127572", name:"Rafael Nadal",    country:"Espagne",  rank:999, type:"atp", countryCode:"es" },
+                  { id:"25894",  name:"Roger Federer",   country:"Suisse",   rank:999, type:"atp", countryCode:"ch" },
+                ];
+                const TENNIS_TOURNAMENTS = [
+                  { id:"atp-rg",       name:"Roland Garros",     surface:"clay",  flag:"🇫🇷" },
+                  { id:"atp-wimbledon",name:"Wimbledon",          surface:"grass", flag:"🏴" },
+                  { id:"atp-uso",      name:"US Open",            surface:"hard",  flag:"🇺🇸" },
+                  { id:"atp-ao",       name:"Australian Open",    surface:"hard",  flag:"🇦🇺" },
+                  { id:"atp",          name:"ATP Tour",           surface:"hard",  flag:"🎾" },
+                  { id:"wta",          name:"WTA Tour",           surface:"hard",  flag:"🎾" },
+                ];
+                const q = query.toLowerCase();
+                const matchPlayers = TENNIS_PLAYERS.filter(p => p.name.toLowerCase().includes(q) || p.country.toLowerCase().includes(q));
+                const matchTourneys = TENNIS_TOURNAMENTS.filter(t => t.name.toLowerCase().includes(q));
+
+                if (matchPlayers.length === 0 && matchTourneys.length === 0) return null;
+                return (
+                  <div style={{ borderTop:`1px solid ${C.line}`, paddingTop:8, marginTop:4 }}>
+                    <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:1, paddingLeft:12, marginBottom:5 }}>🎾 Tennis</div>
+                    {matchTourneys.map(t => (
+                      <button key={t.id} onClick={() => { onTennisSelect?.(t.id); setOpen(false); setQuery(""); }} style={{
+                        width:"100%", display:"flex", alignItems:"center", gap:10, padding:"7px 12px",
+                        background:"none", border:"none", cursor:"pointer", textAlign:"left",
+                      }}
+                        onMouseEnter={e=>e.currentTarget.style.background=C.panel2}
+                        onMouseLeave={e=>e.currentTarget.style.background="none"}
+                      >
+                        <span style={{ fontSize:16 }}>{t.flag}</span>
+                        <div>
+                          <div style={{ fontSize:12, color:C.text }}>{t.name}</div>
+                          <div style={{ fontSize:9, color:C.muted, textTransform:"capitalize" }}>{t.surface} · Tournoi</div>
+                        </div>
+                      </button>
+                    ))}
+                    {matchPlayers.map(p => {
+                      const flagUrl = `https://flagcdn.com/h20/${p.countryCode}.png`;
+                      return (
+                        <button key={p.id} onClick={() => { onOpenTennisPlayer?.(p); setOpen(false); setQuery(""); }} style={{
+                          width:"100%", display:"flex", alignItems:"center", gap:10, padding:"7px 12px",
+                          background:"none", border:"none", cursor:"pointer", textAlign:"left",
+                        }}
+                          onMouseEnter={e=>e.currentTarget.style.background=C.panel2}
+                          onMouseLeave={e=>e.currentTarget.style.background="none"}
+                        >
+                          <div style={{ width:28, height:28, borderRadius:"50%", background:C.panel2, display:"grid", placeItems:"center", fontSize:13, fontWeight:700, color:C.accent, flexShrink:0 }}>
+                            {p.name.split(" ").map(w=>w[0]).join("").slice(0,2)}
+                          </div>
+                          <div>
+                            <div style={{ fontSize:12, color:C.text }}>{p.name}</div>
+                            <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:1 }}>
+                              <img src={flagUrl} height={10} style={{ borderRadius:1 }} onError={e=>e.target.style.display="none"}/>
+                              <span style={{ fontSize:9, color:C.muted }}>{p.country} · #{p.rank} {p.type.toUpperCase()}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
@@ -845,6 +919,8 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         onSelectTeam={onSelectTeam}
         onOpenPlayer={onOpenPlayer}
         onOpenClub={onOpenClub}
+        onTennisSelect={id => { onSportChange?.("tennis"); onTennisSelect?.(id); }}
+        onOpenTennisPlayer={p => { onSportChange?.("tennis"); }}
       />
 
       {/* Section LIVE dans la sidebar */}
@@ -2024,110 +2100,126 @@ function formatPrize(raw) {
 }
 
 function TennisPlayerCard({ player, onClick }) {
-  const flag = player?.countryCode
-    ? `https://flagcdn.com/h20/${player.countryCode.toLowerCase()}.png`
-    : null;
-  const rankDiff = player?.prevRank && player?.rank ? player.prevRank - player.rank : null;
-  const isNo1 = player?.rank === 1;
-  const initials = (player?.name || "?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+  const [detail, setDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const loaded = detail !== null;
+
+  useEffect(() => {
+    if (!player?.id || loaded) return;
+    setLoadingDetail(true);
+    const params = new URLSearchParams({ name: player.name||"", country: player.country||"", rank: String(player.rank||"") });
+    fetch(`/api/tennis/player/${player.id}?${params}`)
+      .then(r => r.json())
+      .then(d => { setDetail(d); setLoadingDetail(false); })
+      .catch(() => { setDetail({}); setLoadingDetail(false); });
+  }, [player?.id]);
+
+  const merged = { ...player, ...(detail||{}) };
+  const flag = merged.countryCode ? `https://flagcdn.com/h40/${merged.countryCode.toLowerCase()}.png` : null;
+  const rankDiff = merged.prevRank && merged.rank ? merged.prevRank - merged.rank : null;
+  const isNo1 = merged.rank === 1;
+  const initials = (merged.name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+
+  const SURF_COLORS = { clay:"#c2692d", hard:"#3b82f6", grass:"#16a34a", indoor:"#7C3AED" };
+  const SURF_LABELS = { clay:"Terre battue 🧱", hard:"Dur 🔵", grass:"Gazon 🟢", indoor:"Indoor 🟣" };
+  const surfColor = SURF_COLORS[merged.preferredSurface] || C.accent;
+  const surfLabel = SURF_LABELS[merged.preferredSurface] || "Polyvalent";
 
   return (
-    <button onClick={onClick} style={{
-      background:"#1A2030", border:"1px solid #243548", borderRadius:10,
-      padding:18, cursor:"pointer", textAlign:"left", width:"100%",
-      transition:"all .15s",
-    }}
-      onMouseEnter={e=>{e.currentTarget.style.borderColor="#00D4AA";e.currentTarget.style.background="#1E2838";}}
-      onMouseLeave={e=>{e.currentTarget.style.borderColor="#243548";e.currentTarget.style.background="#1A2030";}}
+    <div onClick={onClick} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, overflow:"hidden", cursor:"pointer", transition:"all .15s" }}
+      onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=`0 6px 20px ${C.accent}22`;}}
+      onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";}}
     >
-      {/* ── EN-TÊTE ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
-        {/* Photo / initiales */}
-        <div style={{ width:54, height:54, borderRadius:10, overflow:"hidden", background:"#243548", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          {player?.photo
-            ? <img src={player.photo} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top" }} onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}} alt={player.name}/>
-            : null}
-          <div style={{ display:player?.photo?"none":"flex", width:"100%", height:"100%", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:800, color:"#00D4AA" }}>{initials}</div>
+      {/* Header avec photo */}
+      <div style={{ background:`linear-gradient(135deg, #0d2e2a 0%, #182030 100%)`, padding:"16px 16px 14px", position:"relative", minHeight:90 }}>
+        {/* Surface badge */}
+        <div style={{ position:"absolute", top:10, right:10, background:`${surfColor}22`, border:`1px solid ${surfColor}66`, borderRadius:6, padding:"3px 8px", fontSize:9, fontWeight:700, color:surfColor }}>
+          {surfLabel}
         </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:15, fontWeight:700, color:"#E8F4FF", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{player?.name}</div>
-          <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
-            {flag && <img src={flag} height={11} style={{ borderRadius:1, flexShrink:0 }} onError={e=>e.target.style.display="none"}/>}
-            <span style={{ fontSize:9, fontWeight:700, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:1 }}>{player?.country}</span>
-            <span style={{ fontSize:9, color:"#4A6A7A" }}>·</span>
-            <span style={{ fontSize:10, fontWeight:700, color:isNo1?"#00D4AA":"#E8F4FF" }}>#{player?.rank}</span>
-            <span style={{ fontSize:9, color:"#4A6A7A" }}>·</span>
-            <span style={{ fontSize:9, color:"#4A6A7A" }}>{player?.points?.toLocaleString()} PTS</span>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          {/* Photo */}
+          <div style={{ width:60, height:60, borderRadius:12, overflow:"hidden", background:"#243548", flexShrink:0, border:`2px solid ${C.accent}44` }}>
+            {merged.photo
+              ? <img src={merged.photo} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top" }} onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}} alt={merged.name}/>
+              : null}
+            <div style={{ display:merged.photo?"none":"flex", width:"100%", height:"100%", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.accent }}>{initials}</div>
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:16, fontWeight:800, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{merged.name}</div>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
+              {flag && <img src={flag} height={13} style={{ borderRadius:2, flexShrink:0 }} onError={e=>e.target.style.display="none"}/>}
+              <span style={{ fontSize:10, fontWeight:600, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>{merged.country}</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
+              <span style={{ fontSize:14, fontWeight:900, color:isNo1?C.accent:C.text }}>#{merged.rank}</span>
+              <span style={{ fontSize:10, color:C.muted }}>·</span>
+              <span style={{ fontSize:11, color:C.dim }}>{merged.points?.toLocaleString()} pts</span>
+              {rankDiff !== null && rankDiff !== 0 && (
+                <span style={{ fontSize:10, fontWeight:700, color:rankDiff>0?"#16a34a":"#DC2626" }}>
+                  {rankDiff>0?`▲${rankDiff}`:`▼${Math.abs(rankDiff)}`}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        {rankDiff !== null && rankDiff !== 0 && (
-          <div style={{ fontSize:11, fontWeight:700, color:rankDiff>0?"#16a34a":"#DC2626", flexShrink:0 }}>
-            {rankDiff>0?`▲${rankDiff}`:`▼${Math.abs(rankDiff)}`}
-          </div>
-        )}
       </div>
 
-      {/* Séparateur */}
-      <div style={{ height:1, background:"#243548", marginBottom:12 }}/>
-
-      {/* ── CLASSEMENT ── */}
-      <div style={{ marginBottom:12 }}>
-        <div style={{ fontSize:8, fontWeight:700, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:2, marginBottom:7 }}>Classement</div>
+      <div style={{ padding:"12px 16px", display:"flex", flexDirection:"column", gap:10 }}>
+        {/* Classement */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
           {[
-            { label:"ACTUEL",    val:`#${player?.rank||"—"}`,        accent:isNo1 },
-            { label:"PRÉCÉDENT", val:player?.prevRank?`#${player.prevRank}`:"—", accent:false },
-            { label:"MEILLEUR",  val:player?.bestRank?`#${player.bestRank}`:"—", accent:player?.bestRank===1 },
+            { l:"Actuel",    v:`#${merged.rank||"—"}`,                        accent:isNo1 },
+            { l:"Précédent", v:merged.prevRank?`#${merged.prevRank}`:"—",     accent:false },
+            { l:"Meilleur",  v:merged.bestRanking?`#${merged.bestRanking}`:"—", accent:merged.bestRanking===1 },
           ].map(s => (
-            <div key={s.label} style={{ background:"#141C28", borderRadius:6, padding:"7px 6px", textAlign:"center" }}>
-              <div style={{ fontSize:14, fontWeight:700, color:s.accent?"#00D4AA":"#E8F4FF" }}>{s.val}</div>
-              <div style={{ fontSize:8, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:1, marginTop:2 }}>{s.label}</div>
+            <div key={s.l} style={{ background:C.panel2, borderRadius:7, padding:"6px 5px", textAlign:"center" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:s.accent?C.accent:C.text }}>{s.v}</div>
+              <div style={{ fontSize:8, color:C.muted, textTransform:"uppercase", letterSpacing:.5, marginTop:1 }}>{s.l}</div>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Séparateur */}
-      <div style={{ height:1, background:"#243548", marginBottom:12 }}/>
-
-      {/* ── PROFIL ── */}
-      <div style={{ marginBottom:12 }}>
-        <div style={{ fontSize:8, fontWeight:700, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:2, marginBottom:7 }}>Profil</div>
+        {/* Profil rapide */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:5 }}>
           {[
-            { label:"TAILLE",     val: player?.height ? `${player.height}m` : "—" },
-            { label:"POIDS",      val: player?.weight ? `${player.weight}kg` : "—" },
-            { label:"JEU",        val: player?.plays === "Right-Handed" ? "Droitier" : player?.plays === "Left-Handed" ? "Gaucher" : player?.plays || "—" },
-            { label:"PRO DEPUIS", val: player?.turnedPro || "—" },
+            { l:"Taille",     v: merged.height ? `${merged.height}m` : "—" },
+            { l:"Poids",      v: merged.weight ? `${merged.weight}kg` : "—" },
+            { l:"Jeu",        v: (merged.plays||"").includes("Left") ? "Gaucher 🤚" : (merged.plays||"").includes("right")||merged.plays ? "Droitier ✋" : "—" },
+            { l:"Pro depuis", v: merged.turnedPro || merged.age ? (merged.turnedPro || `~${new Date().getFullYear() - (merged.age||25) + 18}`) : "—" },
           ].map(s => (
-            <div key={s.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:"#141C28", borderRadius:5, padding:"5px 8px" }}>
-              <span style={{ fontSize:8, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:.8 }}>{s.label}</span>
-              <span style={{ fontSize:11, fontWeight:500, color:"#E8F4FF" }}>{s.val}</span>
+            <div key={s.l} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:C.panel2, borderRadius:5, padding:"5px 8px" }}>
+              <span style={{ fontSize:8, color:C.muted, textTransform:"uppercase", letterSpacing:.5 }}>{s.l}</span>
+              <span style={{ fontSize:11, fontWeight:500, color:C.text }}>{s.v}</span>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Séparateur */}
-      <div style={{ height:1, background:"#243548", marginBottom:12 }}/>
+        {/* Gains */}
+        {(merged.prizeCurrent || merged.prizeTotal) && (
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:5 }}>
+            {[
+              { l:"Tournois",     v: merged.tournamentsPlayed ?? "—" },
+              { l:"Gains saison", v: merged.prizeCurrent ? formatPrize(merged.prizeCurrent) : "—" },
+              { l:"Gains carrière",v:merged.prizeTotal ? formatPrize(merged.prizeTotal) : "—" },
+            ].map(s => (
+              <div key={s.l} style={{ background:C.panel2, borderRadius:6, padding:"6px 5px", textAlign:"center" }}>
+                <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{s.v}</div>
+                <div style={{ fontSize:7, color:C.muted, textTransform:"uppercase", letterSpacing:.5, marginTop:1, lineHeight:1.3 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* ── CETTE SAISON ── */}
-      <div>
-        <div style={{ fontSize:8, fontWeight:700, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:2, marginBottom:7 }}>Cette Saison</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:5 }}>
-          {[
-            { label:"TOURNOIS",       val: player?.tournamentsPlayed ?? "—" },
-            { label:"GAINS SAISON",   val: player?.prizeCurrent ? formatPrize(player.prizeCurrent) : "—" },
-            { label:"GAINS CARRIÈRE", val: player?.prizeTotal   ? formatPrize(player.prizeTotal)   : "—" },
-          ].map(s => (
-            <div key={s.label} style={{ background:"#141C28", borderRadius:6, padding:"7px 5px", textAlign:"center" }}>
-              <div style={{ fontSize:13, fontWeight:600, color:"#E8F4FF" }}>{s.val}</div>
-              <div style={{ fontSize:7, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:.8, marginTop:2, lineHeight:1.3 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
+        {/* Bio IA */}
+        {merged.bio ? (
+          <div style={{ background:`${C.accent}08`, border:`1px solid ${C.accent}22`, borderRadius:8, padding:"9px 11px", fontSize:11, color:C.dim, lineHeight:1.6, fontStyle:"italic" }}>
+            {merged.bio}
+          </div>
+        ) : loadingDetail ? (
+          <div style={{ fontSize:10, color:C.muted, textAlign:"center", padding:"4px" }}>⏳ Chargement biographie…</div>
+        ) : null}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -2368,21 +2460,45 @@ function TennisView({ tennisId }) {
         <PlayerBlock p={data.p2} name={data.p2.name} color={C.blue}   />
       </div>
 
-      {/* H2H */}
-      {data.h2h?.length > 0 && (
-        <>
-          <SectionTitle>Face-à-face ({data.h2h.length} matchs)</SectionTitle>
-          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-            {data.h2h.map((h,i) => (
-              <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"9px 14px", fontSize:12 }}>
-                <span style={{ color:C.dim }}>{h.date} <span style={{ fontSize:10, color:SURF_COLOR[h.surface]||C.dim }}>{SURF_LABEL[h.surface]||h.surface}</span></span>
-                <span style={{ fontWeight:700, padding:"0 12px" }}>{h.score}</span>
-                <span style={{ textAlign:"right", fontSize:11, fontWeight:700, color:h.winner==="p1"?C.accent:C.blue }}>{h.winner==="p1"?data.p1.name:data.p2.name}</span>
-              </div>
-            ))}
+      {/* H2H avec filtre surface */}
+      {data.h2h?.length > 0 && (() => {
+        const [surfFilter, setSurfFilter] = React.useState("all");
+        const SURFS = ["all","clay","hard","grass","indoor"];
+        const filtered = data.h2h.filter(h => surfFilter === "all" || (h.surface || "").toLowerCase() === surfFilter);
+        return (
+          <div>
+            <SectionTitle>Face-à-face ({data.h2h.length} matchs)</SectionTitle>
+            {/* Filtre surface */}
+            <div style={{ display:"flex", gap:5, marginBottom:10, flexWrap:"wrap" }}>
+              {SURFS.map(s => {
+                const LABELS = { all:"Toutes", clay:"Terre 🧱", hard:"Dur 🔵", grass:"Gazon 🟢", indoor:"Indoor 🟣" };
+                const COLORS = { all:C.accent, clay:"#c2692d", hard:"#3b82f6", grass:"#16a34a", indoor:"#7C3AED" };
+                return (
+                  <button key={s} onClick={() => setSurfFilter(s)} style={{
+                    padding:"4px 10px", borderRadius:6, border:`1px solid ${surfFilter===s?COLORS[s]:C.line}`,
+                    background: surfFilter===s?`${COLORS[s]}18`:"none",
+                    color: surfFilter===s?COLORS[s]:C.muted,
+                    cursor:"pointer", fontSize:10, fontWeight: surfFilter===s?700:400,
+                  }}>{LABELS[s]}</button>
+                );
+              })}
+              {surfFilter !== "all" && <span style={{ fontSize:10, color:C.muted, alignSelf:"center" }}>{filtered.length} matchs</span>}
+            </div>
+            {/* Liste H2H filtrée */}
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              {filtered.map((h, i) => (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:C.panel2, borderRadius:8, padding:"8px 10px" }}>
+                  {h.surface && <div style={{ width:6, height:6, borderRadius:"50%", background:{"clay":"#c2692d","hard":"#3b82f6","grass":"#16a34a"}[h.surface.toLowerCase()]||C.dim, flexShrink:0 }}/>}
+                  <span style={{ flex:1, fontSize:11, color:C.dim }}>{h.date?.slice(0,10) || ""}</span>
+                  <span style={{ fontSize:11, fontWeight:700, color:h.winner==="p1"?C.accent:C.blue }}>{h.winner==="p1"?data.p1?.name:data.p2?.name}</span>
+                  <span style={{ fontSize:10, color:C.text, background:C.panel, borderRadius:5, padding:"2px 8px" }}>{h.score || "—"}</span>
+                </div>
+              ))}
+              {filtered.length === 0 && <div style={{ color:C.muted, fontSize:11 }}>Aucun match sur cette surface.</div>}
+            </div>
           </div>
-        </>
-      )}
+        );
+      })()}
 
       <div style={{ marginTop:16, padding:"10px 14px", background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, fontSize:11, color:C.muted, lineHeight:1.6 }}>
         Données API-Tennis · statistiques historiques uniquement · aucune prédiction.
