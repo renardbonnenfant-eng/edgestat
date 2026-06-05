@@ -2616,44 +2616,98 @@ function TennisView({ tennisId, onTennisSelect }) {
 
   const SURF_COLOR_MATCH = { clay:"#c2692d55", grass:`${C.green}33`, hard:`${C.blue}33` };
 
+  // Calendrier des tournois majeurs 2025-2026
+  const TOURNAMENT_CALENDAR = [
+    { name:"Australian Open", dates:"13–26 jan 2025", surface:"hard", flag:"🇦🇺", winner:"Jannik Sinner", status:"done" },
+    { name:"Roland Garros",   dates:"25 mai–8 jun 2025", surface:"clay", flag:"🇫🇷", winner:"Carlos Alcaraz", status:"done" },
+    { name:"Wimbledon",       dates:"30 jun–13 jul 2025", surface:"grass", flag:"🏴", winner:"Carlos Alcaraz", status:"done" },
+    { name:"US Open",         dates:"25 août–7 sep 2025", surface:"hard", flag:"🇺🇸", winner:"Jannik Sinner", status:"done" },
+    { name:"Australian Open", dates:"19 jan–1er fév 2026", surface:"hard", flag:"🇦🇺", winner:null, status:"upcoming" },
+    { name:"Roland Garros",   dates:"24 mai–7 jun 2026", surface:"clay", flag:"🇫🇷", winner:null, status:"upcoming" },
+    { name:"Wimbledon",       dates:"29 jun–12 jul 2026", surface:"grass", flag:"🏴", winner:null, status:"upcoming" },
+    { name:"US Open",         dates:"31 août–13 sep 2026", surface:"hard", flag:"🇺🇸", winner:null, status:"upcoming" },
+  ];
+  const SURF_C = { clay:"#c2692d", hard:"#3b82f6", grass:"#16a34a" };
+
   return (
-    <div>
+    <div style={{ padding:"0 0 20px" }}>
       <TennisTabs />
-      {/* Header du match */}
-      <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, overflow:"hidden", marginBottom:2 }}>
-        <div style={{ background:C.sidebar, borderBottom:`1px solid ${C.line}`, padding:"8px 16px", display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:13 }}>{current.flag}</span>
-          <span style={{ fontSize:11, fontWeight:700, color:C.dim, letterSpacing:1, textTransform:"uppercase" }}>{data.tournament}</span>
-          <span style={{ color:C.line }}>·</span>
-          <span style={{ fontSize:11, color:C.dim }}>{data.date}</span>
-          <span style={{ marginLeft:8, fontSize:11, fontWeight:700, color:SURF_COLOR[data.surface]||C.dim }}>{SURF_LABEL[data.surface]||data.surface}</span>
+      <div style={{ padding:"16px 20px" }}>
+
+      {/* Bannière info clé API manquante */}
+      <div style={{ background:"rgba(245,158,11,.08)", border:"1px solid rgba(245,158,11,.25)", borderRadius:10, padding:"12px 16px", marginBottom:16, display:"flex", gap:12, alignItems:"flex-start" }}>
+        <span style={{ fontSize:18, flexShrink:0 }}>🎾</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"#d97706", marginBottom:4 }}>Matchs ATP/WTA en direct & résultats — Clé API requise</div>
+          <div style={{ fontSize:11, color:C.dim, lineHeight:1.6 }}>
+            Pour voir les scores en direct et les résultats de matchs, ajoute une clé gratuite :<br/>
+            <strong style={{ color:C.text }}>① rapidapi.com</strong> → cherche <strong>"API Tennis" par SportOpenData</strong> → plan Free (500 req/jour)<br/>
+            <strong style={{ color:C.text }}>② Copie la clé</strong> dans <code style={{ background:C.panel2, padding:"1px 5px", borderRadius:3, fontSize:10 }}>backend/.env</code> → <code style={{ background:C.panel2, padding:"1px 5px", borderRadius:3, fontSize:10, color:C.accent }}>TENNIS_MATCHES_KEY=ta_clé</code>
+          </div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:12, padding:"18px 20px" }}>
+      </div>
+
+      {/* Comparaison classement Top 1 vs Top 2 */}
+      <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, overflow:"hidden", marginBottom:14 }}>
+        <div style={{ background:C.panel2, borderBottom:`1px solid ${C.line}`, padding:"8px 16px", display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:13 }}>{current.flag}</span>
+          <span style={{ fontSize:11, fontWeight:700, color:C.dim, letterSpacing:1, textTransform:"uppercase" }}>{data.tournament} — Top 2 du classement</span>
+          <span style={{ marginLeft:"auto", fontSize:10, background:`${SURF_C[data.surface]||C.accent}22`, color:SURF_C[data.surface]||C.accent, borderRadius:4, padding:"2px 8px", fontWeight:600 }}>
+            {SURF_LABEL[data.surface]||data.surface}
+          </span>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:12, padding:"16px 20px" }}>
           <div>
-            <div style={{ fontSize:16, fontWeight:800 }}>{data.p1.name}</div>
-            <div style={{ fontSize:10, color:C.dim, marginTop:3, textTransform:"uppercase" }}>
-              {data.p1.country} · #{data.p1.rank??'?'} · {data.p1.points?.toLocaleString()||'—'} pts
+            <div style={{ fontSize:15, fontWeight:800, color:C.text }}>{data.p1.name}</div>
+            <div style={{ fontSize:10, color:C.dim, marginTop:2, textTransform:"uppercase" }}>
+              {data.p1.country} · <span style={{ color:C.accent, fontWeight:700 }}>#{data.p1.rank||"?"}</span> · {data.p1.points?.toLocaleString()||"—"} pts
             </div>
           </div>
           <div style={{ textAlign:"center" }}>
-            {data.isRankingView
-              ? <div style={{ fontSize:11, color:C.dim, fontWeight:700 }}>CLASSEMENT</div>
-              : <div style={{ fontSize:22, fontWeight:900 }}>{data.score}</div>
-            }
+            <div style={{ fontSize:10, color:C.muted, fontWeight:700, textTransform:"uppercase" }}>Classement {new Date().getFullYear()}</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:4 }}>
+              <span style={{ fontSize:18, fontWeight:900, color:C.accent }}>{data.p1.points?.toLocaleString()||"—"}</span>
+              <span style={{ fontSize:11, color:C.muted }}>pts</span>
+              <span style={{ fontSize:18, fontWeight:900, color:C.blue }}>{data.p2.points?.toLocaleString()||"—"}</span>
+            </div>
           </div>
           <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:16, fontWeight:800 }}>{data.p2.name}</div>
-            <div style={{ fontSize:10, color:C.dim, marginTop:3, textTransform:"uppercase" }}>
-              {data.p2.country} · #{data.p2.rank??'?'} · {data.p2.points?.toLocaleString()||'—'} pts
+            <div style={{ fontSize:15, fontWeight:800, color:C.text }}>{data.p2.name}</div>
+            <div style={{ fontSize:10, color:C.dim, marginTop:2, textTransform:"uppercase" }}>
+              {data.p2.country} · <span style={{ color:C.blue, fontWeight:700 }}>#{data.p2.rank||"?"}</span> · {data.p2.points?.toLocaleString()||"—"} pts
             </div>
           </div>
         </div>
       </div>
 
       {/* Stats des deux joueurs */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginTop:14 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
         <PlayerBlock p={data.p1} name={data.p1.name} color={C.accent} />
         <PlayerBlock p={data.p2} name={data.p2.name} color={C.blue}   />
+      </div>
+
+      {/* Calendrier des Grands Chelems */}
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, marginBottom:10 }}>🗓 Calendrier Grands Chelems 2025-2026</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(220px, 1fr))", gap:8 }}>
+          {TOURNAMENT_CALENDAR.map((t,i) => (
+            <div key={i} style={{ background:t.status==="upcoming"?C.accentBg:C.panel2, border:`1px solid ${t.status==="upcoming"?C.accent:C.line}`, borderRadius:8, padding:"10px 12px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
+                <span style={{ fontSize:18 }}>{t.flag}</span>
+                <div>
+                  <div style={{ fontSize:12, fontWeight:600, color:C.text }}>{t.name}</div>
+                  <div style={{ fontSize:9, color:C.muted }}>{t.dates}</div>
+                </div>
+                {t.status==="upcoming" && <span style={{ marginLeft:"auto", fontSize:8, background:C.accent, color:"#0A1428", borderRadius:4, padding:"1px 5px", fontWeight:700 }}>À VENIR</span>}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ width:8, height:8, borderRadius:2, background:SURF_C[t.surface]||C.dim, flexShrink:0 }}/>
+                <span style={{ fontSize:9, color:SURF_C[t.surface]||C.dim, fontWeight:600 }}>{SURF_LABEL[t.surface]||t.surface}</span>
+                {t.winner && <span style={{ marginLeft:"auto", fontSize:9, color:C.dim }}>🏆 {t.winner}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* H2H avec filtre surface */}
@@ -2697,8 +2751,9 @@ function TennisView({ tennisId, onTennisSelect }) {
       })()}
 
       <div style={{ marginTop:16, padding:"10px 14px", background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, fontSize:11, color:C.muted, lineHeight:1.6 }}>
-        Données API-Tennis · statistiques historiques uniquement · aucune prédiction.
+        Données API-Tennis (classements) + Wikipedia + TheSportsDB · aucune prédiction.
       </div>
+      </div>{/* fin padding */}
     </div>
   );
 }
