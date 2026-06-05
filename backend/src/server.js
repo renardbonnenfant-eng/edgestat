@@ -135,9 +135,13 @@ app.post("/api/payment/create-checkout-session", express.json(), async (req, res
 
   const { plan } = req.body || {};
   const PRICE_IDS = {
-    premium: process.env.STRIPE_PREMIUM_PRICE_ID,
-    vip:     process.env.STRIPE_VIP_PRICE_ID,
+    premium:    process.env.STRIPE_PREMIUM_PRICE_ID,
+    vip:        process.env.STRIPE_VIP_PRICE_ID,
+    premium_3m: process.env.STRIPE_PREMIUM_3M_PRICE_ID || process.env.STRIPE_PREMIUM_PRICE_ID, // fallback mensuel si pas configuré
+    vip_3m:     process.env.STRIPE_VIP_3M_PRICE_ID     || process.env.STRIPE_VIP_PRICE_ID,
   };
+  // Mapper les plans trimestriels vers le plan Stripe correct pour la DB
+  const PLAN_NAME_MAP = { premium_3m: "premium", vip_3m: "vip" };
   if (!PRICE_IDS[plan]) return res.status(400).json({ error: "Plan invalide." });
   if (!PRICE_IDS[plan]) return res.status(500).json({ error: `STRIPE_${plan.toUpperCase()}_PRICE_ID manquant dans .env` });
 
@@ -150,7 +154,7 @@ app.post("/api/payment/create-checkout-session", express.json(), async (req, res
       line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
       success_url: `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${baseUrl}/premium`,
-      metadata: { userId: String(decoded.id), plan },
+      metadata: { userId: String(decoded.id), plan, planBase: PLAN_NAME_MAP[plan] || plan },
       client_reference_id: String(decoded.id),
     });
     res.json({ url: session.url });
@@ -177,9 +181,13 @@ app.post("/api/payment/webhook", express.raw({ type: "application/json" }), asyn
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const userId = parseInt(session.metadata?.userId || session.client_reference_id);
-      const plan   = session.metadata?.plan || "premium";
+      // planBase = "premium" ou "vip" (sans le _3m) pour la DB
+      const plan   = session.metadata?.planBase || session.metadata?.plan || "premium";
+      const isQuarterly = (session.metadata?.plan || "").endsWith("_3m");
       if (userId) {
-        const expiresAt = Date.now() + (plan === "vip" ? 31 : 31) * 24 * 60 * 60 * 1000;
+        // 3 mois = 92 jours, mensuel = 31 jours
+        const durationDays = isQuarterly ? 92 : 31;
+        const expiresAt = Date.now() + durationDays * 24 * 60 * 60 * 1000;
         updatePlan(userId, plan, expiresAt);
       }
     }
