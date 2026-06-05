@@ -2234,12 +2234,13 @@ function TennisPlayerCard({ player, onClick }) {
 // Classement Tennis Top 200
 // ============================================================
 function TennisRankingView({ type }) {
-  const [players,   setPlayers]   = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState("");
-  const [sortBy,    setSortBy]    = useState("rank"); // rank | prize | tournaments
-  const [selected,  setSelected]  = useState(null);
-  const [error,     setError]     = useState("");
+  const [players,     setPlayers]     = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [search,      setSearch]      = useState("");
+  const [sortBy,      setSortBy]      = useState("rank");
+  const [filterCountry, setFilterCountry] = useState(""); // filtre par pays
+  const [selected,    setSelected]    = useState(null);
+  const [error,       setError]       = useState("");
 
   useEffect(() => {
     setLoading(true); setError(""); setPlayers([]);
@@ -2267,8 +2268,16 @@ function TennisRankingView({ type }) {
       .catch(e => { setError(e.message); setLoading(false); });
   }, [type]);
 
+  // Liste des pays disponibles (triés par nombre de joueurs)
+  const countryCounts = players.reduce((acc, p) => { if(p.country) acc[p.country]=(acc[p.country]||0)+1; return acc; }, {});
+  const countries = Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).map(([c])=>c);
+
   const sorted = [...players]
-    .filter(p => !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.country?.toLowerCase().includes(search.toLowerCase()))
+    .filter(p => {
+      if (filterCountry && p.country !== filterCountry) return false;
+      if (search && !p.name?.toLowerCase().includes(search.toLowerCase()) && !p.country?.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    })
     .sort((a,b) => {
       if (sortBy === "rank")        return (a.rank||999) - (b.rank||999);
       if (sortBy === "prize")       return (parseFloat(String(b.prizeCurrent||"0").replace(/[^0-9.]/g,""))||0) - (parseFloat(String(a.prizeCurrent||"0").replace(/[^0-9.]/g,""))||0);
@@ -2291,32 +2300,54 @@ function TennisRankingView({ type }) {
         </div>
       )}
 
-      {/* Contrôles */}
-      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
-        {/* Recherche */}
+      {/* Contrôles ligne 1 : recherche + tri */}
+      <div style={{ display:"flex", gap:8, marginBottom:8, flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ display:"flex", alignItems:"center", gap:7, background:"#1A2030", border:"1px solid #243548", borderRadius:8, padding:"8px 12px", flex:1, minWidth:180 }}>
           <span style={{ color:"#4A6A7A", fontSize:13 }}>🔍</span>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher joueur / pays…"
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un joueur…"
             style={{ flex:1, background:"none", border:"none", outline:"none", color:"#E8F4FF", fontSize:12 }}/>
           {search && <button onClick={()=>setSearch("")} style={{ background:"none", border:"none", cursor:"pointer", color:"#4A6A7A" }}>✕</button>}
         </div>
-        {/* Tri */}
         <div style={{ display:"flex", gap:4 }}>
           {[
-            { id:"rank",        label:"Classement" },
-            { id:"prize",       label:"Gains" },
-            { id:"tournaments", label:"Tournois" },
+            { id:"rank", label:"Classement" }, { id:"prize", label:"Gains" }, { id:"tournaments", label:"Tournois" },
           ].map(s => (
             <button key={s.id} onClick={() => setSortBy(s.id)} style={{
-              padding:"7px 12px", borderRadius:8, border:`1px solid ${sortBy===s.id?"#00D4AA":"#243548"}`,
-              background: sortBy===s.id?"rgba(0,212,170,.15)":"#1A2030",
-              color: sortBy===s.id?"#00D4AA":"#4A6A7A",
-              cursor:"pointer", fontSize:11, fontWeight: sortBy===s.id?700:400,
+              padding:"7px 11px", borderRadius:8, border:`1px solid ${sortBy===s.id?"#00D4AA":"#243548"}`,
+              background:sortBy===s.id?"rgba(0,212,170,.15)":"#1A2030",
+              color:sortBy===s.id?"#00D4AA":"#4A6A7A",
+              cursor:"pointer", fontSize:11, fontWeight:sortBy===s.id?700:400,
             }}>{s.label}</button>
           ))}
         </div>
         {!loading && <span style={{ fontSize:11, color:"#4A6A7A" }}>{sorted.length} joueurs</span>}
       </div>
+
+      {/* Contrôles ligne 2 : filtre pays */}
+      {!loading && countries.length > 0 && (
+        <div style={{ display:"flex", gap:5, marginBottom:14, flexWrap:"wrap" }}>
+          <button onClick={() => setFilterCountry("")} style={{
+            padding:"4px 10px", borderRadius:20, border:`1px solid ${!filterCountry?"#00D4AA":"#243548"}`,
+            background:!filterCountry?"rgba(0,212,170,.15)":"#1A2030",
+            color:!filterCountry?"#00D4AA":"#4A6A7A", cursor:"pointer", fontSize:10, fontWeight:!filterCountry?700:400,
+          }}>🌍 Tous</button>
+          {countries.slice(0, 20).map(c => {
+            const code = players.find(p=>p.country===c)?.countryCode?.toLowerCase();
+            return (
+              <button key={c} onClick={() => setFilterCountry(filterCountry===c?"":c)} style={{
+                display:"flex", alignItems:"center", gap:4, padding:"4px 9px", borderRadius:20,
+                border:`1px solid ${filterCountry===c?"#00D4AA":"#243548"}`,
+                background:filterCountry===c?"rgba(0,212,170,.15)":"#1A2030",
+                color:filterCountry===c?"#00D4AA":"#4A6A7A", cursor:"pointer", fontSize:10, fontWeight:filterCountry===c?700:400,
+              }}>
+                {code && <img src={`https://flagcdn.com/h14/${code}.png`} height={9} style={{ borderRadius:1 }} onError={e=>e.target.style.display="none"}/>}
+                {c}
+                <span style={{ fontSize:9, opacity:.6 }}>({countryCounts[c]})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {loading && <div style={{ color:"#4A6A7A", fontSize:13, textAlign:"center", padding:"40px 0" }}>⏳ Chargement du classement {type.toUpperCase()}…</div>}
       {error   && <div style={{ color:"#DC2626", fontSize:12, padding:16, background:"#2A1010", borderRadius:8 }}>Erreur : {error}</div>}
@@ -9210,64 +9241,176 @@ function BetCalculator() {
 function QuickBettorPanel({ m }) {
   if (!m?.home || !m?.away) return null;
 
-  const home = m.home;
-  const away = m.away;
+  const h = m.home, a = m.away;
 
-  const avgTotalGoals = ((home.avgGoalsScored||0) + (away.avgGoalsScored||0)).toFixed(1);
-  const bttsHome = home.btts || 0;
-  const bttsAway = away.btts || 0;
-  const bttsCombined = Math.round((bttsHome + bttsAway) / 2);
-  const overCombined = Math.round(((home.over25||0) + (away.over25||0)) / 2);
+  // ── Calculs ──────────────────────────────────────────────────
+  const avgGoals    = ((h.avgGoalsScored||0) + (a.avgGoalsScored||0));
+  const bttsH       = h.btts || 0;
+  const bttsA       = a.btts || 0;
+  const bttsComb    = Math.round((bttsH + bttsA) / 2);
+  const over25H     = h.over25 || 0;
+  const over25A     = a.over25 || 0;
+  const over25Comb  = Math.round((over25H + over25A) / 2);
+  const csH         = h.cleanSheet || 0;
+  const csA         = a.cleanSheet || 0;
+  const dcH         = h.doubleChance?.notLosing ?? h.winRate ?? 0;
+  const dcA         = a.doubleChance?.notLosing ?? a.winRate ?? 0;
+  const avgGH       = h.avgGoalsScored || 0;
+  const avgGA       = a.avgGoalsScored || 0;
+  const avgCH       = h.avgGoalsConceded || 0;
+  const avgCA       = a.avgGoalsConceded || 0;
+  const homeWinRate = h.homeRecord ? Math.round(h.homeRecord.win/(h.homeRecord.played||1)*100) : 0;
+  const awayWinRate = a.awayRecord ? Math.round(a.awayRecord.win/(a.awayRecord.played||1)*100) : 0;
 
+  // Forme
+  const hForm = (h.form||[]).slice(-5);
+  const aForm = (a.form||[]).slice(-5);
+  const hFormPts = hForm.reduce((s,r)=>s+(r==="W"?3:r==="D"?1:0),0);
+  const aFormPts = aForm.reduce((s,r)=>s+(r==="W"?3:r==="D"?1:0),0);
+
+  // Score de confiance amélioré
   const confidence = Math.min(100, Math.round(
-    (bttsCombined * 0.3) +
-    (overCombined * 0.3) +
-    (parseFloat(avgTotalGoals) > 2.5 ? 40 : 0)
+    (bttsComb * 0.25) + (over25Comb * 0.25) +
+    (avgGoals > 2.5 ? 30 : avgGoals > 2 ? 15 : 0) +
+    (csH < 30 && csA < 30 ? 20 : 0)
   ));
 
-  const Indicator = ({ label, value, color, icon, sub }) => (
-    <div style={{ background:"#0E1A28", border:"1px solid #243548", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
-      <div style={{ fontSize:10, color:"#3A607A", marginBottom:2 }}>{icon} {label}</div>
-      <div style={{ fontSize:18, fontWeight:800, color }}>{value}</div>
-      {sub && <div style={{ fontSize:9, color:"#5A7A8A", marginTop:1 }}>{sub}</div>}
-    </div>
-  );
+  // ── Générer tous les insights ───────────────────────────────
+  const insights = [];
+
+  // Over/Under
+  if (over25Comb > 65)
+    insights.push({ icon:"📈", color:"#16a34a", tag:"OVER 2.5", text:`Over 2.5 dans ${over25Comb}% des matchs combinés (Dom. ${over25H}% · Ext. ${over25A}%)` });
+  else if (over25Comb < 35)
+    insights.push({ icon:"📉", color:"#3b82f6", tag:"UNDER 2.5", text:`Under 2.5 probable : seulement ${over25Comb}% de matchs à 3+ buts` });
+
+  // BTTS
+  if (bttsComb > 65)
+    insights.push({ icon:"⚽", color:"#16a34a", tag:"BTTS OUI", text:`Les deux équipes marquent dans ${bttsComb}% des matchs — BTTS OUI fortement conseillé` });
+  else if (bttsComb < 35)
+    insights.push({ icon:"🛡", color:"#3b82f6", tag:"BTTS NON", text:`BTTS NON probable : seulement ${bttsComb}% de matchs avec les 2 équipes qui marquent` });
+
+  // Défenses frêles
+  if (avgCH > 1.8 && avgCA > 1.8)
+    insights.push({ icon:"🎯", color:"#d97706", tag:"BUTS", text:`Deux défenses poreuses : ${h.name?.split(" ")[0]} concède ${avgCH.toFixed(1)}/match, ${a.name?.split(" ").slice(-1)[0]} ${avgCA.toFixed(1)}/match` });
+
+  // Domination offensive
+  if (avgGH > 2.0)
+    insights.push({ icon:"🔥", color:"#d97706", tag:"ATTAQUE", text:`${h.name} prolifique à domicile : ${avgGH.toFixed(1)} buts/match — menace réelle` });
+  if (avgGA > 2.0)
+    insights.push({ icon:"⚡", color:"#d97706", tag:"ATTAQUE", text:`${a.name} efficace à l'extérieur : ${avgGA.toFixed(1)} buts/match` });
+
+  // Clean sheets
+  if (csH > 50)
+    insights.push({ icon:"🛡", color:"#3b82f6", tag:"DÉFENSE", text:`${h.name} garde sa cage inviolée dans ${csH}% des matchs à domicile` });
+  if (csA > 50)
+    insights.push({ icon:"🛡", color:"#3b82f6", tag:"DÉFENSE", text:`${a.name} solide défensivement : ${csA}% de clean sheets à l'extérieur` });
+
+  // Forme déséquilibrée
+  if (Math.abs(hFormPts - aFormPts) >= 6 && hForm.length >= 4)
+    insights.push({ icon:"💪", color:hFormPts>aFormPts?C.accent:C.blue, tag:"FORME",
+      text:`${hFormPts>aFormPts?h.name:a.name} en nette supériorité de forme (${Math.max(hFormPts,aFormPts)}/15 pts sur 5 matchs)` });
+
+  // Domicile fort
+  if (homeWinRate > 65)
+    insights.push({ icon:"🏠", color:C.accent, tag:"DOMICILE", text:`${h.name} s'impose à domicile dans ${homeWinRate}% des cas cette saison` });
+
+  // Extérieur fort
+  if (awayWinRate > 45)
+    insights.push({ icon:"✈️", color:C.blue, tag:"DÉPLACEMENT", text:`${a.name} surprenant à l'extérieur : ${awayWinRate}% de victoires` });
+
+  // H2H
+  const h2h = m.h2h || [];
+  if (h2h.length >= 3) {
+    const hWinsH2H = h2h.filter(x=>x.winner==="home").length;
+    const aWinsH2H = h2h.filter(x=>x.winner==="away").length;
+    const pct = Math.round(Math.max(hWinsH2H,aWinsH2H)/h2h.length*100);
+    if (pct >= 70)
+      insights.push({ icon:"⚔️", color:"#d97706", tag:"H2H",
+        text:`${hWinsH2H>aWinsH2H?h.name:a.name} domine le H2H : ${Math.max(hWinsH2H,aWinsH2H)}/${h2h.length} victoires (${pct}%)` });
+    const bttH2H = h2h.filter(x=>{ const [gf,ga]=(x.score||"").split(" - ").map(Number); return gf>0&&ga>0; }).length;
+    if (bttH2H/h2h.length > 0.7)
+      insights.push({ icon:"🔁", color:"#7C3AED", tag:"H2H BTTS",
+        text:`BTTS dans ${Math.round(bttH2H/h2h.length*100)}% des confrontations directes (${bttH2H}/${h2h.length})` });
+  }
+
+  // Si aucun insight généré, message neutre
+  if (insights.length === 0)
+    insights.push({ icon:"📊", color:C.muted, tag:"INFO", text:"Données de forme disponibles. Consultez les onglets pour l'analyse complète." });
+
+  const StatBar = ({ left, right, lVal, rVal, lColor, rColor }) => {
+    const total = lVal + rVal || 1;
+    return (
+      <div>
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:9, color:C.muted, marginBottom:3 }}>
+          <span style={{ fontWeight:600, color:lColor }}>{left}</span>
+          <span style={{ fontWeight:600, color:rColor }}>{right}</span>
+        </div>
+        <div style={{ display:"flex", height:5, borderRadius:99, overflow:"hidden" }}>
+          <div style={{ width:`${lVal/total*100}%`, background:lColor, transition:"width .5s" }}/>
+          <div style={{ width:`${rVal/total*100}%`, background:rColor, transition:"width .5s" }}/>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div style={{ marginBottom:10, background:"#182030", border:"1px solid #243548", borderRadius:12, padding:"10px 14px" }}>
-      <div style={{ fontSize:9, color:"#00D4AA", fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:8 }}>
-        Paris express
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:8 }}>
-        <Indicator label="Moy. buts" value={avgTotalGoals} color="#D0E8F4" icon="⚽" sub="total prévu" />
-        <Indicator label="BTTS" value={`${bttsCombined}%`} color={bttsCombined>55?"#16a34a":"#d97706"} icon="🎯" sub="les 2 marquent" />
-        <Indicator label="Over 2.5" value={`${overCombined}%`} color={overCombined>55?"#16a34a":"#d97706"} icon="📈" sub="3+ buts" />
-        <Indicator label="Signal" value={confidence>60?"FORT":confidence>40?"MOYEN":"FAIBLE"} color={confidence>60?"#00D4AA":confidence>40?"#d97706":"#5A7A8A"} icon="📡" sub={`${confidence}/100`} />
-      </div>
-      <div style={{ marginBottom:6 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", fontSize:9, color:"#3A607A", marginBottom:3 }}>
-          <span>BTTS — {home.name?.split(" ")[0]}</span>
-          <span>{bttsHome}% / {bttsAway}%</span>
-          <span>{away.name?.split(" ").slice(-1)[0]}</span>
+    <div style={{ marginBottom:10, background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"12px 14px" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ fontSize:13 }}>💡</span>
+          <span style={{ fontSize:10, fontWeight:700, color:C.accent, textTransform:"uppercase", letterSpacing:.8 }}>Insights pour les parieurs</span>
         </div>
-        <div style={{ display:"flex", height:6, borderRadius:99, overflow:"hidden", gap:2 }}>
-          <div style={{ width:`${bttsHome}%`, background:`${bttsHome>55?"#16a34a":"#d97706"}`, borderRadius:"99px 0 0 99px" }}/>
-          <div style={{ flex:1, background:"#1C2A3A" }}/>
-          <div style={{ width:`${bttsAway}%`, background:`${bttsAway>55?"#16a34a":"#d97706"}`, borderRadius:"0 99px 99px 0" }}/>
-        </div>
-      </div>
-      {(bttsCombined > 60 || overCombined > 60) && (
-        <div style={{ fontSize:10, color:"#00D4AA", background:"rgba(0,212,170,.08)", border:"1px solid rgba(0,212,170,.2)", borderRadius:6, padding:"5px 10px", display:"flex", gap:6 }}>
-          <span>💡</span>
-          <span>
-            {bttsCombined > 60 && overCombined > 60
-              ? `Match ouvert : BTTS ${bttsCombined}% et Over 2.5 ${overCombined}% — profil offensif des deux équipes.`
-              : bttsCombined > 60
-              ? `Les deux équipes marquent dans ${bttsCombined}% des cas — BTTS à envisager.`
-              : `Over 2.5 dans ${overCombined}% des matchs de ces équipes.`}
+        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+          <div style={{ width:6, height:6, borderRadius:"50%", background:confidence>60?"#16a34a":confidence>40?"#d97706":"#5A7A8A" }}/>
+          <span style={{ fontSize:9, color:confidence>60?"#16a34a":confidence>40?"#d97706":C.muted, fontWeight:700 }}>
+            Signal {confidence>60?"FORT":confidence>40?"MOYEN":"FAIBLE"} ({confidence}/100)
           </span>
         </div>
-      )}
+      </div>
+
+      {/* Indicateurs rapides */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:5, marginBottom:10 }}>
+        {[
+          { icon:"⚽", l:"Moy. buts",  v:`${avgGoals.toFixed(1)}`, sub:"par match", col:avgGoals>2.5?"#16a34a":avgGoals>1.5?"#d97706":C.muted },
+          { icon:"🎯", l:"BTTS",       v:`${bttsComb}%`,           sub:"les 2 marquent", col:bttsComb>55?"#16a34a":"#d97706" },
+          { icon:"📈", l:"Over 2.5",   v:`${over25Comb}%`,         sub:"3+ buts", col:over25Comb>55?"#16a34a":"#d97706" },
+          { icon:"🛡", l:"Clean sheets",v:`${Math.round((csH+csA)/2)}%`, sub:"cage inviolée", col:Math.round((csH+csA)/2)>40?"#3b82f6":C.muted },
+        ].map(s => (
+          <div key={s.l} style={{ background:C.panel2, borderRadius:7, padding:"7px 5px", textAlign:"center" }}>
+            <div style={{ fontSize:9, color:C.muted, marginBottom:2 }}>{s.icon} {s.l}</div>
+            <div style={{ fontSize:15, fontWeight:900, color:s.col }}>{s.v}</div>
+            <div style={{ fontSize:8, color:C.muted }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Barres comparatives */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:10 }}>
+        <StatBar left={`Dom. ${bttsH}%`} right={`Ext. ${bttsA}%`} lVal={bttsH} rVal={bttsA} lColor={C.accent} rColor={C.blue} />
+        <StatBar left={`Dom. ${over25H}%`} right={`Ext. ${over25A}%`} lVal={over25H} rVal={over25A} lColor={C.accent} rColor={C.blue} />
+      </div>
+      <div style={{ display:"flex", justifyContent:"space-between", fontSize:8, color:C.muted, marginBottom:8 }}>
+        <span>BTTS comparatif</span><span style={{ color:C.muted }}>Over 2.5 comparatif</span>
+      </div>
+
+      {/* Insights textuels */}
+      <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+        {insights.slice(0, 5).map((ins, i) => (
+          <div key={i} style={{
+            display:"flex", alignItems:"flex-start", gap:8, padding:"7px 9px",
+            background:`${ins.color}0d`, border:`1px solid ${ins.color}22`,
+            borderRadius:8,
+          }}>
+            <span style={{ fontSize:13, flexShrink:0 }}>{ins.icon}</span>
+            <div style={{ flex:1 }}>
+              <span style={{ fontSize:8, fontWeight:800, color:ins.color, textTransform:"uppercase", letterSpacing:.8, marginRight:6 }}>{ins.tag}</span>
+              <span style={{ fontSize:11, color:C.text, lineHeight:1.5 }}>{ins.text}</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
