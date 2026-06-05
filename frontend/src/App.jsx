@@ -9390,10 +9390,10 @@ function BetCalculator() {
 
       {open && (
         <div style={{
-          position:"fixed", bottom:80, left:24, zIndex:199,
-          width:320, background:"#182030", border:"1px solid #243548",
+          position:"fixed", bottom:80, left:16, zIndex:199,
+          width:400, maxHeight:"80vh", background:"#182030", border:"1px solid #243548",
           borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,.5)",
-          overflow:"hidden",
+          overflow:"hidden", display:"flex", flexDirection:"column",
         }} onClick={e => e.stopPropagation()}>
 
           {/* Header */}
@@ -9419,7 +9419,7 @@ function BetCalculator() {
             ))}
           </div>
 
-          <div style={{ padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:10, overflowY:"auto", flex:1, scrollbarWidth:"thin", scrollbarColor:"#243548 transparent" }}>
 
             {/* ── MODE SIMPLES ─────────────────────────────── */}
             {mode === "simple" && (
@@ -9489,20 +9489,57 @@ function BetCalculator() {
                   </div>
                 </div>
                 {mainMise > 0 && (
-                  <div style={{ background: profitCombine>=0?"rgba(22,163,74,.12)":"rgba(255,68,68,.12)", border:`1px solid ${profitCombine>=0?"#16a34a":"#FF4444"}44`, borderRadius:8, padding:"10px 14px" }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div>
-                        <div style={{ fontSize:10, color:"#8AABBD" }}>Retour potentiel</div>
-                        <div style={{ fontSize:20, fontWeight:900, color: profitCombine>=0?"#16a34a":"#FF4444" }}>{gainCombine.toFixed(2)}€</div>
-                      </div>
-                      <div style={{ textAlign:"right" }}>
-                        <div style={{ fontSize:10, color:"#8AABBD" }}>Profit net</div>
-                        <div style={{ fontSize:16, fontWeight:700, color: profitCombine>=0?"#16a34a":"#FF4444" }}>
-                          {profitCombine>=0?"+":""}{profitCombine.toFixed(2)}€
+                  <>
+                    <div style={{ background: profitCombine>=0?"rgba(22,163,74,.12)":"rgba(255,68,68,.12)", border:`1px solid ${profitCombine>=0?"#16a34a":"#FF4444"}44`, borderRadius:8, padding:"10px 14px" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <div>
+                          <div style={{ fontSize:10, color:"#8AABBD" }}>Retour potentiel</div>
+                          <div style={{ fontSize:20, fontWeight:900, color: profitCombine>=0?"#16a34a":"#FF4444" }}>{gainCombine.toFixed(2)}€</div>
+                        </div>
+                        <div style={{ textAlign:"right" }}>
+                          <div style={{ fontSize:10, color:"#8AABBD" }}>Profit net</div>
+                          <div style={{ fontSize:16, fontWeight:700, color: profitCombine>=0?"#16a34a":"#FF4444" }}>
+                            {profitCombine>=0?"+":""}{profitCombine.toFixed(2)}€
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                    {/* Probabilité réelle du combiné */}
+                    {(() => {
+                      const MARGIN = 1.06; // marge bookmaker ~6%
+                      const validBets = bets.filter(b => b.cote && parseFloat(b.cote) > 1);
+                      if (validBets.length < 2) return null;
+                      // Probabilité ajustée de chaque sélection = 1 / (cote × MARGIN)
+                      const probs = validBets.map(b => Math.min(0.95, 1 / (parseFloat(b.cote) * MARGIN)));
+                      const realProb = probs.reduce((p, c) => p * c, 1) * 100;
+                      const naiveProb = (1 / totalCote) * 100;
+                      const expectedValue = (realProb/100 * (totalCote-1)) - (1 - realProb/100);
+                      const evPositive = expectedValue > 0;
+                      return (
+                        <div style={{ background:"#0E1A28", border:"1px solid #243548", borderRadius:8, padding:"10px 12px" }}>
+                          <div style={{ fontSize:9, color:"#4A6A7A", textTransform:"uppercase", letterSpacing:.8, marginBottom:7 }}>⚡ Probabilité réelle du combiné</div>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:6 }}>
+                            <div style={{ textAlign:"center" }}>
+                              <div style={{ fontSize:16, fontWeight:800, color:realProb>15?"#16a34a":realProb>8?"#d97706":"#DC2626" }}>{realProb.toFixed(1)}%</div>
+                              <div style={{ fontSize:8, color:"#4A6A7A" }}>Proba réelle</div>
+                            </div>
+                            <div style={{ textAlign:"center" }}>
+                              <div style={{ fontSize:16, fontWeight:800, color:"#8AABBD" }}>{naiveProb.toFixed(1)}%</div>
+                              <div style={{ fontSize:8, color:"#4A6A7A" }}>Proba naïve</div>
+                            </div>
+                            <div style={{ textAlign:"center" }}>
+                              <div style={{ fontSize:16, fontWeight:800, color:evPositive?"#16a34a":"#DC2626" }}>{evPositive?"+":""}{(expectedValue*100).toFixed(1)}%</div>
+                              <div style={{ fontSize:8, color:"#4A6A7A" }}>EV / mise</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize:10, color:"#8AABBD", lineHeight:1.5 }}>
+                            {validBets.length} sélections · marge bkm {((MARGIN-1)*100).toFixed(0)}% · Sur 100 mises : environ <strong style={{color:realProb>15?"#16a34a":"#d97706"}}>{realProb.toFixed(1)} gagnantes</strong>
+                          </div>
+                          {realProb < 10 && <div style={{ fontSize:9, color:"#DC2626", marginTop:4 }}>⚠️ Combiné risqué — moins de 1 chance sur {Math.round(100/realProb)}</div>}
+                        </div>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
             )}
@@ -9675,6 +9712,169 @@ function BetCalculator() {
         </div>
       )}
     </>
+  );
+}
+
+// Wrapper qui charge les odds pour SmartPronostics
+function SmartPronosticsWrapper({ m, fixtureId }) {
+  const [odds, setOdds] = useState(null);
+  useEffect(() => {
+    if (!fixtureId || !m?.home) return;
+    fetchOdds(fixtureId, {
+      homeAtt: m.home?.avgGoalsScored||1.3,
+      homeDef: m.home?.avgGoalsConceded||1.2,
+      awayAtt: m.away?.avgGoalsScored||1.0,
+      awayDef: m.away?.avgGoalsConceded||1.3,
+    }).then(setOdds).catch(()=>{});
+  }, [fixtureId]);
+  return <SmartPronostics m={m} odds={odds} />;
+}
+
+// ============================================================
+// Smart Pronostics — détection automatique des paris à valeur
+// ============================================================
+function SmartPronostics({ m, odds }) {
+  if (!m?.home || !m?.away) return null;
+
+  const h = m.home, a = m.away;
+  const bttsComb    = Math.round(((h.btts||0) + (a.btts||0)) / 2);
+  const over25Comb  = Math.round(((h.over25||0) + (a.over25||0)) / 2);
+  const under25Comb = 100 - over25Comb;
+  const csH = h.cleanSheet || 0, csA = a.cleanSheet || 0;
+  const homeWinDom  = h.homeRecord ? Math.round(h.homeRecord.w / Math.max(h.homeRecord.w+h.homeRecord.d+h.homeRecord.l,1)*100) : 0;
+  const awayLossExt = a.awayRecord ? Math.round(a.awayRecord.l / Math.max(a.awayRecord.w+a.awayRecord.d+a.awayRecord.l,1)*100) : 0;
+  const avgGoals    = (h.avgGoalsScored||0) + (a.avgGoalsScored||0);
+  const hForm       = (h.form||[]).slice(-5);
+  const aForm       = (a.form||[]).slice(-5);
+  const hFormPts    = hForm.reduce((s,r)=>s+(r==="W"?3:r==="D"?1:0),0);
+  const aFormPts    = aForm.reduce((s,r)=>s+(r==="W"?3:r==="D"?1:0),0);
+
+  // Cotes disponibles (Poisson ou réelles)
+  const oddsHome = parseFloat(odds?.win?.home || 0);
+  const oddsDraw = parseFloat(odds?.win?.draw || 0);
+  const oddsAway = parseFloat(odds?.win?.away || 0);
+  const oddsOver = parseFloat(odds?.ou25?.over || 0);
+  const oddsUnder= parseFloat(odds?.ou25?.under || 0);
+  const oddsBTTS = parseFloat(odds?.btts?.yes || 0);
+  const oddsNBTTS= parseFloat(odds?.btts?.no || 0);
+
+  const pronos = [];
+
+  // ── BTTS OUI ──────────────────────────────────────────────
+  if (bttsComb >= 65 && oddsBTTS >= 1.45) {
+    pronos.push({
+      id:"btts_oui", emoji:"⚽🔥", title:"Les deux équipes marquent",
+      market:"BTTS Oui", cote: oddsBTTS || "~1.75",
+      confidence: bttsComb,
+      reason: `Moyenne BTTS ${bttsComb}% (${h.name?.split(" ").slice(-1)[0]} ${h.btts||0}% · ${a.name?.split(" ").slice(-1)[0]} ${a.btts||0}%)`,
+      color:"#16a34a", hotness: bttsComb > 75 ? "🔥🔥🔥" : "🔥🔥",
+    });
+  }
+
+  // ── BTTS NON ──────────────────────────────────────────────
+  if (csH >= 40 && csA >= 35 && oddsNBTTS >= 1.70) {
+    pronos.push({
+      id:"btts_non", emoji:"🛡❄️", title:"Une équipe ne marque pas",
+      market:"BTTS Non", cote: oddsNBTTS || "~1.90",
+      confidence: Math.round((csH+csA)/2),
+      reason: `Clean sheets ${h.name?.split(" ").slice(-1)[0]} ${csH}% · ${a.name?.split(" ").slice(-1)[0]} ${csA}%`,
+      color:"#3b82f6", hotness: "🔥",
+    });
+  }
+
+  // ── OVER 2.5 ──────────────────────────────────────────────
+  if (over25Comb >= 65 && oddsOver >= 1.55) {
+    pronos.push({
+      id:"over25", emoji:"📈💥", title:"Plus de 2.5 buts",
+      market:"Over 2.5", cote: oddsOver || "~1.75",
+      confidence: over25Comb,
+      reason: `Over 2.5 dans ${over25Comb}% des matchs — Moy. ${avgGoals.toFixed(1)} buts combinés`,
+      color:"#d97706", hotness: over25Comb > 75 ? "🔥🔥🔥" : "🔥🔥",
+    });
+  }
+
+  // ── UNDER 2.5 ─────────────────────────────────────────────
+  if (under25Comb >= 60 && oddsUnder >= 1.65) {
+    pronos.push({
+      id:"under25", emoji:"📉🔒", title:"Moins de 2.5 buts",
+      market:"Under 2.5", cote: oddsUnder || "~1.90",
+      confidence: under25Comb,
+      reason: `Match fermé : seulement ${over25Comb}% de matchs à 3+ buts — CS moy. ${Math.round((csH+csA)/2)}%`,
+      color:"#7C3AED", hotness: "🔥",
+    });
+  }
+
+  // ── VICTOIRE DOMICILE ─────────────────────────────────────
+  if (homeWinDom >= 70 && awayLossExt >= 45 && oddsHome >= 1.55) {
+    pronos.push({
+      id:"home_win", emoji:"🏠💪", title:`Victoire ${h.name?.split(" ").slice(-1)[0]}`,
+      market:"1 (Victoire domicile)", cote: oddsHome || "~1.75",
+      confidence: Math.round((homeWinDom + awayLossExt) / 2),
+      reason: `${h.name?.split(" ").slice(-1)[0]} gagne ${homeWinDom}% à dom. · ${a.name?.split(" ").slice(-1)[0]} perd ${awayLossExt}% à l'ext.`,
+      color:"#00D4AA", hotness: homeWinDom > 80 ? "🔥🔥🔥" : "🔥🔥",
+    });
+  }
+
+  // ── FORTE FORME DOM. ──────────────────────────────────────
+  if (hFormPts >= 12 && aFormPts <= 5 && oddsHome >= 1.50) {
+    const alreadyHW = pronos.find(p=>p.id==="home_win");
+    if (!alreadyHW) pronos.push({
+      id:"home_form", emoji:"📊🔥", title:`${h.name?.split(" ").slice(-1)[0]} en grande forme`,
+      market:"1 (Victoire domicile)", cote: oddsHome || "~1.80",
+      confidence: hFormPts > 0 ? Math.round(hFormPts/15*100) : 0,
+      reason: `Forme ${h.name?.split(" ").slice(-1)[0]}: ${hForm.join("")} (${hFormPts}/15 pts) · ${a.name?.split(" ").slice(-1)[0]}: ${aForm.join("")} (${aFormPts}/15 pts)`,
+      color:"#00D4AA", hotness: "🔥🔥",
+    });
+  }
+
+  // ── VICTOIRE EXTÉRIEUR (outsider) ─────────────────────────
+  if (aFormPts >= 12 && hFormPts <= 5 && oddsAway >= 2.20) {
+    pronos.push({
+      id:"away_win", emoji:"✈️⚡", title:`Coup du outsider — ${a.name?.split(" ").slice(-1)[0]}`,
+      market:"2 (Victoire extérieur)", cote: oddsAway || "~2.50",
+      confidence: Math.round(aFormPts/15*100),
+      reason: `${a.name?.split(" ").slice(-1)[0]} en grande forme (${aFormPts}/15 pts) contre ${h.name?.split(" ").slice(-1)[0]} en difficulté (${hFormPts}/15 pts)`,
+      color:"#f59e0b", hotness: "🔥",
+    });
+  }
+
+  if (pronos.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom:12 }}>
+      <div style={{ fontSize:10, fontWeight:700, color:"#00D4AA", textTransform:"uppercase", letterSpacing:1, marginBottom:8, display:"flex", alignItems:"center", gap:6 }}>
+        <span>🎯</span> Pronostics à valeur détectés
+        <span style={{ fontSize:8, background:"rgba(0,212,170,.15)", color:"#00D4AA", borderRadius:10, padding:"1px 7px", marginLeft:4 }}>{pronos.length} signal{pronos.length>1?"s":""}</span>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {pronos.map(p => (
+          <div key={p.id} style={{
+            background:`${p.color}0e`, border:`1px solid ${p.color}55`,
+            borderRadius:10, padding:"10px 14px",
+            borderLeft:`4px solid ${p.color}`,
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+              <span style={{ fontSize:18 }}>{p.emoji}</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:p.color }}>{p.title}</div>
+                <div style={{ fontSize:10, color:"#5A7A8A" }}>{p.market}</div>
+              </div>
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontSize:20, fontWeight:900, color:p.color }}>{p.cote}</div>
+                <div style={{ fontSize:9, color:"#5A7A8A" }}>cote</div>
+              </div>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div style={{ fontSize:11, color:"#8AABBD", lineHeight:1.4, flex:1 }}>{p.reason}</div>
+              <div style={{ marginLeft:8, flexShrink:0 }}>
+                <span style={{ fontSize:11 }}>{p.hotness}</span>
+                <div style={{ fontSize:8, color:"#5A7A8A", textAlign:"center" }}>{p.confidence}%</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -10541,6 +10741,7 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
               </div>
             );
           })()}
+          <SmartPronosticsWrapper m={m} fixtureId={selectedId ?? defaultId} />
           <QuickBettorPanel m={m} />
           <div style={{ marginTop:20 }}>
             <TabBar tab={tab} setTab={setTab} />

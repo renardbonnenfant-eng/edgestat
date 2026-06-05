@@ -117,9 +117,13 @@ export async function chat(question, matchCtx, history = [], teamDatabase = {}, 
 DONNÉES DU MATCH ACTUEL :
 ${contextStr}`;
 
+  // Si l'utilisateur mentionne des équipes non présentes dans le contexte,
+  // l'IA doit utiliser ses propres connaissances sans dire "pas de données"
+  const extraInstruction = !structuredOutput ? `\nIMPORTANT: Si l'utilisateur pose une question sur une équipe ou un match qui n'est PAS dans le contexte ci-dessus, utilise tes propres connaissances du football pour répondre. Ne dis JAMAIS "il n'y a pas de données" — utilise toujours ta base de connaissance football. Réponds toujours en français.` : "";
+
   const messages = [
-    { role: "system", content: systemPrompt },
-    ...(!structuredOutput ? [{ role: "assistant", content: "Compris. Je suis prêt à analyser le match et répondre à tes questions football. Pose-moi ta question !" }] : []),
+    { role: "system", content: systemPrompt + extraInstruction },
+    ...(!structuredOutput ? [{ role: "assistant", content: "Bonjour ! Je suis l'assistant FoxLab, expert football et analyse de paris. Pose-moi n'importe quelle question sur le foot, les stats, les équipes ou les paris !" }] : []),
     ...history.slice(-6),
     { role: "user", content: question },
   ];
