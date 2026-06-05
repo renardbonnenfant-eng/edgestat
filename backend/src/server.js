@@ -670,26 +670,38 @@ app.get("/api/tennis/:tournamentId", async (req, res) => {
 // Prochains matchs des ligues suivies (TTL 1h)
 // Stratégie : collecte depuis caches existants (payload + caches de fixtures par ligue)
 app.get("/api/next", async (req, res) => {
-  const cacheKey = "next:tracked:v2";
+  const cacheKey = "next:tracked:v3";
   try {
-    const cached = await readCache(cacheKey, 60 * 60 * 1000);
+    const cached = await readCache(cacheKey, 2 * 60 * 60 * 1000); // cache 2h
     if (cached?.fresh) return res.json(cached.value);
 
-    const fixtures = [];
+    const fixtureMap = new Map(); // dédupliquation par id
+    const FINISHED_SET = new Set(["FT","AET","PEN","AWD","WO","CANC","PST"]);
+    const now = Date.now();
 
-    // 1. Matchs à venir depuis le payload football (ligues eager)
+    const addFixture = (f) => {
+      if (!f.id || fixtureMap.has(f.id)) return;
+      // Accepter TOUS les matchs non terminés, passés ou à venir
+      fixtureMap.set(f.id, f);
+    };
+
+    // ── 1. Ligues eager (Top 5 + UCL + etc.) ─────────────────
     const payloadCached = await readCache("payload:football:v2", 12 * 60 * 60 * 1000);
     const eagerLeagues  = payloadCached?.value?.leagues || {};
     Object.entries(eagerLeagues).forEach(([compId, compData]) => {
       (compData.recentFixtures || [])
-        .filter(f => f.status === "upcoming" || f.score == null)
-        .forEach(f => fixtures.push({
+        .filter(f => {
+          const s = f.status;
+          return !FINISHED_SET.has(s) && s !== "FT";
+        })
+        .forEach(f => addFixture({
           id:         f.id,
           date:       f.date,
           round:      f.round || "",
           league:     compData.league || "",
           leagueLogo: compData.leagueLogo || "",
-          country:    "",
+          leagueId:   compData.apiId,
+          country:    compData.country || "",
           compId,
           home: f.home,
           away: f.away,
@@ -697,66 +709,110 @@ app.get("/api/next", async (req, res) => {
         }));
     });
 
-    // 2. WC 2026 — depuis le cache de fixtures directement
-    const WC_LEAGUES = [
-      { apiId:1,  season:2026, compId:"wc",    name:"FIFA World Cup",      country:"World" },
-      { apiId:4,  season:2024, compId:"euro",   name:"UEFA Euro",           country:"Europe" },
-      { apiId:22, season:2025, compId:"cdc",    name:"CdM des clubs",       country:"World" },
-      { apiId:11, season:2025, compId:"lib",    name:"Copa Libertadores",   country:"CONMEBOL" },
-      { apiId:3,  season:2025, compId:"uel",    name:"UEFA Europa League",  country:"Europe" },
+    // ── 2. Toutes les compétitions majeures — toute la saison ─
+    const MAJOR_LEAGUES = [
+      { apiId:1,   season:2026, compId:"wc",    name:"FIFA World Cup 2026",    country:"World",   logo:"https://media.api-sports.io/football/leagues/1.png" },
+      { apiId:2,   season:2025, compId:"ucl",   name:"Ligue des Champions",    country:"Europe",  logo:"https://media.api-sports.io/football/leagues/2.png" },
+      { apiId:3,   season:2025, compId:"uel",   name:"Europa League",          country:"Europe",  logo:"https://media.api-sports.io/football/leagues/3.png" },
+      { apiId:848, season:2025, compId:"uecl",  name:"Conference League",      country:"Europe",  logo:"https://media.api-sports.io/football/leagues/848.png" },
+      { apiId:4,   season:2024, compId:"euro",  name:"UEFA Euro 2024",         country:"Europe",  logo:"https://media.api-sports.io/football/leagues/4.png" },
+      { apiId:9,   season:2024, compId:"copa",  name:"Copa América 2024",      country:"America", logo:"https://media.api-sports.io/football/leagues/9.png" },
+      { apiId:5,   season:2025, compId:"nl",    name:"Nations League",         country:"Europe",  logo:"https://media.api-sports.io/football/leagues/5.png" },
+      { apiId:6,   season:2025, compId:"can",   name:"CAN 2025",               country:"Africa",  logo:"https://media.api-sports.io/football/leagues/6.png" },
+      { apiId:11,  season:2025, compId:"lib",   name:"Copa Libertadores",      country:"CONMEBOL",logo:"https://media.api-sports.io/football/leagues/11.png" },
+      { apiId:22,  season:2025, compId:"cdc",   name:"Coupe du Monde des clubs",country:"World",  logo:"https://media.api-sports.io/football/leagues/22.png" },
+      // Top 5 ligues — toute la saison
+      { apiId:39,  season:2025, compId:"en",    name:"Premier League",         country:"England", logo:"https://media.api-sports.io/football/leagues/39.png" },
+      { apiId:61,  season:2025, compId:"fr",    name:"Ligue 1",                country:"France",  logo:"https://media.api-sports.io/football/leagues/61.png" },
+      { apiId:78,  season:2025, compId:"de",    name:"Bundesliga",             country:"Germany", logo:"https://media.api-sports.io/football/leagues/78.png" },
+      { apiId:135, season:2025, compId:"it",    name:"Serie A",                country:"Italy",   logo:"https://media.api-sports.io/football/leagues/135.png" },
+      { apiId:140, season:2025, compId:"es",    name:"La Liga",                country:"Spain",   logo:"https://media.api-sports.io/football/leagues/140.png" },
+      { apiId:94,  season:2025, compId:"pt",    name:"Liga Portugal",          country:"Portugal",logo:"https://media.api-sports.io/football/leagues/94.png" },
+      // Matchs internationaux
+      { apiId:10,  season:2026, compId:"intfriendly", name:"Amicaux internationaux", country:"World", logo:"https://media.api-sports.io/football/leagues/10.png" },
     ];
-    const FINISHED_SET = new Set(["FT","AET","PEN","AWD","WO"]);
 
-    for (const lc of WC_LEAGUES) {
-      const key = `fixtures?league=${lc.apiId}&season=${lc.season}`;
-      const lcCached = await readCache(key, TTL.nextFixture);
-      if (!lcCached?.value) continue;
-      lcCached.value
-        .filter(f => !FINISHED_SET.has(f.fixture?.status?.short) && f.fixture?.status?.short !== "CANC")
-        .forEach(f => {
-          // évite les doublons
-          if (fixtures.find(x => x.id === f.fixture.id)) return;
-          fixtures.push({
-            id:         f.fixture.id,
-            date:       f.fixture.date,
-            round:      f.league?.round || "",
+    // Charger chaque compétition depuis son cache (sans appel API si déjà en cache)
+    for (const lc of MAJOR_LEAGUES) {
+      // Essayer plusieurs clés de cache possibles
+      const cacheKeys = [
+        `fixtures?league=${lc.apiId}&season=${lc.season}`,
+        `payload:competition:v2:${lc.compId}`,
+      ];
+      let found = false;
+      for (const k of cacheKeys) {
+        const lcc = await readCache(k, 6 * 60 * 60 * 1000);
+        if (!lcc?.value) continue;
+        const fxArray = Array.isArray(lcc.value) ? lcc.value : (lcc.value?.recentFixtures || []);
+        fxArray.forEach(f => {
+          const fxId = f.fixture?.id || f.id;
+          const fxDate = f.fixture?.date || f.date;
+          const status = f.fixture?.status?.short || f.status || "";
+          if (!fxId || FINISHED_SET.has(status)) return;
+          addFixture({
+            id:         fxId,
+            date:       fxDate,
+            round:      f.league?.round || f.round || "",
             league:     lc.name,
-            leagueLogo: f.league?.logo || "",
+            leagueLogo: lc.logo,
+            leagueId:   lc.apiId,
             country:    lc.country,
             compId:     lc.compId,
-            home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo || "" },
-            away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo || "" },
+            home: f.home || { id: f.teams?.home?.id, name: f.teams?.home?.name, logo: f.teams?.home?.logo || "" },
+            away: f.away || { id: f.teams?.away?.id, name: f.teams?.away?.name, logo: f.teams?.away?.logo || "" },
             status: "upcoming",
           });
         });
+        found = true;
+        break;
+      }
+
+      // Si pas en cache, faire un appel API pour les plus importantes (WC, UCL)
+      if (!found && [1, 2, 3, 39, 61, 78, 135, 140].includes(lc.apiId)) {
+        try {
+          const liveData = await apiGet("fixtures", { league: lc.apiId, season: lc.season, status: "NS" }, 4 * 60 * 60 * 1000);
+          (liveData || []).slice(0, 200).forEach(f => {
+            addFixture({
+              id:         f.fixture.id,
+              date:       f.fixture.date,
+              round:      f.league?.round || "",
+              league:     lc.name,
+              leagueLogo: lc.logo,
+              leagueId:   lc.apiId,
+              country:    lc.country,
+              compId:     lc.compId,
+              home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo || "" },
+              away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo || "" },
+              status: "upcoming",
+            });
+          });
+        } catch { /* non-bloquant */ }
+      }
     }
 
-    // 3. Matchs globaux dans les 4 prochaines heures (toutes compétitions)
-    const now = Date.now();
-    const in4h = now + 4 * 60 * 60 * 1000;
+    // ── 3. Prochains 100 matchs globaux (toutes compétitions) ─
     try {
-      const soonData = await apiGet("fixtures", { next: 50 }, 15 * 60 * 1000);
-      (soonData || []).forEach(f => {
-        const d = new Date(f.fixture.date).getTime();
-        if (d > now && d <= in4h && !fixtures.find(x => x.id === f.fixture.id)) {
-          fixtures.push({
-            id:         f.fixture.id,
-            date:       f.fixture.date,
-            round:      f.league?.round || "",
-            league:     f.league?.name  || "",
-            leagueLogo: f.league?.logo  || "",
-            country:    f.league?.country || "",
-            compId:     API_ID_TO_COMP[f.league?.id] || null,
-            home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo || "" },
-            away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo || "" },
-            status: "upcoming",
-            soonGlobal: true,
-          });
-        }
+      const globalNext = await apiGet("fixtures", { next: 100 }, 30 * 60 * 1000);
+      (globalNext || []).forEach(f => {
+        addFixture({
+          id:         f.fixture.id,
+          date:       f.fixture.date,
+          round:      f.league?.round || "",
+          league:     f.league?.name  || "",
+          leagueLogo: f.league?.logo  || "",
+          leagueId:   f.league?.id,
+          country:    f.league?.country || "",
+          compId:     API_ID_TO_COMP[f.league?.id] || null,
+          home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo || "" },
+          away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo || "" },
+          status: "upcoming",
+        });
       });
     } catch { /* non-bloquant */ }
 
-    fixtures.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const fixtures = [...fixtureMap.values()]
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
     await writeCache(cacheKey, fixtures);
     res.json(fixtures);
   } catch (err) {
@@ -1595,7 +1651,7 @@ app.get("/api/live", async (req, res) => {
   try {
     const cached = await readCache(cacheKey, 2 * 60 * 1000);
     if (cached?.fresh) return res.json(cached.value);
-    const data = await apiGet("fixtures", { live: "all" }, 2 * 60 * 1000);
+    const data = await apiGet("fixtures", { live: "all" }, 60 * 1000); // cache 1 min pour scores en direct
     const matches = (data || []).map(f => ({
       id:          f.fixture.id,
       league:      f.league?.name || "",

@@ -539,7 +539,7 @@ function SidebarLive({ onMatchClick }) {
       }).catch(() => { if (mounted) setLoading(false); });
     };
     fetch_();
-    const t = setInterval(fetch_, 60000);
+    const t = setInterval(fetch_, 20000); // rafraîchir toutes les 20s pour les scores en direct
     return () => { mounted = false; clearInterval(t); };
   }, []);
 
@@ -7897,12 +7897,20 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
   const [showAllLive,   setShowAllLive]  = useState(false); // dropdown "X autres matchs live"
 
   useEffect(() => {
-    fetchNext(60)
+    // Charger tous les matchs programmés (pas de limite de date)
+    fetchNext(200)
       .then(d => { setNextFixtures(d || []); setNextLoading(false); })
       .catch(e => { setNextError(e.message); setNextLoading(false); });
-    fetchLive()
-      .then(d => { setLiveMatches(d || []); setLiveLoading(false); })
-      .catch(() => setLiveLoading(false));
+
+    // Live : premier chargement puis rafraîchissement toutes les 20s
+    const refreshLive = () => {
+      fetchLive()
+        .then(d => { setLiveMatches(d || []); setLiveLoading(false); })
+        .catch(() => setLiveLoading(false));
+    };
+    refreshLive();
+    const liveTimer = setInterval(refreshLive, 20000);
+    return () => clearInterval(liveTimer);
   }, []);
 
   // Grosses affiches = deux anciens vainqueurs s'affrontent dans une compétition qu'ils ont tous les deux gagnée

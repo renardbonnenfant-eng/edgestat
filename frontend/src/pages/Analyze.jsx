@@ -210,7 +210,7 @@ export default function FoxLabAnalyzer({ userAccount, onNavigatePremium }) {
 
   // Charger les matchs à venir au montage
   useEffect(() => {
-    api.fetchNext(80).then(fx => {
+    api.fetchNext(300).then(fx => {
       setUpcomingMatches(fx.filter(f => f.compId && f.home?.name && f.away?.name));
     }).catch(()=>{});
   }, []);
