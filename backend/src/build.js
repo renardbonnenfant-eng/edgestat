@@ -301,12 +301,34 @@ async function buildLeagueFromFixture(league, fx, sN) {
     euroOnly ? Promise.resolve([]) : apiGet("players/topscorers", { league: league.apiId, season: sN1 }, TTL.topScorers),
     apiGet("teams/statistics",     { league: league.apiId, season: sN, team: home.id },        TTL.teamStats),
     apiGet("teams/statistics",     { league: league.apiId, season: sN, team: away.id },        TTL.teamStats),
-    apiGet("fixtures/headtohead",  { h2h: `${home.id}-${away.id}`, last: 5 },                  TTL.headToHead),
+    apiGet("fixtures/headtohead",  { h2h: `${home.id}-${away.id}`, last: 10 },                 TTL.headToHead),
     apiGet("standings",            { league: league.apiId, season: sN },                        TTL.teamStats).catch(() => null),
   ]);
 
-  const allHomeFx = [...homeFxN, ...homeFxN1];
-  const allAwayFx = [...awayFxN, ...awayFxN1];
+  // ── Enrichissement pour équipes nationales / compétitions euroOnly ──
+  // Si peu de données dans la compétition spécifique, charger l'historique global de l'équipe
+  let extraHomeFx = [], extraAwayFx = [];
+  if (euroOnly) {
+    const homeCount = homeFxN.filter(f => { const s = f.fixture?.status?.short; return ["FT","AET","PEN"].includes(s); }).length;
+    const awayCount = awayFxN.filter(f => { const s = f.fixture?.status?.short; return ["FT","AET","PEN"].includes(s); }).length;
+    const [extraH, extraH1, extraA, extraA1] = await Promise.all([
+      homeCount < 8 ? apiGet("fixtures", { team: home.id, season: sN, last: 30 }, TTL.teamFixtures) : Promise.resolve([]),
+      homeCount < 8 ? apiGet("fixtures", { team: home.id, season: sN1 }, TTL.teamFixtures) : Promise.resolve([]),
+      awayCount < 8 ? apiGet("fixtures", { team: away.id, season: sN, last: 30 }, TTL.teamFixtures) : Promise.resolve([]),
+      awayCount < 8 ? apiGet("fixtures", { team: away.id, season: sN1 }, TTL.teamFixtures) : Promise.resolve([]),
+    ]);
+    extraHomeFx = [...extraH, ...extraH1];
+    extraAwayFx = [...extraA, ...extraA1];
+  }
+
+  // Fusionner les fixtures (déduplication par id)
+  const mergeFx = (base, extra) => {
+    const seen = new Set(base.map(f => f.fixture?.id));
+    return [...base, ...extra.filter(f => !seen.has(f.fixture?.id))];
+  };
+
+  const allHomeFx = mergeFx([...homeFxN, ...homeFxN1], extraHomeFx);
+  const allAwayFx = mergeFx([...awayFxN, ...awayFxN1], extraAwayFx);
 
   // Top 5 du championnat (pour le filtre "vs Top 5")
   const top5Ids = new Set(
@@ -349,9 +371,12 @@ async function buildLeagueFromFixture(league, fx, sN) {
   };
   const awayBase = awayPeriods[365];
 
-  // Moins de 2 matchs dans la compétition = données insuffisantes
-  homeBase.noData = euroOnly && homeBase.sampleSize < 2;
-  awayBase.noData = euroOnly && awayBase.sampleSize < 2;
+  // noData seulement si vraiment aucun match trouvé même avec l'enrichissement global
+  homeBase.noData = homeBase.sampleSize < 1;
+  awayBase.noData = awayBase.sampleSize < 1;
+  // Marquer si les stats viennent de sources élargies
+  homeBase.extendedStats = extraHomeFx.length > 0;
+  awayBase.extendedStats = extraAwayFx.length > 0;
 
   const h2h = h2hRaw
     .filter((f) => FINISHED.has(f.fixture?.status?.short))
@@ -393,6 +418,7 @@ async function buildLeagueFromFixture(league, fx, sN) {
       failedToScore: homeBase.failedToScore,
       minuteGoals:   minuteGoalsFromStats(homeStats),
       noData:        homeBase.noData,
+      extendedStats: homeBase.extendedStats || false,
       periods:       homePeriods,
       prePeriods:    homePrePeriods,
     },
@@ -415,6 +441,7 @@ async function buildLeagueFromFixture(league, fx, sN) {
       failedToScore: awayBase.failedToScore,
       minuteGoals:   minuteGoalsFromStats(awayStats),
       noData:        awayBase.noData,
+      extendedStats: awayBase.extendedStats || false,
       periods:       awayPeriods,
       prePeriods:    awayPrePeriods,
     },

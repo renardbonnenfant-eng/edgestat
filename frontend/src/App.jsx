@@ -220,7 +220,7 @@ function mkTeam(side, raw = {}, period = 365) {
     : period === "top5" ? 365 : period;
   const pStats = (raw.periods && raw.periods[resolvedPeriod]) ? raw.periods[resolvedPeriod] : raw;
   const {
-    logo="", name="", short="", scorers=[], noData=false,
+    logo="", name="", short="", scorers=[], noData=false, extendedStats=false,
     pen={awarded:0,scored:0,played:0,conceded:null},
     minuteGoals={for:[],against:[]},
   } = raw;
@@ -242,7 +242,7 @@ function mkTeam(side, raw = {}, period = 365) {
       { label:"+0.5", pct:100-p0 }, { label:"+1.5", pct:p2+p3 },
       { label:"+2.5", pct:p3 },     { label:"+3.5", pct:p4 },
     ],
-    penalties: pen, margins, doubleChance, btts, cleanSheet, failedToScore, minuteGoals, noData,
+    penalties: pen, margins, doubleChance, btts, cleanSheet, failedToScore, minuteGoals, noData, extendedStats,
   };
   if (side === "home") t.homeRecord = rec; else t.awayRecord = rec;
   return t;
@@ -1076,6 +1076,9 @@ function MatchCard({ m }) {
           </div>
           <FormPills form={m.home.form} />
           {m.home.noData && <NoDataBanner name={m.home.name} />}
+          {m.home.extendedStats && !m.home.noData && (
+            <div style={{ fontSize:9, color:C.muted, marginTop:4, fontStyle:"italic" }}>📊 Stats toutes compétitions</div>
+          )}
         </div>
 
         {/* Score */}
@@ -1098,6 +1101,9 @@ function MatchCard({ m }) {
           </div>
           <div style={{ display:"flex", justifyContent:"flex-end" }}><FormPills form={m.away.form} /></div>
           {m.away.noData && <NoDataBanner name={m.away.name} />}
+          {m.away.extendedStats && !m.away.noData && (
+            <div style={{ fontSize:9, color:C.muted, marginTop:4, fontStyle:"italic", textAlign:"right" }}>📊 Stats toutes compétitions</div>
+          )}
         </div>
       </div>
     </div>
