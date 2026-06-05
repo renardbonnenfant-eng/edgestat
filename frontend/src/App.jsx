@@ -366,9 +366,16 @@ function InfoPanel({ children, tone="dim" }) {
 function NoDataBanner({ name }) {
   return (
     <div style={{
-      background:C.warnBg, border:`1px solid #FDE68A`,
-      borderRadius:6, padding:"5px 10px", fontSize:11, color:"#92400E", marginTop:6,
-    }}>⚠ {name} — données insuffisantes.</div>
+      background:"rgba(245,158,11,.08)", border:"1px solid rgba(245,158,11,.3)",
+      borderRadius:8, padding:"8px 12px", fontSize:11, color:"#d97706", marginTop:6,
+      display:"flex", alignItems:"center", gap:8,
+    }}>
+      <span>📊</span>
+      <div>
+        <div style={{ fontWeight:600 }}>{name} — statistiques limitées</div>
+        <div style={{ fontSize:9, opacity:.8, marginTop:1 }}>Les équipes nationales jouent peu de matchs. Les données disponibles sont affichées.</div>
+      </div>
+    </div>
   );
 }
 
@@ -2331,13 +2338,128 @@ function TennisRankingView({ type }) {
 }
 
 // ============================================================
+// Tennis Hub — bulles de tournois
+// ============================================================
+const TENNIS_SURFACES = {
+  clay:  { label:"Terre battue", color:"#c2692d", icon:"🧱", bg:"rgba(194,105,45,.12)" },
+  grass: { label:"Gazon",        color:"#16a34a", icon:"🟢", bg:"rgba(22,163,74,.12)" },
+  hard:  { label:"Dur",          color:"#3b82f6", icon:"🔵", bg:"rgba(59,130,246,.12)" },
+  indoor:{ label:"Indoor",       color:"#7C3AED", icon:"🟣", bg:"rgba(124,58,237,.12)" },
+};
+
+const TENNIS_TOURNAMENTS_DATA = [
+  // Grands Chelems
+  { id:"atp-ao",       name:"Australian Open",    surface:"hard",  flag:"🇦🇺", category:"Grand Chelem", month:"Jan" },
+  { id:"atp-rg",       name:"Roland Garros",       surface:"clay",  flag:"🇫🇷", category:"Grand Chelem", month:"Mai-Juin" },
+  { id:"atp-wimbledon",name:"Wimbledon",            surface:"grass", flag:"🏴", category:"Grand Chelem", month:"Juil" },
+  { id:"atp-uso",      name:"US Open",              surface:"hard",  flag:"🇺🇸", category:"Grand Chelem", month:"Août-Sep" },
+  // Tour ATP/WTA
+  { id:"atp",          name:"ATP Tour (classement)", surface:"hard",  flag:"🎾", category:"Circuit", month:"Annuel" },
+  { id:"wta",          name:"WTA Tour (classement)", surface:"hard",  flag:"🎾", category:"Circuit", month:"Annuel" },
+];
+
+function TennisHubView({ onSelectTournament, tennisId }) {
+  const grouped = TENNIS_TOURNAMENTS_DATA.reduce((acc, t) => {
+    if (!acc[t.category]) acc[t.category] = [];
+    acc[t.category].push(t);
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:24 }}>
+        <div style={{ width:44, height:44, borderRadius:12, background:"rgba(0,212,170,.12)", display:"grid", placeItems:"center", fontSize:24, border:"1px solid rgba(0,212,170,.2)" }}>🎾</div>
+        <div>
+          <div style={{ fontSize:20, fontWeight:900, color:C.text }}>Tennis</div>
+          <div style={{ fontSize:11, color:C.dim }}>Grands Chelems · Circuits ATP & WTA · Top 200 joueurs</div>
+        </div>
+      </div>
+
+      {/* Légende surfaces */}
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+        {Object.entries(TENNIS_SURFACES).map(([k,s]) => (
+          <div key={k} style={{ display:"flex", alignItems:"center", gap:5, background:s.bg, border:`1px solid ${s.color}44`, borderRadius:20, padding:"4px 10px" }}>
+            <span style={{ fontSize:12 }}>{s.icon}</span>
+            <span style={{ fontSize:10, fontWeight:600, color:s.color }}>{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {Object.entries(grouped).map(([cat, tourns]) => (
+        <div key={cat} style={{ marginBottom:24 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+            <span style={{ fontSize:11, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8 }}>{cat}</span>
+            <div style={{ flex:1, height:1, background:C.line }}/>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(130px, 1fr))", gap:10 }}>
+            {tourns.map(t => {
+              const surf = TENNIS_SURFACES[t.surface] || TENNIS_SURFACES.hard;
+              const isActive = tennisId === t.id;
+              return (
+                <button key={t.id} onClick={() => onSelectTournament(t.id)} style={{
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:8,
+                  background: isActive ? C.accentBg : C.panel,
+                  border:`1px solid ${isActive ? C.accent : C.line}`,
+                  borderRadius:14, padding:"16px 10px", cursor:"pointer",
+                  transition:"all .15s",
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.background=C.accentBg; e.currentTarget.style.transform="translateY(-2px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor=isActive?C.accent:C.line; e.currentTarget.style.background=isActive?C.accentBg:C.panel; e.currentTarget.style.transform=""; }}
+                >
+                  <div style={{ fontSize:32, lineHeight:1 }}>{t.flag}</div>
+                  <div style={{ fontSize:11, fontWeight:600, color:C.text, textAlign:"center", lineHeight:1.3 }}>{t.name}</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                    <span style={{ fontSize:11 }}>{surf.icon}</span>
+                    <span style={{ fontSize:9, color:surf.color, fontWeight:600 }}>{surf.label}</span>
+                  </div>
+                  <div style={{ fontSize:9, color:C.muted }}>{t.month}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Accès rapide classements */}
+      <div style={{ marginTop:8 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+          <span style={{ fontSize:11, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8 }}>Classements Mondiaux</span>
+          <div style={{ flex:1, height:1, background:C.line }}/>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          {[
+            { label:"Top 200 ATP", desc:"Classement masculin", icon:"🏆", tab:"atp" },
+            { label:"Top 200 WTA", desc:"Classement féminin",  icon:"👑", tab:"wta" },
+          ].map(r => (
+            <button key={r.tab} onClick={() => onSelectTournament(r.tab)} style={{
+              display:"flex", alignItems:"center", gap:12, background:C.panel, border:`1px solid ${C.line}`,
+              borderRadius:12, padding:"14px 16px", cursor:"pointer", textAlign:"left", transition:"all .15s",
+            }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background=C.accentBg;}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;e.currentTarget.style.background=C.panel;}}
+            >
+              <span style={{ fontSize:28 }}>{r.icon}</span>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{r.label}</div>
+                <div style={{ fontSize:10, color:C.dim }}>{r.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Vue Tennis principale
 // ============================================================
-function TennisView({ tennisId }) {
+function TennisView({ tennisId, onTennisSelect }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
-  const [tennisTab, setTennisTab] = useState("match"); // match | atp | wta
+  const [tennisTab, setTennisTab] = useState("hub"); // hub | match | atp | wta
   const tournaments = [
     { id:"atp",          name:"ATP Tour",         surface:"hard",  flag:"🎾" },
     { id:"wta",          name:"WTA Tour",         surface:"hard",  flag:"🎾" },
@@ -2358,17 +2480,18 @@ function TennisView({ tennisId }) {
 
   // Onglets tennis
   const TennisTabs = () => (
-    <div style={{ display:"flex", gap:6, padding:"10px 16px", borderBottom:`1px solid ${C.line}`, background:C.panel, flexShrink:0 }}>
+    <div style={{ display:"flex", gap:6, padding:"10px 16px", borderBottom:`1px solid ${C.line}`, background:C.panel, flexShrink:0, overflowX:"auto", scrollbarWidth:"none" }}>
       {[
-        { id:"match", label:"🎾 Match / Analyse" },
-        { id:"atp",   label:"🏆 ATP Top 200" },
-        { id:"wta",   label:"👑 WTA Top 200" },
+        { id:"hub",   label:"🏆 Tournois" },
+        { id:"match", label:"🎾 Analyse" },
+        { id:"atp",   label:"🏆 ATP 200" },
+        { id:"wta",   label:"👑 WTA 200" },
       ].map(t => (
         <button key={t.id} onClick={() => setTennisTab(t.id)} style={{
           padding:"7px 16px", borderRadius:20, border:`1px solid ${tennisTab===t.id?C.accent:C.line}`,
           background: tennisTab===t.id ? C.accentBg : "none",
           color: tennisTab===t.id ? C.accent : C.dim,
-          cursor:"pointer", fontSize:12, fontWeight: tennisTab===t.id?700:400,
+          cursor:"pointer", fontSize:12, fontWeight: tennisTab===t.id?700:400, whiteSpace:"nowrap", flexShrink:0,
         }}>{t.label}</button>
       ))}
     </div>
@@ -2377,6 +2500,16 @@ function TennisView({ tennisId }) {
   // Onglets classements
   if (tennisTab === "atp") return <div style={{ display:"flex", flexDirection:"column", height:"100%" }}><TennisTabs /><div style={{ flex:1, overflowY:"auto" }}><TennisRankingView type="atp" /></div></div>;
   if (tennisTab === "wta") return <div style={{ display:"flex", flexDirection:"column", height:"100%" }}><TennisTabs /><div style={{ flex:1, overflowY:"auto" }}><TennisRankingView type="wta" /></div></div>;
+
+  // Onglet hub tournois
+  if (tennisTab === "hub") return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
+      <TennisTabs />
+      <div style={{ flex:1, overflowY:"auto", padding:"20px 24px" }}>
+        <TennisHubView onSelectTournament={id => { setTennisTab("match"); onTennisSelect?.(id); }} tennisId={tennisId} />
+      </div>
+    </div>
+  );
 
   if (!tennisId) return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
@@ -7384,6 +7517,73 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
         );
       })()}
 
+      {/* ── TOP 3 PROCHAINS CHOCS POUR LES PARIEURS ── */}
+      {!nextLoading && nextFixtures.length > 0 && (() => {
+        const TOP_IDS = new Set([39,61,78,135,140,2,3,848,1,4,9]);
+        const now = Date.now();
+        // Prendre les 3 matchs les plus prestigieux dans les 3 prochains jours
+        const topMatches = nextFixtures
+          .filter(f => TOP_IDS.has(f.leagueId) && f.compId && new Date(f.date).getTime() - now < 3*24*60*60*1000)
+          .sort((a,b) => livePrestige(b) - livePrestige(a))
+          .slice(0, 3);
+        if (topMatches.length === 0) return null;
+        return (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+              <span style={{ fontSize:16 }}>⚡</span>
+              <span style={{ fontSize:13, fontWeight:700, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>Chocs à venir — Vue Parieur</span>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {topMatches.map(f => {
+                const homeLogo = logoRegistry[f.home?.id] || f.home?.logo || "";
+                const awayLogo = logoRegistry[f.away?.id] || f.away?.logo || "";
+                const matchDate = new Date(f.date);
+                const hoursUntil = Math.round((matchDate - now) / 3600000);
+                const dayLabel = hoursUntil < 24 ? `Dans ${hoursUntil}h` : `Dans ${Math.ceil(hoursUntil/24)}j`;
+                return (
+                  <div key={f.id} onClick={() => f.compId && onMatchClick?.(f)} style={{
+                    background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"12px 14px",
+                    cursor:f.compId?"pointer":"default", transition:"border-color .15s",
+                  }}
+                    onMouseEnter={e=>{if(f.compId)e.currentTarget.style.borderColor=C.accent;}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;}}
+                  >
+                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                      {/* Équipes */}
+                      <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:8 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                          <TeamLogo url={homeLogo} size={22} name={f.home?.name||"?"} />
+                          <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{f.home?.name}</span>
+                        </div>
+                        <div style={{ textAlign:"center" }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:C.accent }}>{matchDate.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
+                          <div style={{ fontSize:8, color:C.muted }}>{dayLabel}</div>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:7, justifyContent:"flex-end" }}>
+                          <span style={{ fontSize:12, fontWeight:600, color:C.text, textAlign:"right" }}>{f.away?.name}</span>
+                          <TeamLogo url={awayLogo} size={22} name={f.away?.name||"?"} />
+                        </div>
+                      </div>
+                      {/* Meta */}
+                      <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3 }}>
+                        {f.leagueLogo && <img src={f.leagueLogo} width={16} height={16} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                        <span style={{ fontSize:9, color:C.muted, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"right" }}>{f.league}</span>
+                      </div>
+                    </div>
+                    {/* Indicateurs parieur */}
+                    <div style={{ display:"flex", gap:6, marginTop:8, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:9, background:"rgba(0,212,170,.1)", color:C.accent, borderRadius:4, padding:"2px 7px", fontWeight:600 }}>📊 Stats disponibles</span>
+                      {hoursUntil < 6 && <span style={{ fontSize:9, background:"rgba(255,68,68,.1)", color:"#FF4444", borderRadius:4, padding:"2px 7px", fontWeight:700, animation:"verdikt-blink 2s infinite" }}>🔥 BIENTÔT</span>}
+                      <span style={{ fontSize:9, background:C.panel2, color:C.dim, borderRadius:4, padding:"2px 7px" }}>💡 Clique pour analyse complète</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* === TOUS LES MATCHS À VENIR + FILTRES === */}
       {(() => {
         const [filterLeague, setFilterLeague] = React.useState("");
@@ -10210,7 +10410,7 @@ export default function App() {
                 ) : sport === "history" ? (
                   <HistoryView initialComp={historyInitComp} onConsumeInitComp={() => setHistoryInitComp(null)} />
                 ) : sport === "tennis" ? (
-                  <TennisView tennisId={tennisId} />
+                  <TennisView tennisId={tennisId} onTennisSelect={(id) => setTennisId(id)} />
                 ) : sport === "foot" && footHub ? (
                   <FootballHub
                     allData={allData}

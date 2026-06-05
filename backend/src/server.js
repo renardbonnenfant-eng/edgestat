@@ -905,7 +905,7 @@ app.get("/api/bracket/:leagueId", async (req, res) => {
     // Rounds dans l'ordre (Playoff → R32 → R16 → QF → SF → Final)
     const ROUND_ORDER = [
       "Playoff Round", "Round of 64", "Round of 32", "Round of 16",
-      "Quarter-finals", "Semi-finals", "3rd Place", "Final"
+      "Quarter-finals", "Semi-finals", "Final"
     ];
     const ROUND_LABELS = {
       "Playoff Round":  "BARRAGES",
@@ -914,7 +914,6 @@ app.get("/api/bracket/:leagueId", async (req, res) => {
       "Round of 16":    "8ÈMES DE FINALE",
       "Quarter-finals": "QUARTS DE FINALE",
       "Semi-finals":    "DEMI-FINALES",
-      "3rd Place":      "3ÈME PLACE",
       "Final":          "FINALE",
     };
 
