@@ -2217,14 +2217,23 @@ function TennisPlayerCard({ player, onClick }) {
           </div>
         )}
 
-        {/* Bio IA */}
-        {merged.bio ? (
-          <div style={{ background:`${C.accent}08`, border:`1px solid ${C.accent}22`, borderRadius:8, padding:"9px 11px", fontSize:11, color:C.dim, lineHeight:1.6, fontStyle:"italic" }}>
-            {merged.bio}
+        {/* Bio / Wikipedia */}
+        {(merged.bio || merged.wikiExtract) ? (
+          <div style={{ background:`${C.accent}08`, border:`1px solid ${C.accent}22`, borderRadius:8, padding:"9px 11px" }}>
+            {!merged.bio && merged.wikiExtract && (
+              <div style={{ fontSize:8, color:C.muted, marginBottom:3, display:"flex", gap:4, alignItems:"center" }}>
+                <span>📖</span><span>Source : Wikipedia</span>
+              </div>
+            )}
+            <div style={{ fontSize:11, color:C.dim, lineHeight:1.6, fontStyle:"italic" }}>
+              {merged.bio || merged.wikiExtract}
+            </div>
           </div>
         ) : loadingDetail ? (
-          <div style={{ fontSize:10, color:C.muted, textAlign:"center", padding:"4px" }}>⏳ Chargement biographie…</div>
-        ) : null}
+          <div style={{ fontSize:10, color:C.muted, textAlign:"center", padding:"4px" }}>⏳ Chargement infos…</div>
+        ) : (
+          <div style={{ fontSize:10, color:C.muted, padding:"4px", textAlign:"center" }}>Données en cours de chargement…</div>
+        )}
       </div>
     </div>
   );
@@ -2253,17 +2262,40 @@ function TennisRankingView({ type }) {
         setPlayers(enriched);
         setLoading(false);
         // Charger les détails progressivement pour les 50 premiers
-        enriched.slice(0, 50).forEach(p => {
-          if (!p.id) return;
-          fetch(`/api/tennis/player/${p.id}`)
-            .then(r => r.json())
-            .then(det => {
+        // Chargement progressif par lots — TOUS les joueurs, pas juste les 50 premiers
+        const loadBatch = async (batch) => {
+          for (const p of batch) {
+            if (!p.id) continue;
+            try {
+              const params = new URLSearchParams({ name: p.name||"", country: p.country||"", rank: String(p.rank||"") });
+              const det = await fetch(`/api/tennis/player/${p.id}?${params}`).then(r=>r.json());
               setPlayers(prev => prev.map(pl =>
-                pl.id === p.id ? { ...pl, photo: det.photo||"", height: det.height, weight: det.weight, plays: det.plays, turnedPro: det.turnedPro, prizeCurrent: det.prizeCurrent, prizeTotal: det.prizeTotal, bestRank: det.bestRank||null } : pl
+                pl.id === p.id ? {
+                  ...pl,
+                  photo: det.photo||pl.photo||"",
+                  height: det.height||pl.height,
+                  weight: det.weight||pl.weight,
+                  plays: det.plays||pl.plays,
+                  turnedPro: det.turnedPro||pl.turnedPro,
+                  prizeCurrent: det.prizeCurrent||pl.prizeCurrent,
+                  prizeTotal: det.prizeTotal||pl.prizeTotal,
+                  bestRank: det.bestRanking||det.bestRank||pl.bestRank,
+                  preferredSurface: det.preferredSurface||pl.preferredSurface,
+                  age: det.age||pl.age,
+                  birthPlace: det.birthPlace||pl.birthPlace,
+                  bio: det.bio||det.wikiExtract||"",
+                } : pl
               ));
-            })
-            .catch(() => {});
-        });
+            } catch {}
+            // Petite pause pour éviter de surcharger le backend
+            await new Promise(r => setTimeout(r, 150));
+          }
+        };
+        // Charger en 4 lots progressifs : top 50 en premier, puis les autres
+        loadBatch(enriched.slice(0, 30));    // Lot 1 : top 30 immédiatement
+        setTimeout(() => loadBatch(enriched.slice(30, 80)),  2000);  // Lot 2 : 31-80 après 2s
+        setTimeout(() => loadBatch(enriched.slice(80, 140)), 5000);  // Lot 3 : 81-140 après 5s
+        setTimeout(() => loadBatch(enriched.slice(140, 200)),9000);  // Lot 4 : 141-200 après 9s
       })
       .catch(e => { setError(e.message); setLoading(false); });
   }, [type]);

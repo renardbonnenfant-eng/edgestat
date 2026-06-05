@@ -367,86 +367,149 @@ app.get("/api/tennis/top200/:type", async (req, res) => {
 app.get("/api/tennis/player/:playerId", async (req, res) => {
   const { playerId } = req.params;
   const { name, country, rank } = req.query;
-  const cacheKey = `tennis:playerv2:${playerId}`;
+  const cacheKey = `tennis:playerv3:${playerId}`;
   try {
     const cached = await readCache(cacheKey, 48 * 60 * 60 * 1000);
     if (cached?.fresh && cached.value?.bio) return res.json(cached.value);
 
     const KEY  = (process.env.TENNIS_RAPIDAPI_KEY || "").trim();
     const HOST = (process.env.TENNIS_HOST || "tennisapi1.p.rapidapi.com").trim();
-    if (!KEY) return res.json({});
 
-    // 1. Détails joueur depuis API Tennis
     let detail = {};
-    try {
-      const url = `https://${HOST}/api/tennis/player/${playerId}`;
-      const r   = await fetch(url, { headers: { "x-rapidapi-key": KEY, "x-rapidapi-host": HOST }, signal: AbortSignal.timeout(8000) });
-      const data = await r.json();
-      const d = data?.team || {};
-      const ptInfo = d.playerTeamInfo || {};
-      const birthTs = ptInfo.birthDateTimestamp;
-      detail = {
-        photo:      d.playerPhoto || d.strCutout || d.strThumb || "",
-        height:     ptInfo.height || null,
-        weight:     ptInfo.weight || null,
-        age:        birthTs ? Math.floor((Date.now()/1000 - birthTs) / (365.25*24*3600)) : null,
-        birthPlace: ptInfo.birthplace || "",
-        plays:      ptInfo.plays || "",
-        turnedPro:  ptInfo.turnedPro || null,
-        prizeCurrent: ptInfo.prizeCurrent || null,
-        prizeTotal:   ptInfo.prizeTotal || null,
-        bestRanking:  ptInfo.bestRanking || null,
-      };
-    } catch {}
 
-    // 2. Photo TheSportsDB si pas de photo API
-    if (!detail.photo && name) {
+    // ── SOURCE 1 : API Tennis RapidAPI ──────────────────────
+    if (KEY) {
       try {
-        const tsdb = await tsdbFetch(`searchplayers.php?p=${encodeURIComponent(name)}`);
-        const p = tsdb?.player?.[0];
-        if (p?.strCutout || p?.strThumb) detail.photo = p.strCutout || p.strThumb || "";
+        const r = await fetch(`https://${HOST}/api/tennis/player/${playerId}`, {
+          headers: { "x-rapidapi-key": KEY, "x-rapidapi-host": HOST },
+          signal: AbortSignal.timeout(6000),
+        });
+        const data = await r.json();
+        const d = data?.team || {};
+        const pt = d.playerTeamInfo || {};
+        const birthTs = pt.birthDateTimestamp;
+        detail = {
+          photo:        d.playerPhoto || "",
+          height:       pt.height || null,
+          weight:       pt.weight || null,
+          age:          birthTs ? Math.floor((Date.now()/1000 - birthTs)/(365.25*24*3600)) : null,
+          birthPlace:   pt.birthplace || "",
+          plays:        pt.plays || "",
+          turnedPro:    pt.turnedPro || null,
+          prizeCurrent: pt.prizeCurrent || null,
+          prizeTotal:   pt.prizeTotal || null,
+          bestRanking:  pt.bestRanking || null,
+        };
       } catch {}
     }
 
-    // 3. Surface préférée (calculée depuis les tournois connus + heuristique)
-    // On utilise les stats de la saison si disponibles, sinon heuristique par nom
+    // ── SOURCE 2 : TheSportsDB (photo + bio + stats) ────────
+    if (name) {
+      try {
+        // Chercher par nom complet, puis par nom de famille seul
+        const queries = [name, name.split(" ").slice(-1)[0]];
+        let tsdbPlayer = null;
+        for (const q of queries) {
+          const tsdb = await tsdbFetch(`searchplayers.php?p=${encodeURIComponent(q)}`);
+          const found = (tsdb?.player || []).find(p =>
+            p.strSport?.toLowerCase().includes("tennis") ||
+            p.strNationality?.toLowerCase() === (country||"").toLowerCase() ||
+            p.strPlayer?.toLowerCase().includes(name.split(" ").slice(-1)[0].toLowerCase())
+          ) || tsdb?.player?.[0];
+          if (found) { tsdbPlayer = found; break; }
+        }
+        if (tsdbPlayer) {
+          if (!detail.photo) detail.photo = tsdbPlayer.strCutout || tsdbPlayer.strThumb || tsdbPlayer.strRender || "";
+          if (!detail.birthPlace && tsdbPlayer.strBirthLocation) detail.birthPlace = tsdbPlayer.strBirthLocation;
+          if (!detail.height && tsdbPlayer.strHeight) detail.height = parseFloat(tsdbPlayer.strHeight)||null;
+          if (!detail.weight && tsdbPlayer.strWeight) detail.weight = parseFloat(tsdbPlayer.strWeight)||null;
+          if (!detail.turnedPro && tsdbPlayer.intSigned) detail.turnedPro = tsdbPlayer.intSigned;
+          if (!detail.age && tsdbPlayer.dateBorn) {
+            const y = new Date(tsdbPlayer.dateBorn).getFullYear();
+            detail.age = new Date().getFullYear() - y;
+          }
+          // Description TheSportsDB
+          if (tsdbPlayer.strDescriptionEN) detail.tsdbBio = tsdbPlayer.strDescriptionEN.slice(0, 400);
+        }
+      } catch {}
+    }
+
+    // ── SOURCE 3 : Wikipedia (photo + résumé) ───────────────
+    if (name && (!detail.photo || !detail.birthPlace)) {
+      try {
+        const wikiName = name.replace(/\s+/g, "_");
+        const wikiUrl  = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiName)}`;
+        const wikiR    = await fetch(wikiUrl, { signal: AbortSignal.timeout(5000) });
+        if (wikiR.ok) {
+          const wiki = await wikiR.json();
+          if (!detail.photo && wiki.originalimage?.source) detail.photo = wiki.originalimage.source;
+          if (!detail.photo && wiki.thumbnail?.source) detail.photo = wiki.thumbnail.source;
+          if (wiki.extract && wiki.extract.length > 50) detail.wikiExtract = wiki.extract.slice(0, 500);
+        }
+      } catch {}
+    }
+
+    // ── SOURCE 4 : Surface préférée ──────────────────────────
     const SURFACE_MAP = {
-      "Sinner": "hard", "Alcaraz": "clay", "Djokovic": "hard", "Medvedev": "hard",
-      "Zverev": "clay", "Rune": "clay", "Tsitsipas": "clay", "Ruud": "clay",
-      "Fritz": "hard", "De Minaur": "hard", "Swiatek": "clay", "Sabalenka": "hard",
-      "Gauff": "hard", "Rybakina": "grass", "Andreescu": "hard", "Keys": "hard",
-      "Nadal": "clay", "Federer": "grass", "Murray": "grass", "Wawrinka": "clay",
+      "Sinner":"hard","Alcaraz":"clay","Djokovic":"hard","Medvedev":"hard",
+      "Zverev":"clay","Rune":"clay","Tsitsipas":"clay","Ruud":"clay",
+      "Fritz":"hard","De Minaur":"hard","Swiatek":"clay","Sabalenka":"hard",
+      "Gauff":"hard","Rybakina":"grass","Andreescu":"hard","Keys":"hard",
+      "Nadal":"clay","Federer":"grass","Murray":"grass","Wawrinka":"clay",
+      "Kyrgios":"hard","Shapovalov":"hard","Auger-Aliassime":"hard",
+      "Berrettini":"grass","Hurkacz":"grass","Musetti":"clay",
+      "Norrie":"grass","Draper":"grass","Shelton":"hard","Paul":"hard",
+      "Korda":"hard","Cerundolo":"clay","Tabilo":"hard","Cobolli":"clay",
+      "Marozsan":"clay","Struff":"clay","Griekspoor":"hard","Van Assche":"hard",
     };
     let preferredSurface = null;
     if (name) {
-      const lastName = (name||"").split(" ").slice(-1)[0];
-      preferredSurface = SURFACE_MAP[lastName] || null;
+      const lastName = name.split(" ").slice(-1)[0];
+      const firstName = name.split(" ")[0];
+      preferredSurface = SURFACE_MAP[lastName] || SURFACE_MAP[firstName] || null;
+      // Heuristique par pays si pas trouvé
+      if (!preferredSurface && country) {
+        const COUNTRY_SURFACE = { "Spain":"clay","France":"clay","Argentina":"clay","Italy":"clay","Chile":"clay","Brazil":"clay","Colombia":"clay", "Australia":"hard","Canada":"hard","USA":"hard","Russia":"hard","Kazakhstan":"hard","Belarus":"hard","Serbia":"hard","Greece":"hard","Poland":"clay","Norway":"clay" };
+        preferredSurface = COUNTRY_SURFACE[country] || null;
+      }
     }
 
-    // 4. Bio IA via Groq
+    // ── SOURCE 5 : Bio via Groq (avec contexte enrichi) ─────
     let bio = "";
     const groqKey = process.env.GROQ_KEY;
     if (groqKey && name) {
       try {
         const { default: Groq } = await import("groq-sdk");
         const groq = new Groq({ apiKey: groqKey });
+        // Utiliser les données Wikipedia/TSDB comme contexte si disponibles
+        const context = detail.wikiExtract ? `Contexte Wikipedia disponible : "${detail.wikiExtract.slice(0,200)}"` :
+                        detail.tsdbBio ? `Contexte disponible : "${detail.tsdbBio.slice(0,200)}"` : "";
         const completion = await groq.chat.completions.create({
           model: "llama-3.3-70b-versatile",
           messages: [{
             role: "user",
-            content: `Écris une biographie courte (3-4 phrases) du joueur de tennis ${name} (${country||""}), actuellement classé #${rank||"?"} mondial.
-Mentionne : ses origines, son style de jeu, ses plus grands titres, et ce qui le rend unique sur le circuit.
-Ne mentionne pas d'événements après août 2025. Réponds directement la biographie, sans titre ni introduction.`,
+            content: `Écris une biographie courte (3-4 phrases, maximum 150 mots) du joueur de tennis ${name} (${country||""}), actuellement classé #${rank||"?"} mondial.
+${context}
+Mentionne : ses origines, son style de jeu, ses plus grands titres ou performances notables, et ce qui le caractérise.
+Si tu ne connais pas ce joueur précisément, base-toi sur ce qui est typique de ${country||"son pays"} et son niveau de classement.
+Ne mentionne pas d'événements après août 2025. Réponds directement la biographie en français, sans titre.`,
           }],
-          max_tokens: 200,
-          temperature: 0.5,
+          max_tokens: 180,
+          temperature: 0.6,
         });
         bio = completion.choices[0]?.message?.content || "";
       } catch {}
     }
 
-    const result = { ...detail, bio, preferredSurface };
-    if (bio || detail.photo) await writeCache(cacheKey, result);
+    const result = {
+      ...detail,
+      bio,
+      preferredSurface,
+      // Garder le résumé Wikipedia pour affichage si bio Groq vide
+      wikiExtract: detail.wikiExtract || null,
+    };
+    // Toujours mettre en cache même si partiel (au moins les données de base)
+    await writeCache(cacheKey, result);
     res.json(result);
   } catch (err) { res.json({}); }
 });
