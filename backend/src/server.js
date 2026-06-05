@@ -2169,10 +2169,18 @@ app.get("/api/player/:playerId", async (req, res) => {
 // Chatbot IA — Groq
 // Body: { question: string, context: object, history: array }
 app.post("/api/chat", express.json({ limit: "2mb" }), async (req, res) => {
-  const { question, context, history, teamDatabase } = req.body || {};
+  const { question, context, history, teamDatabase, structuredOutput, outputSchema } = req.body || {};
   if (!question?.trim()) return res.status(400).json({ error: "question manquante" });
   try {
-    const answer = await chat(question.trim(), context, history || [], teamDatabase || {});
+    let fullQuestion = question.trim();
+    // Mode structured output (pour FoxLabAnalyzer) — demander un JSON précis
+    if (structuredOutput && outputSchema) {
+      fullQuestion = `${question.trim()}
+
+IMPORTANT: Réponds UNIQUEMENT avec un objet JSON valide correspondant exactement à ce schéma, sans markdown ni texte supplémentaire autour:
+${outputSchema}`;
+    }
+    const answer = await chat(fullQuestion, context, history || [], teamDatabase || {});
     res.json({ answer });
   } catch (err) {
     console.error("[/api/chat]", err.message);

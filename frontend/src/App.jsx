@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import FoxLabAnalyzer from "./pages/Analyze.jsx";
 import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchMatchPlayers, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions, apiRegister, apiLogin, apiGetMe, fetchLeaderboard, fetchFootballNews } from "./api.js";
 import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 
@@ -944,6 +945,7 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
           {[
             { id:"home",         label:"Accueil",      icon:"🏠", color:"#0176D3" },
+            { id:"analyze",      label:"Analyse IA",   icon:"🦊", color:"#00D4AA" },
             { id:"foot",         label:"Football",     icon:"⚽", color:"#0176D3" },
             { id:"tennis",       label:"Tennis",       icon:"🎾", color:"#c2692d" },
             { id:"bracket",      label:"Coupes",       icon:"🏆", color:"#0176D3" },
@@ -10956,6 +10958,8 @@ export default function App() {
                     onMatchClick={handleMatchClick}
                     onOpenClub={club => setGlobalClub(club)}
                   />
+                ) : sport === "analyze" ? (
+                  <FoxLabAnalyzer />
                 ) : sport === "home" ? (
                   <HomeView
                     logoRegistry={logoRegistry}
