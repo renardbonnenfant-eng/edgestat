@@ -2799,58 +2799,182 @@ function ChatWidget({ matchContext, teamDatabase = {} }) {
     } finally { setLoading(false); }
   }
 
+  const [greetDismissed, setGreetDismissed] = useState(false);
+
   return (
     <>
-      <button onClick={() => setOpen(o=>!o)} style={{
-        position:"fixed", bottom:24, right:24, zIndex:200,
-        width:50, height:50, borderRadius:"50%", border:"none",
-        background:C.accent, color:"#fff", fontSize:20, cursor:"pointer",
-        boxShadow:`0 4px 20px ${C.accent}55`,
-        display:"flex", alignItems:"center", justifyContent:"center",
-        transform:open?"rotate(45deg)":"rotate(0)", transition:"transform .2s",
-      }}>{open?"✕":"💬"}</button>
+      {/* Bulle d'accueil de la mascotte — visible avant l'ouverture */}
+      {!open && !greetDismissed && (
+        <div style={{
+          position:"fixed", bottom:90, right:20, zIndex:199,
+          maxWidth:220, animation:"foxGreetIn .4s ease",
+        }}>
+          <style>{`
+            @keyframes foxGreetIn {
+              from { opacity:0; transform:translateY(12px) scale(.9); }
+              to   { opacity:1; transform:translateY(0) scale(1); }
+            }
+          `}</style>
+          {/* Nuage de dialogue */}
+          <div style={{
+            background:"#fff", border:"1px solid #e2e8f0",
+            borderRadius:"16px 16px 4px 16px",
+            padding:"10px 14px", boxShadow:"0 4px 20px rgba(0,0,0,.15)",
+            position:"relative", fontSize:12, color:"#1a2030", lineHeight:1.6,
+          }}>
+            <button onClick={() => setGreetDismissed(true)} style={{
+              position:"absolute", top:5, right:8, background:"none", border:"none",
+              cursor:"pointer", color:"#94a3b8", fontSize:14, lineHeight:1,
+            }}>✕</button>
+            <span style={{ fontSize:14 }}>👋</span>
+            <strong style={{ display:"block", marginBottom:3, fontSize:12.5, color:"#0A1428" }}>
+              Hello !
+            </strong>
+            Si tu as une question sur le monde du foot, je suis là pour t'aider !
+          </div>
+          {/* Triangle du nuage */}
+          <div style={{
+            width:0, height:0,
+            borderLeft:"8px solid transparent",
+            borderRight:"0 solid transparent",
+            borderTop:"8px solid #e2e8f0",
+            position:"absolute", bottom:-9, right:20,
+          }}/>
+          <div style={{
+            width:0, height:0,
+            borderLeft:"7px solid transparent",
+            borderRight:"0 solid transparent",
+            borderTop:"7px solid #fff",
+            position:"absolute", bottom:-7, right:21,
+          }}/>
+        </div>
+      )}
 
+      {/* Bouton mascotte */}
+      <button onClick={() => { setOpen(o=>!o); setGreetDismissed(true); }} style={{
+        position:"fixed", bottom:20, right:20, zIndex:200,
+        width:58, height:58, borderRadius:"50%", border:"none",
+        background: open ? "#243548" : "transparent",
+        cursor:"pointer", padding:0, overflow:"hidden",
+        boxShadow: open ? "none" : `0 4px 20px ${C.accent}66`,
+        transition:"all .2s",
+        display:"flex", alignItems:"center", justifyContent:"center",
+      }}>
+        {open ? (
+          <span style={{ fontSize:22, color:C.accent, fontWeight:700 }}>✕</span>
+        ) : (
+          <img src="/fox-mascot.avif"
+            style={{ width:58, height:58, objectFit:"cover", objectPosition:"center top", transform:"scale(1.1)" }}
+            alt="FoxLab IA" />
+        )}
+      </button>
+
+      {/* Fenêtre de chat */}
       {open && (
         <div style={{
-          position:"fixed", bottom:84, right:24, zIndex:200,
-          width:330, maxHeight:460,
-          background:C.panel, border:`1px solid ${C.line}`, borderRadius:14,
-          display:"flex", flexDirection:"column", boxShadow:"0 8px 24px rgba(3,45,96,.15)",
+          position:"fixed", bottom:92, right:20, zIndex:200,
+          width:370, maxHeight:520,
+          background:"#182030", border:"1px solid #243548", borderRadius:16,
+          display:"flex", flexDirection:"column",
+          boxShadow:"0 12px 40px rgba(0,0,0,.4)",
           overflow:"hidden",
         }}>
-          <div style={{ padding:"10px 14px", background:C.accent, display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:15 }}>🤖</span>
-            <div>
-              <div style={{ fontWeight:800, fontSize:12.5, color:"#fff" }}>Assistant FoxLab</div>
-              <div style={{ fontSize:10, color:"#ffffff99" }}>{teamCount} équipe{teamCount>1?"s":""} · pas de prédiction</div>
+          {/* Header avec mascotte */}
+          <div style={{
+            padding:"12px 16px", borderBottom:"1px solid #243548",
+            background:"linear-gradient(135deg, #0d2e2a 0%, #182030 100%)",
+            display:"flex", alignItems:"center", gap:10,
+          }}>
+            {/* Avatar mascotte */}
+            <div style={{ width:40, height:40, borderRadius:10, overflow:"hidden", flexShrink:0, border:"2px solid rgba(0,212,170,.3)" }}>
+              <img src="/fox-mascot.avif"
+                style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top", transform:"scale(1.1)" }}
+                alt="FoxLab" />
             </div>
-            <div style={{ marginLeft:"auto", fontSize:10, color:"#ffffff99", textAlign:"right" }}>
-              {matchContext ? <>{matchContext.home?.name?.split(" ").pop()}<br/>vs {matchContext.away?.name?.split(" ").pop()}</> : "Aucun match"}
+            <div style={{ flex:1 }}>
+              <div style={{ fontWeight:800, fontSize:13, color:"#D0E8F4" }}>Assistant FoxLab</div>
+              <div style={{ fontSize:10, color:"#4A6A7A" }}>
+                {matchContext
+                  ? `📍 ${matchContext.home?.name?.split(" ").pop()} vs ${matchContext.away?.name?.split(" ").pop()}`
+                  : `${teamCount} équipe${teamCount>1?"s":""} chargées`}
+              </div>
             </div>
+            <button onClick={() => setOpen(false)} style={{ background:"none", border:"none", cursor:"pointer", color:"#4A6A7A", fontSize:16, padding:"4px" }}>✕</button>
           </div>
-          <div style={{ flex:1, overflowY:"auto", padding:"12px 14px", display:"flex", flexDirection:"column", gap:8 }}>
-            {history.length===0 && <div style={{ color:C.dim, fontSize:12, textAlign:"center", marginTop:16, lineHeight:1.6 }}>Pose une question sur n'importe quelle équipe chargée.<br/><em>"Compare PSG et Juventus"</em></div>}
-            {history.map((msg,i) => (
-              <div key={i} style={{
-                alignSelf:msg.role==="user"?"flex-end":"flex-start", maxWidth:"85%",
-                background:msg.role==="user"?C.accent:C.panel2,
-                color:msg.role==="user"?"#fff":C.text,
-                borderRadius:msg.role==="user"?"12px 12px 4px 12px":"12px 12px 12px 4px",
-                padding:"8px 12px", fontSize:12.5, lineHeight:1.5,
-              }}>{msg.content}</div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:"auto", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10, scrollbarWidth:"thin", scrollbarColor:"#243548 transparent" }}>
+            {history.length === 0 && (
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:12 }}>
+                {/* Message de bienvenue de la mascotte */}
+                <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
+                  <div style={{ width:28, height:28, borderRadius:8, overflow:"hidden", flexShrink:0 }}>
+                    <img src="/fox-mascot.avif" style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top" }} alt="Fox" />
+                  </div>
+                  <div style={{
+                    background:"#1E2838", border:"1px solid #243548",
+                    borderRadius:"12px 12px 12px 4px",
+                    padding:"10px 13px", fontSize:12.5, color:"#D0E8F4", lineHeight:1.6, maxWidth:"85%",
+                  }}>
+                    Hello ! 👋 Si tu as une question sur le monde du foot, je suis là pour t'aider !<br/>
+                    <span style={{ fontSize:11, color:"#4A6A7A" }}>
+                      Essaie : <em>"Compare PSG et Man City"</em> ou <em>"Analyse ce match"</em>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {history.map((msg, i) => (
+              <div key={i} style={{ display:"flex", gap:8, alignItems:"flex-end", flexDirection: msg.role==="user" ? "row-reverse" : "row" }}>
+                {msg.role === "assistant" && (
+                  <div style={{ width:24, height:24, borderRadius:6, overflow:"hidden", flexShrink:0 }}>
+                    <img src="/fox-mascot.avif" style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top" }} alt="" />
+                  </div>
+                )}
+                <div style={{
+                  maxWidth:"80%",
+                  background: msg.role==="user" ? C.accent : "#1E2838",
+                  border: msg.role==="user" ? "none" : "1px solid #243548",
+                  color: msg.role==="user" ? "#0A1428" : "#D0E8F4",
+                  borderRadius: msg.role==="user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+                  padding:"9px 13px", fontSize:12.5, lineHeight:1.55,
+                  fontWeight: msg.role==="user" ? 500 : 400,
+                }}>{msg.content}</div>
+              </div>
             ))}
-            {loading && <div style={{ alignSelf:"flex-start", color:C.dim, fontSize:12 }}>⏳ Analyse…</div>}
+            {loading && (
+              <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                <div style={{ width:24, height:24, borderRadius:6, overflow:"hidden", flexShrink:0 }}>
+                  <img src="/fox-mascot.avif" style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top" }} alt="" />
+                </div>
+                <div style={{ background:"#1E2838", border:"1px solid #243548", borderRadius:"12px 12px 12px 4px", padding:"9px 13px", display:"flex", gap:4 }}>
+                  {[0,1,2].map(n => (
+                    <div key={n} style={{ width:6, height:6, borderRadius:"50%", background:"#4A6A7A", animation:`foxDot .9s ${n*0.15}s ease-in-out infinite` }}/>
+                  ))}
+                </div>
+              </div>
+            )}
+            <style>{`
+              @keyframes foxDot {
+                0%,80%,100% { transform:scale(.6); opacity:.4; }
+                40% { transform:scale(1); opacity:1; }
+              }
+            `}</style>
             <div ref={bottomRef} />
           </div>
-          <div style={{ display:"flex", borderTop:`1px solid ${C.line}`, padding:10, gap:8 }}>
-            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==="Enter"&&!e.shiftKey&&send()}
-              placeholder="Ta question…" disabled={loading}
-              style={{ flex:1, background:C.panel2, border:`1px solid ${C.line}`, borderRadius:8, color:C.text, fontSize:12.5, padding:"7px 11px", outline:"none" }}
+
+          {/* Saisie */}
+          <div style={{ display:"flex", borderTop:"1px solid #243548", padding:"10px 12px", gap:8, background:"#182030" }}>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==="Enter" && !e.shiftKey && send()}
+              placeholder="Pose une question…" disabled={loading}
+              style={{ flex:1, background:"#0E1A28", border:"1px solid #243548", borderRadius:10, color:"#D0E8F4", fontSize:12.5, padding:"9px 13px", outline:"none" }}
             />
-            <button onClick={send} disabled={loading||!input.trim()} style={{
-              background:C.accent, border:"none", borderRadius:8, color:"#fff", fontWeight:700, fontSize:13,
-              padding:"7px 13px", cursor:loading||!input.trim()?"not-allowed":"pointer",
-              opacity:loading||!input.trim()?.5:1,
+            <button onClick={send} disabled={loading || !input.trim()} style={{
+              background: C.accent, border:"none", borderRadius:10, color:"#0A1428",
+              fontWeight:800, fontSize:14, padding:"9px 14px",
+              cursor: loading || !input.trim() ? "not-allowed" : "pointer",
+              opacity: loading || !input.trim() ? .4 : 1,
+              transition:"opacity .15s",
             }}>→</button>
           </div>
         </div>
