@@ -226,7 +226,7 @@ function mkTeam(side, raw = {}, period = 365) {
   } = raw;
   const {
     form=[], avgFor=0, avgAgainst=0, rec={w:0,d:0,l:0},
-    dist=[0,0,0,0], p4=0,
+    dist=[0,0,0,0], p4=0, over25=0,
     margins={winBy:[],loseBy:[]}, doubleChance={notLosing:0,notWinning:0},
     btts=0, cleanSheet=0, failedToScore=0,
   } = pStats;
@@ -242,7 +242,7 @@ function mkTeam(side, raw = {}, period = 365) {
       { label:"+0.5", pct:100-p0 }, { label:"+1.5", pct:p2+p3 },
       { label:"+2.5", pct:p3 },     { label:"+3.5", pct:p4 },
     ],
-    penalties: pen, margins, doubleChance, btts, cleanSheet, failedToScore, minuteGoals, noData, extendedStats,
+    penalties: pen, margins, doubleChance, btts, cleanSheet, over25, failedToScore, minuteGoals, noData, extendedStats,
   };
   if (side === "home") t.homeRecord = rec; else t.awayRecord = rec;
   return t;
@@ -2522,6 +2522,48 @@ function TennisHubView({ onSelectTournament, tennisId }) {
 }
 
 // ============================================================
+// Composant H2H avec filtre surface (extrait d'une IIFE pour respecter les règles des hooks)
+// ============================================================
+function H2HWithSurface({ h2h, p1Name, p2Name }) {
+  const [surfFilter, setSurfFilter] = React.useState("all");
+  const SURFS = ["all","clay","hard","grass","indoor"];
+  const filtered = h2h.filter(h => surfFilter === "all" || (h.surface || "").toLowerCase() === surfFilter);
+  return (
+    <div>
+      <SectionTitle>Face-à-face ({h2h.length} matchs)</SectionTitle>
+      {/* Filtre surface */}
+      <div style={{ display:"flex", gap:5, marginBottom:10, flexWrap:"wrap" }}>
+        {SURFS.map(s => {
+          const LABELS = { all:"Toutes", clay:"Terre 🧱", hard:"Dur 🔵", grass:"Gazon 🟢", indoor:"Indoor 🟣" };
+          const COLORS = { all:C.accent, clay:"#c2692d", hard:"#3b82f6", grass:"#16a34a", indoor:"#7C3AED" };
+          return (
+            <button key={s} onClick={() => setSurfFilter(s)} style={{
+              padding:"4px 10px", borderRadius:6, border:`1px solid ${surfFilter===s?COLORS[s]:C.line}`,
+              background: surfFilter===s?`${COLORS[s]}18`:"none",
+              color: surfFilter===s?COLORS[s]:C.muted,
+              cursor:"pointer", fontSize:10, fontWeight: surfFilter===s?700:400,
+            }}>{LABELS[s]}</button>
+          );
+        })}
+        {surfFilter !== "all" && <span style={{ fontSize:10, color:C.muted, alignSelf:"center" }}>{filtered.length} matchs</span>}
+      </div>
+      {/* Liste H2H filtrée */}
+      <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+        {filtered.map((h, i) => (
+          <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:C.panel2, borderRadius:8, padding:"8px 10px" }}>
+            {h.surface && <div style={{ width:6, height:6, borderRadius:"50%", background:{"clay":"#c2692d","hard":"#3b82f6","grass":"#16a34a"}[h.surface.toLowerCase()]||C.dim, flexShrink:0 }}/>}
+            <span style={{ flex:1, fontSize:11, color:C.dim }}>{h.date?.slice(0,10) || ""}</span>
+            <span style={{ fontSize:11, fontWeight:700, color:h.winner==="p1"?C.accent:C.blue }}>{h.winner==="p1"?p1Name:p2Name}</span>
+            <span style={{ fontSize:10, color:C.text, background:C.panel, borderRadius:5, padding:"2px 8px" }}>{h.score || "—"}</span>
+          </div>
+        ))}
+        {filtered.length === 0 && <div style={{ color:C.muted, fontSize:11 }}>Aucun match sur cette surface.</div>}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Vue Tennis principale
 // ============================================================
 function TennisView({ tennisId, onTennisSelect }) {
@@ -2717,44 +2759,9 @@ function TennisView({ tennisId, onTennisSelect }) {
       </div>
 
       {/* H2H avec filtre surface */}
-      {data.h2h?.length > 0 && (() => {
-        const [surfFilter, setSurfFilter] = React.useState("all");
-        const SURFS = ["all","clay","hard","grass","indoor"];
-        const filtered = data.h2h.filter(h => surfFilter === "all" || (h.surface || "").toLowerCase() === surfFilter);
-        return (
-          <div>
-            <SectionTitle>Face-à-face ({data.h2h.length} matchs)</SectionTitle>
-            {/* Filtre surface */}
-            <div style={{ display:"flex", gap:5, marginBottom:10, flexWrap:"wrap" }}>
-              {SURFS.map(s => {
-                const LABELS = { all:"Toutes", clay:"Terre 🧱", hard:"Dur 🔵", grass:"Gazon 🟢", indoor:"Indoor 🟣" };
-                const COLORS = { all:C.accent, clay:"#c2692d", hard:"#3b82f6", grass:"#16a34a", indoor:"#7C3AED" };
-                return (
-                  <button key={s} onClick={() => setSurfFilter(s)} style={{
-                    padding:"4px 10px", borderRadius:6, border:`1px solid ${surfFilter===s?COLORS[s]:C.line}`,
-                    background: surfFilter===s?`${COLORS[s]}18`:"none",
-                    color: surfFilter===s?COLORS[s]:C.muted,
-                    cursor:"pointer", fontSize:10, fontWeight: surfFilter===s?700:400,
-                  }}>{LABELS[s]}</button>
-                );
-              })}
-              {surfFilter !== "all" && <span style={{ fontSize:10, color:C.muted, alignSelf:"center" }}>{filtered.length} matchs</span>}
-            </div>
-            {/* Liste H2H filtrée */}
-            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-              {filtered.map((h, i) => (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:C.panel2, borderRadius:8, padding:"8px 10px" }}>
-                  {h.surface && <div style={{ width:6, height:6, borderRadius:"50%", background:{"clay":"#c2692d","hard":"#3b82f6","grass":"#16a34a"}[h.surface.toLowerCase()]||C.dim, flexShrink:0 }}/>}
-                  <span style={{ flex:1, fontSize:11, color:C.dim }}>{h.date?.slice(0,10) || ""}</span>
-                  <span style={{ fontSize:11, fontWeight:700, color:h.winner==="p1"?C.accent:C.blue }}>{h.winner==="p1"?data.p1?.name:data.p2?.name}</span>
-                  <span style={{ fontSize:10, color:C.text, background:C.panel, borderRadius:5, padding:"2px 8px" }}>{h.score || "—"}</span>
-                </div>
-              ))}
-              {filtered.length === 0 && <div style={{ color:C.muted, fontSize:11 }}>Aucun match sur cette surface.</div>}
-            </div>
-          </div>
-        );
-      })()}
+      {data.h2h?.length > 0 && (
+        <H2HWithSurface h2h={data.h2h} p1Name={data.p1?.name} p2Name={data.p2?.name} />
+      )}
 
       <div style={{ marginTop:16, padding:"10px 14px", background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, fontSize:11, color:C.muted, lineHeight:1.6 }}>
         Données API-Tennis (classements) + Wikipedia + TheSportsDB · aucune prédiction.
@@ -7302,6 +7309,258 @@ function FootballHub({ allData, leagueLogos, logoRegistry, loading, onSelectComp
   );
 }
 
+// ============================================================
+// Panel "Matchs à venir" avec filtres (extrait d'une IIFE pour respecter les règles des hooks)
+// ============================================================
+function UpcomingMatchesPanel({ nextFixtures, nextLoading, nextError, logoRegistry, onMatchClick }) {
+  const [filterLeague, setFilterLeague] = React.useState("");
+  const [filterTeam,   setFilterTeam]   = React.useState("");
+  const [searchTeam,   setSearchTeam]   = React.useState("");
+  const [showFilters,  setShowFilters]  = React.useState(false);
+
+  // Listes uniques pour les filtres
+  const leagues = [...new Map(nextFixtures.map(f => [f.league, { id:f.leagueId, name:f.league, logo:f.leagueLogo, flag:f.country }])).values()]
+    .filter(l => l.name)
+    .sort((a,b) => a.name.localeCompare(b.name));
+
+  const teams = [...new Map(nextFixtures.flatMap(f => [
+    [f.home?.id, { id:f.home?.id, name:f.home?.name, logo:logoRegistry[f.home?.id]||f.home?.logo||"" }],
+    [f.away?.id, { id:f.away?.id, name:f.away?.name, logo:logoRegistry[f.away?.id]||f.away?.logo||"" }],
+  ]).filter(([id,t]) => id && t.name)).values()]
+    .filter(t => !searchTeam || t.name?.toLowerCase().includes(searchTeam.toLowerCase()))
+    .sort((a,b) => (a.name||"").localeCompare(b.name||""));
+
+  // Appliquer les filtres
+  const filtered = nextFixtures.filter(f => {
+    if (filterLeague && f.league !== filterLeague) return false;
+    if (filterTeam && f.home?.id !== filterTeam && f.away?.id !== filterTeam) return false;
+    return true;
+  });
+
+  const activeFilters = (filterLeague ? 1 : 0) + (filterTeam ? 1 : 0);
+
+  const byDate = {};
+  filtered.forEach(f => {
+    const d = new Date(f.date).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(f);
+  });
+
+  return (
+    <div>
+      {/* Header + bouton filtres */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+        <span style={{ fontSize:18 }}>📅</span>
+        <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>Matchs à venir</span>
+        {!nextLoading && (
+          <span style={{ background:C.accentBg, color:C.accent, fontSize:10, fontWeight:700, borderRadius:20, padding:"2px 8px", border:`1px solid ${C.accent}44` }}>
+            {filtered.length}/{nextFixtures.length}
+          </span>
+        )}
+        <button onClick={() => setShowFilters(v => !v)} style={{
+          marginLeft:"auto", display:"flex", alignItems:"center", gap:5,
+          background: activeFilters > 0 ? C.accentBg : C.panel2,
+          border:`1px solid ${activeFilters > 0 ? C.accent : C.line}`,
+          borderRadius:20, padding:"5px 12px", cursor:"pointer", fontSize:11,
+          color: activeFilters > 0 ? C.accent : C.dim, fontWeight: activeFilters > 0 ? 700 : 400,
+        }}>
+          <span>🔽</span>
+          Filtres
+          {activeFilters > 0 && <span style={{ background:C.accent, color:"#0A1428", borderRadius:10, padding:"0px 5px", fontSize:9, fontWeight:800 }}>{activeFilters}</span>}
+        </button>
+      </div>
+
+      {/* Panneau de filtres */}
+      {showFilters && (
+        <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"14px 16px", marginBottom:14, display:"flex", flexDirection:"column", gap:12 }}>
+
+          {/* Filtres actifs (chips) */}
+          {activeFilters > 0 && (
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {filterLeague && (
+                <div style={{ display:"flex", alignItems:"center", gap:5, background:C.accentBg, border:`1px solid ${C.accent}44`, borderRadius:20, padding:"3px 10px" }}>
+                  <span style={{ fontSize:11, color:C.accent }}>{filterLeague}</span>
+                  <button onClick={() => setFilterLeague("")} style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, fontSize:13, lineHeight:1, padding:0 }}>✕</button>
+                </div>
+              )}
+              {filterTeam && (() => {
+                const t = teams.find(t => t.id === filterTeam) || teams.filter(t => !searchTeam).find(t => t.id === filterTeam);
+                return t ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:5, background:`${C.blue}18`, border:`1px solid ${C.blue}44`, borderRadius:20, padding:"3px 10px" }}>
+                    {t.logo && <img src={t.logo} width={12} height={12} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                    <span style={{ fontSize:11, color:C.blue }}>{t.name}</span>
+                    <button onClick={() => { setFilterTeam(""); setSearchTeam(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:C.blue, fontSize:13, lineHeight:1, padding:0 }}>✕</button>
+                  </div>
+                ) : null;
+              })()}
+              <button onClick={() => { setFilterLeague(""); setFilterTeam(""); setSearchTeam(""); }} style={{ background:"none", border:`1px solid ${C.line}`, borderRadius:20, padding:"3px 10px", cursor:"pointer", fontSize:10, color:C.muted }}>
+                Tout effacer
+              </button>
+            </div>
+          )}
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            {/* Filtre compétition */}
+            <div>
+              <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>🏆 Compétition</div>
+              <div style={{ maxHeight:160, overflowY:"auto", display:"flex", flexDirection:"column", gap:3, scrollbarWidth:"thin" }}>
+                <button onClick={() => setFilterLeague("")} style={{
+                  display:"flex", alignItems:"center", gap:7, padding:"5px 8px", borderRadius:7,
+                  background: !filterLeague ? C.accentBg : "none",
+                  border:`1px solid ${!filterLeague ? C.accent : "transparent"}`,
+                  cursor:"pointer", textAlign:"left", fontSize:11,
+                  color: !filterLeague ? C.accent : C.dim,
+                }}>
+                  Toutes ({nextFixtures.length})
+                </button>
+                {leagues.map(l => (
+                  <button key={l.name} onClick={() => setFilterLeague(l.name === filterLeague ? "" : l.name)} style={{
+                    display:"flex", alignItems:"center", gap:7, padding:"5px 8px", borderRadius:7,
+                    background: filterLeague === l.name ? C.accentBg : "none",
+                    border:`1px solid ${filterLeague === l.name ? C.accent : "transparent"}`,
+                    cursor:"pointer", textAlign:"left",
+                  }}>
+                    <FlagImg emoji={countryFlag(l.flag)} height={11} />
+                    {l.logo && <img src={l.logo} width={13} height={13} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                    <span style={{ fontSize:11, color: filterLeague === l.name ? C.accent : C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{l.name}</span>
+                    <span style={{ fontSize:9, color:C.muted, flexShrink:0 }}>
+                      {nextFixtures.filter(f => f.league === l.name).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtre équipe */}
+            <div>
+              <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>👕 Équipe</div>
+              <input
+                value={searchTeam} onChange={e => setSearchTeam(e.target.value)}
+                placeholder="Rechercher une équipe…"
+                style={{ width:"100%", padding:"6px 8px", borderRadius:7, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:11, outline:"none", marginBottom:6, boxSizing:"border-box" }}
+              />
+              <div style={{ maxHeight:130, overflowY:"auto", display:"flex", flexDirection:"column", gap:2, scrollbarWidth:"thin" }}>
+                {teams.slice(0, 40).map(t => (
+                  <button key={t.id} onClick={() => setFilterTeam(filterTeam === t.id ? "" : t.id)} style={{
+                    display:"flex", alignItems:"center", gap:7, padding:"4px 8px", borderRadius:6,
+                    background: filterTeam === t.id ? `${C.blue}18` : "none",
+                    border:`1px solid ${filterTeam === t.id ? C.blue : "transparent"}`,
+                    cursor:"pointer", textAlign:"left",
+                  }}>
+                    {t.logo && <img src={t.logo} width={14} height={14} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
+                    <span style={{ fontSize:11, color: filterTeam === t.id ? C.blue : C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</span>
+                  </button>
+                ))}
+                {!searchTeam && teams.length > 40 && <div style={{ fontSize:10, color:C.muted, padding:"4px 8px" }}>Cherche par nom…</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Liste des matchs filtrés */}
+      {nextLoading ? (
+        <div style={{ color:C.dim, fontSize:12, padding:"16px 0" }}>Chargement des prochains matchs…</div>
+      ) : nextError ? (
+        <div style={{ color:C.red, fontSize:12 }}>{nextError}</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"20px", textAlign:"center", color:C.dim, fontSize:12 }}>
+          {activeFilters > 0 ? "Aucun match trouvé avec ces filtres." : "Aucun match à venir trouvé."}
+        </div>
+      ) : Object.entries(byDate).map(([dateLabel, matches]) => (
+        <div key={dateLabel} style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11, fontWeight:600, color:C.dim, textTransform:"capitalize", letterSpacing:.5, marginBottom:8, borderLeft:`3px solid ${C.accent}`, paddingLeft:8 }}>
+            {dateLabel} · <span style={{ color:C.muted }}>{matches.length} match{matches.length>1?"s":""}</span>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            {matches.map(f => {
+              const homeLogo = logoRegistry[f.home?.id] || f.home?.logo || "";
+              const awayLogo = logoRegistry[f.away?.id] || f.away?.logo || "";
+              const t = new Date(f.date).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+              const isTeamMatch = filterTeam && (f.home?.id === filterTeam || f.away?.id === filterTeam);
+              return (
+                <div key={f.id}
+                  onClick={() => f.compId && onMatchClick?.(f)}
+                  style={{ background:C.panel, border:`1px solid ${isTeamMatch ? C.blue : C.line}`, borderRadius:10, padding:"10px 14px", display:"grid", gridTemplateColumns:"1fr auto 1fr auto", alignItems:"center", gap:10, cursor:f.compId?"pointer":"default", transition:"border-color .1s" }}
+                  onMouseEnter={e=>{ if(f.compId) e.currentTarget.style.borderColor=C.accent; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor=isTeamMatch?C.blue:C.line; }}
+                >
+                  <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
+                    <TeamLogo url={homeLogo} size={20} name={f.home?.name||"?"} />
+                    <span style={{ fontSize:12, fontWeight: f.home?.id===filterTeam?700:500, color: f.home?.id===filterTeam?C.blue:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.home?.name}</span>
+                  </div>
+                  <div style={{ textAlign:"center", minWidth:50 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:C.accent }}>{t}</div>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", minWidth:0 }}>
+                    <span style={{ fontSize:12, fontWeight: f.away?.id===filterTeam?700:500, color: f.away?.id===filterTeam?C.blue:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"right" }}>{f.away?.name}</span>
+                    <TeamLogo url={awayLogo} size={20} name={f.away?.name||"?"} />
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                    <FlagImg emoji={countryFlag(f.country)} height={12} />
+                    {f.leagueLogo && <img src={f.leagueLogo} width={13} height={13} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
+                    <span style={{ fontSize:10, color:C.dim, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.league}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// Bulle promo Quiz (extraite d'une IIFE pour respecter les règles des hooks)
+// ============================================================
+function QuizPromoBubble() {
+  const [dismissed, setDismissed] = React.useState(
+    () => localStorage.getItem("quiz_promo_dismissed") === "1"
+  );
+  if (dismissed) return null;
+  return (
+    <div style={{
+      background:"linear-gradient(135deg, #0d2e2a 0%, #0a1f1c 100%)",
+      border:"1px solid rgba(0,212,170,.4)",
+      borderRadius:14, padding:"16px 18px",
+      display:"flex", alignItems:"center", gap:16, position:"relative",
+    }}>
+      {/* Close */}
+      <button onClick={() => { localStorage.setItem("quiz_promo_dismissed","1"); setDismissed(true); }}
+        style={{ position:"absolute", top:8, right:10, background:"none", border:"none", cursor:"pointer", color:"rgba(0,212,170,.5)", fontSize:16, lineHeight:1 }}>✕</button>
+      {/* Icon */}
+      <div style={{ fontSize:36, flexShrink:0 }}>🧩</div>
+      {/* Text */}
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:14, fontWeight:800, color:"#00D4AA", marginBottom:4 }}>
+          Quiz Football — Challenge tes amis !
+        </div>
+        <div style={{ fontSize:11, color:"#8AABBD", lineHeight:1.5, marginBottom:10 }}>
+          50 000+ questions · Classement mondial · Médailles de vitesse<br/>
+          Joue en <strong style={{ color:"#00D4AA" }}>multijoueur</strong> et gagne des points au classement
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={() => window.dispatchEvent(new CustomEvent("edgestat:navigate-sport", { detail:"quiz" }))}
+            style={{ background:"#00D4AA", color:"#0A1428", border:"none", borderRadius:8, padding:"7px 16px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            Jouer maintenant →
+          </button>
+          <button onClick={() => window.dispatchEvent(new CustomEvent("edgestat:navigate-sport", { detail:"leaderboard" }))}
+            style={{ background:"none", border:"1px solid rgba(0,212,170,.3)", color:"#00D4AA", borderRadius:8, padding:"7px 14px", fontSize:12, cursor:"pointer" }}>
+            Voir le classement
+          </button>
+        </div>
+      </div>
+      {/* Badges */}
+      <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
+        {["🥇 Vitesse", "⭐ Points", "🌍 Classement"].map(b => (
+          <span key={b} style={{ fontSize:10, background:"rgba(0,212,170,.1)", color:"#00D4AA", borderRadius:20, padding:"3px 10px", fontWeight:600 }}>{b}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
   const [nextFixtures,  setNextFixtures] = useState([]);
   const [liveMatches,   setLiveMatches]  = useState([]);
@@ -7395,52 +7654,7 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
       <FootballNewsTicker />
 
       {/* === PROMO QUIZ === */}
-      {(() => {
-        const [dismissed, setDismissed] = React.useState(
-          () => localStorage.getItem("quiz_promo_dismissed") === "1"
-        );
-        if (dismissed) return null;
-        return (
-          <div style={{
-            background:"linear-gradient(135deg, #0d2e2a 0%, #0a1f1c 100%)",
-            border:"1px solid rgba(0,212,170,.4)",
-            borderRadius:14, padding:"16px 18px",
-            display:"flex", alignItems:"center", gap:16, position:"relative",
-          }}>
-            {/* Close */}
-            <button onClick={() => { localStorage.setItem("quiz_promo_dismissed","1"); setDismissed(true); }}
-              style={{ position:"absolute", top:8, right:10, background:"none", border:"none", cursor:"pointer", color:"rgba(0,212,170,.5)", fontSize:16, lineHeight:1 }}>✕</button>
-            {/* Icon */}
-            <div style={{ fontSize:36, flexShrink:0 }}>🧩</div>
-            {/* Text */}
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:14, fontWeight:800, color:"#00D4AA", marginBottom:4 }}>
-                Quiz Football — Challenge tes amis !
-              </div>
-              <div style={{ fontSize:11, color:"#8AABBD", lineHeight:1.5, marginBottom:10 }}>
-                50 000+ questions · Classement mondial · Médailles de vitesse<br/>
-                Joue en <strong style={{ color:"#00D4AA" }}>multijoueur</strong> et gagne des points au classement
-              </div>
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={() => window.dispatchEvent(new CustomEvent("edgestat:navigate-sport", { detail:"quiz" }))}
-                  style={{ background:"#00D4AA", color:"#0A1428", border:"none", borderRadius:8, padding:"7px 16px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                  Jouer maintenant →
-                </button>
-                <button onClick={() => window.dispatchEvent(new CustomEvent("edgestat:navigate-sport", { detail:"leaderboard" }))}
-                  style={{ background:"none", border:"1px solid rgba(0,212,170,.3)", color:"#00D4AA", borderRadius:8, padding:"7px 14px", fontSize:12, cursor:"pointer" }}>
-                  Voir le classement
-                </button>
-              </div>
-            </div>
-            {/* Badges */}
-            <div style={{ flexShrink:0, display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
-              {["🥇 Vitesse", "⭐ Points", "🌍 Classement"].map(b => (
-                <span key={b} style={{ fontSize:10, background:"rgba(0,212,170,.1)", color:"#00D4AA", borderRadius:20, padding:"3px 10px", fontWeight:600 }}>{b}</span>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
+      <QuizPromoBubble />
 
       {/* === COUPE DU MONDE 2026 === */}
       {onGoWC && (
@@ -7709,204 +7923,13 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
       })()}
 
       {/* === TOUS LES MATCHS À VENIR + FILTRES === */}
-      {(() => {
-        const [filterLeague, setFilterLeague] = React.useState("");
-        const [filterTeam,   setFilterTeam]   = React.useState("");
-        const [searchTeam,   setSearchTeam]   = React.useState("");
-        const [showFilters,  setShowFilters]  = React.useState(false);
-
-        // Listes uniques pour les filtres
-        const leagues = [...new Map(nextFixtures.map(f => [f.league, { id:f.leagueId, name:f.league, logo:f.leagueLogo, flag:f.country }])).values()]
-          .filter(l => l.name)
-          .sort((a,b) => a.name.localeCompare(b.name));
-
-        const teams = [...new Map(nextFixtures.flatMap(f => [
-          [f.home?.id, { id:f.home?.id, name:f.home?.name, logo:logoRegistry[f.home?.id]||f.home?.logo||"" }],
-          [f.away?.id, { id:f.away?.id, name:f.away?.name, logo:logoRegistry[f.away?.id]||f.away?.logo||"" }],
-        ]).filter(([id,t]) => id && t.name)).values()]
-          .filter(t => !searchTeam || t.name?.toLowerCase().includes(searchTeam.toLowerCase()))
-          .sort((a,b) => (a.name||"").localeCompare(b.name||""));
-
-        // Appliquer les filtres
-        const filtered = nextFixtures.filter(f => {
-          if (filterLeague && f.league !== filterLeague) return false;
-          if (filterTeam && f.home?.id !== filterTeam && f.away?.id !== filterTeam) return false;
-          return true;
-        });
-
-        const activeFilters = (filterLeague ? 1 : 0) + (filterTeam ? 1 : 0);
-
-        const byDate = {};
-        filtered.forEach(f => {
-          const d = new Date(f.date).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
-          if (!byDate[d]) byDate[d] = [];
-          byDate[d].push(f);
-        });
-
-        return (
-          <div>
-            {/* Header + bouton filtres */}
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-              <span style={{ fontSize:18 }}>📅</span>
-              <span style={{ fontSize:13, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>Matchs à venir</span>
-              {!nextLoading && (
-                <span style={{ background:C.accentBg, color:C.accent, fontSize:10, fontWeight:700, borderRadius:20, padding:"2px 8px", border:`1px solid ${C.accent}44` }}>
-                  {filtered.length}/{nextFixtures.length}
-                </span>
-              )}
-              <button onClick={() => setShowFilters(v => !v)} style={{
-                marginLeft:"auto", display:"flex", alignItems:"center", gap:5,
-                background: activeFilters > 0 ? C.accentBg : C.panel2,
-                border:`1px solid ${activeFilters > 0 ? C.accent : C.line}`,
-                borderRadius:20, padding:"5px 12px", cursor:"pointer", fontSize:11,
-                color: activeFilters > 0 ? C.accent : C.dim, fontWeight: activeFilters > 0 ? 700 : 400,
-              }}>
-                <span>🔽</span>
-                Filtres
-                {activeFilters > 0 && <span style={{ background:C.accent, color:"#0A1428", borderRadius:10, padding:"0px 5px", fontSize:9, fontWeight:800 }}>{activeFilters}</span>}
-              </button>
-            </div>
-
-            {/* Panneau de filtres */}
-            {showFilters && (
-              <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"14px 16px", marginBottom:14, display:"flex", flexDirection:"column", gap:12 }}>
-
-                {/* Filtres actifs (chips) */}
-                {activeFilters > 0 && (
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                    {filterLeague && (
-                      <div style={{ display:"flex", alignItems:"center", gap:5, background:C.accentBg, border:`1px solid ${C.accent}44`, borderRadius:20, padding:"3px 10px" }}>
-                        <span style={{ fontSize:11, color:C.accent }}>{filterLeague}</span>
-                        <button onClick={() => setFilterLeague("")} style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, fontSize:13, lineHeight:1, padding:0 }}>✕</button>
-                      </div>
-                    )}
-                    {filterTeam && (() => {
-                      const t = teams.find(t => t.id === filterTeam) || teams.filter(t => !searchTeam).find(t => t.id === filterTeam);
-                      return t ? (
-                        <div style={{ display:"flex", alignItems:"center", gap:5, background:`${C.blue}18`, border:`1px solid ${C.blue}44`, borderRadius:20, padding:"3px 10px" }}>
-                          {t.logo && <img src={t.logo} width={12} height={12} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
-                          <span style={{ fontSize:11, color:C.blue }}>{t.name}</span>
-                          <button onClick={() => { setFilterTeam(""); setSearchTeam(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:C.blue, fontSize:13, lineHeight:1, padding:0 }}>✕</button>
-                        </div>
-                      ) : null;
-                    })()}
-                    <button onClick={() => { setFilterLeague(""); setFilterTeam(""); setSearchTeam(""); }} style={{ background:"none", border:`1px solid ${C.line}`, borderRadius:20, padding:"3px 10px", cursor:"pointer", fontSize:10, color:C.muted }}>
-                      Tout effacer
-                    </button>
-                  </div>
-                )}
-
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                  {/* Filtre compétition */}
-                  <div>
-                    <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>🏆 Compétition</div>
-                    <div style={{ maxHeight:160, overflowY:"auto", display:"flex", flexDirection:"column", gap:3, scrollbarWidth:"thin" }}>
-                      <button onClick={() => setFilterLeague("")} style={{
-                        display:"flex", alignItems:"center", gap:7, padding:"5px 8px", borderRadius:7,
-                        background: !filterLeague ? C.accentBg : "none",
-                        border:`1px solid ${!filterLeague ? C.accent : "transparent"}`,
-                        cursor:"pointer", textAlign:"left", fontSize:11,
-                        color: !filterLeague ? C.accent : C.dim,
-                      }}>
-                        Toutes ({nextFixtures.length})
-                      </button>
-                      {leagues.map(l => (
-                        <button key={l.name} onClick={() => setFilterLeague(l.name === filterLeague ? "" : l.name)} style={{
-                          display:"flex", alignItems:"center", gap:7, padding:"5px 8px", borderRadius:7,
-                          background: filterLeague === l.name ? C.accentBg : "none",
-                          border:`1px solid ${filterLeague === l.name ? C.accent : "transparent"}`,
-                          cursor:"pointer", textAlign:"left",
-                        }}>
-                          <FlagImg emoji={countryFlag(l.flag)} height={11} />
-                          {l.logo && <img src={l.logo} width={13} height={13} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
-                          <span style={{ fontSize:11, color: filterLeague === l.name ? C.accent : C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{l.name}</span>
-                          <span style={{ fontSize:9, color:C.muted, flexShrink:0 }}>
-                            {nextFixtures.filter(f => f.league === l.name).length}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Filtre équipe */}
-                  <div>
-                    <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>👕 Équipe</div>
-                    <input
-                      value={searchTeam} onChange={e => setSearchTeam(e.target.value)}
-                      placeholder="Rechercher une équipe…"
-                      style={{ width:"100%", padding:"6px 8px", borderRadius:7, border:`1px solid ${C.line}`, background:C.panel2, color:C.text, fontSize:11, outline:"none", marginBottom:6, boxSizing:"border-box" }}
-                    />
-                    <div style={{ maxHeight:130, overflowY:"auto", display:"flex", flexDirection:"column", gap:2, scrollbarWidth:"thin" }}>
-                      {teams.slice(0, 40).map(t => (
-                        <button key={t.id} onClick={() => setFilterTeam(filterTeam === t.id ? "" : t.id)} style={{
-                          display:"flex", alignItems:"center", gap:7, padding:"4px 8px", borderRadius:6,
-                          background: filterTeam === t.id ? `${C.blue}18` : "none",
-                          border:`1px solid ${filterTeam === t.id ? C.blue : "transparent"}`,
-                          cursor:"pointer", textAlign:"left",
-                        }}>
-                          {t.logo && <img src={t.logo} width={14} height={14} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>}
-                          <span style={{ fontSize:11, color: filterTeam === t.id ? C.blue : C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</span>
-                        </button>
-                      ))}
-                      {!searchTeam && teams.length > 40 && <div style={{ fontSize:10, color:C.muted, padding:"4px 8px" }}>Cherche par nom…</div>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Liste des matchs filtrés */}
-            {nextLoading ? (
-              <div style={{ color:C.dim, fontSize:12, padding:"16px 0" }}>Chargement des prochains matchs…</div>
-            ) : nextError ? (
-              <div style={{ color:C.red, fontSize:12 }}>{nextError}</div>
-            ) : filtered.length === 0 ? (
-              <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"20px", textAlign:"center", color:C.dim, fontSize:12 }}>
-                {activeFilters > 0 ? "Aucun match trouvé avec ces filtres." : "Aucun match à venir trouvé."}
-              </div>
-            ) : Object.entries(byDate).map(([dateLabel, matches]) => (
-              <div key={dateLabel} style={{ marginBottom:20 }}>
-                <div style={{ fontSize:11, fontWeight:600, color:C.dim, textTransform:"capitalize", letterSpacing:.5, marginBottom:8, borderLeft:`3px solid ${C.accent}`, paddingLeft:8 }}>
-                  {dateLabel} · <span style={{ color:C.muted }}>{matches.length} match{matches.length>1?"s":""}</span>
-                </div>
-                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                  {matches.map(f => {
-                    const homeLogo = logoRegistry[f.home?.id] || f.home?.logo || "";
-                    const awayLogo = logoRegistry[f.away?.id] || f.away?.logo || "";
-                    const t = new Date(f.date).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
-                    const isTeamMatch = filterTeam && (f.home?.id === filterTeam || f.away?.id === filterTeam);
-                    return (
-                      <div key={f.id}
-                        onClick={() => f.compId && onMatchClick?.(f)}
-                        style={{ background:C.panel, border:`1px solid ${isTeamMatch ? C.blue : C.line}`, borderRadius:10, padding:"10px 14px", display:"grid", gridTemplateColumns:"1fr auto 1fr auto", alignItems:"center", gap:10, cursor:f.compId?"pointer":"default", transition:"border-color .1s" }}
-                        onMouseEnter={e=>{ if(f.compId) e.currentTarget.style.borderColor=C.accent; }}
-                        onMouseLeave={e=>{ e.currentTarget.style.borderColor=isTeamMatch?C.blue:C.line; }}
-                      >
-                        <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
-                          <TeamLogo url={homeLogo} size={20} name={f.home?.name||"?"} />
-                          <span style={{ fontSize:12, fontWeight: f.home?.id===filterTeam?700:500, color: f.home?.id===filterTeam?C.blue:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.home?.name}</span>
-                        </div>
-                        <div style={{ textAlign:"center", minWidth:50 }}>
-                          <div style={{ fontSize:12, fontWeight:600, color:C.accent }}>{t}</div>
-                        </div>
-                        <div style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", minWidth:0 }}>
-                          <span style={{ fontSize:12, fontWeight: f.away?.id===filterTeam?700:500, color: f.away?.id===filterTeam?C.blue:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"right" }}>{f.away?.name}</span>
-                          <TeamLogo url={awayLogo} size={20} name={f.away?.name||"?"} />
-                        </div>
-                        <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                          <FlagImg emoji={countryFlag(f.country)} height={12} />
-                          {f.leagueLogo && <img src={f.leagueLogo} width={13} height={13} style={{ objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
-                          <span style={{ fontSize:10, color:C.dim, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.league}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
+      <UpcomingMatchesPanel
+        nextFixtures={nextFixtures}
+        nextLoading={nextLoading}
+        nextError={nextError}
+        logoRegistry={logoRegistry}
+        onMatchClick={onMatchClick}
+      />
 
       {/* === CE JOUR DANS L'HISTOIRE === */}
       {(() => {

@@ -101,10 +101,11 @@ function teamStatsFromFixtures(fixtures, teamId, side, days = 365, cutoffMs = nu
     notWinning: pct(venue.filter((g) => g.res !== "W").length, totalV),
   };
 
-  // BTTS, clean sheet, failed to score (sur tous les matchs)
+  // BTTS, clean sheet, failed to score, over 2.5 (sur tous les matchs)
   const btts          = pct(per.filter((g) => g.gf > 0 && g.ga > 0).length, total);
   const cleanSheet    = pct(per.filter((g) => g.ga === 0).length, total);
   const failedToScore = pct(per.filter((g) => g.gf === 0).length, total);
+  const over25        = pct(per.filter((g) => g.gf + g.ga > 2.5).length, total);
 
   return {
     form,
@@ -119,6 +120,7 @@ function teamStatsFromFixtures(fixtures, teamId, side, days = 365, cutoffMs = nu
     btts,
     cleanSheet,
     failedToScore,
+    over25,
   };
 }
 
@@ -416,6 +418,7 @@ async function buildLeagueFromFixture(league, fx, sN) {
       btts:          homeBase.btts,
       cleanSheet:    homeBase.cleanSheet,
       failedToScore: homeBase.failedToScore,
+      over25:        homeBase.over25,
       minuteGoals:   minuteGoalsFromStats(homeStats),
       noData:        homeBase.noData,
       extendedStats: homeBase.extendedStats || false,
@@ -439,6 +442,7 @@ async function buildLeagueFromFixture(league, fx, sN) {
       btts:          awayBase.btts,
       cleanSheet:    awayBase.cleanSheet,
       failedToScore: awayBase.failedToScore,
+      over25:        awayBase.over25,
       minuteGoals:   minuteGoalsFromStats(awayStats),
       noData:        awayBase.noData,
       extendedStats: awayBase.extendedStats || false,
