@@ -708,8 +708,16 @@ app.get("/api/next", async (req, res) => {
       { apiId:135, season:2025, compId:"it",    name:"Serie A",                country:"Italy",   logo:"https://media.api-sports.io/football/leagues/135.png" },
       { apiId:140, season:2025, compId:"es",    name:"La Liga",                country:"Spain",   logo:"https://media.api-sports.io/football/leagues/140.png" },
       { apiId:94,  season:2025, compId:"pt",    name:"Liga Portugal",          country:"Portugal",logo:"https://media.api-sports.io/football/leagues/94.png" },
-      // Matchs internationaux
-      { apiId:10,  season:2026, compId:"intfriendly", name:"Amicaux internationaux", country:"World", logo:"https://media.api-sports.io/football/leagues/10.png" },
+      // Matchs internationaux et amicaux clubs
+      { apiId:10,  season:2026, compId:"intfriendly",  name:"Amicaux internationaux", country:"World", logo:"https://media.api-sports.io/football/leagues/10.png" },
+      { apiId:667, season:2026, compId:"clubfriendly", name:"Amicaux clubs",           country:"World", logo:"https://media.api-sports.io/football/leagues/667.png" },
+      // Saison 2026 pour les compétitions qui commencent en été 2026
+      { apiId:2,   season:2026, compId:"ucl",  name:"Ligue des Champions 2026",  country:"Europe", logo:"https://media.api-sports.io/football/leagues/2.png" },
+      { apiId:39,  season:2026, compId:"en",   name:"Premier League 2026",       country:"England",logo:"https://media.api-sports.io/football/leagues/39.png" },
+      { apiId:61,  season:2026, compId:"fr",   name:"Ligue 1 2026",              country:"France", logo:"https://media.api-sports.io/football/leagues/61.png" },
+      { apiId:78,  season:2026, compId:"de",   name:"Bundesliga 2026",           country:"Germany",logo:"https://media.api-sports.io/football/leagues/78.png" },
+      { apiId:135, season:2026, compId:"it",   name:"Serie A 2026",              country:"Italy",  logo:"https://media.api-sports.io/football/leagues/135.png" },
+      { apiId:140, season:2026, compId:"es",   name:"La Liga 2026",              country:"Spain",  logo:"https://media.api-sports.io/football/leagues/140.png" },
     ];
 
     // Charger chaque compétition depuis son cache (sans appel API si déjà en cache)
@@ -772,7 +780,7 @@ app.get("/api/next", async (req, res) => {
 
     // ── 3. Prochains 100 matchs globaux (toutes compétitions) ─
     try {
-      const globalNext = await apiGet("fixtures", { next: 100 }, 30 * 60 * 1000);
+      const globalNext = await apiGet("fixtures", { next: 200 }, 30 * 60 * 1000);
       (globalNext || []).forEach(f => {
         addFixture({
           id:         f.fixture.id,

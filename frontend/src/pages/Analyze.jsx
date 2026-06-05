@@ -26,76 +26,136 @@ const api = {
     const r = await fetch(`/api/match-stats/${fixtureId}`);
     return r.ok ? r.json().catch(()=>[]) : [];
   },
-  async analyzeWithAI(matchData, home, away, competition) {
-    // Construire un contexte riche avec les données réelles
-    const ctx = matchData ? {
-      league: competition,
-      home: {
-        name: home,
-        form: matchData.home?.form || [],
-        avgGoalsScored: matchData.home?.avgGoalsScored || 0,
-        avgGoalsConceded: matchData.home?.avgGoalsConceded || 0,
-        btts: matchData.home?.btts || 0,
-        over25: matchData.home?.over25 || 0,
-        cleanSheet: matchData.home?.cleanSheet || 0,
-        winRate: matchData.home?.homeRecord ? Math.round(matchData.home.homeRecord.w / (matchData.home.homeRecord.w+matchData.home.homeRecord.d+matchData.home.homeRecord.l||1)*100) : 0,
-      },
-      away: {
-        name: away,
-        form: matchData.away?.form || [],
-        avgGoalsScored: matchData.away?.avgGoalsScored || 0,
-        avgGoalsConceded: matchData.away?.avgGoalsConceded || 0,
-        btts: matchData.away?.btts || 0,
-        over25: matchData.away?.over25 || 0,
-        cleanSheet: matchData.away?.cleanSheet || 0,
-      },
-      h2h: matchData.h2h || [],
-      score: matchData.score,
-      date: matchData.date,
-    } : null;
+  async analyzeWithAI(matchData, home, away, competition, weatherData, fixture) {
+    const h = matchData?.home || {};
+    const a = matchData?.away || {};
 
-    const contextLines = ctx ? [
-      `Match: ${home} vs ${away} — ${competition}`,
-      `Forme ${home}: ${(ctx.home.form||[]).join("") || "N/A"} | Buts/match: ${ctx.home.avgGoalsScored.toFixed(1)} | Encaissés: ${ctx.home.avgGoalsConceded.toFixed(1)} | BTTS: ${ctx.home.btts}% | Over2.5: ${ctx.home.over25}% | CS: ${ctx.home.cleanSheet}%`,
-      `Forme ${away}: ${(ctx.away.form||[]).join("") || "N/A"} | Buts/match: ${ctx.away.avgGoalsScored.toFixed(1)} | Encaissés: ${ctx.away.avgGoalsConceded.toFixed(1)} | BTTS: ${ctx.away.btts}% | Over2.5: ${ctx.away.over25}% | CS: ${ctx.away.cleanSheet}%`,
-      ctx.h2h?.length ? `H2H (${ctx.h2h.length} matchs): ${ctx.h2h.slice(0,3).map(h=>`${h.score||"?"} (${h.winner||"?"})`).join(", ")}` : "",
-    ].filter(Boolean).join("\n") : `Match: ${home} vs ${away} — ${competition}\nPas de données API disponibles pour ce match.`;
+    // ── Calculs avancés ──────────────────────────────────────
+    const homeWinDom  = h.homeRecord ? Math.round(h.homeRecord.w/Math.max(h.homeRecord.w+h.homeRecord.d+h.homeRecord.l,1)*100) : null;
+    const awayWinExt  = a.awayRecord ? Math.round(a.awayRecord.w/Math.max(a.awayRecord.w+a.awayRecord.d+a.awayRecord.l,1)*100) : null;
+    const awayLossExt = a.awayRecord ? Math.round(a.awayRecord.l/Math.max(a.awayRecord.w+a.awayRecord.d+a.awayRecord.l,1)*100) : null;
+    const avgGoals    = (h.avgGoalsScored||0) + (a.avgGoalsScored||0);
+    const bttsComb    = Math.round(((h.btts||0)+(a.btts||0))/2);
+    const over25Comb  = Math.round(((h.over25||0)+(a.over25||0))/2);
+    const hForm5      = (h.form||[]).slice(-5).join("") || "N/A";
+    const aForm5      = (a.form||[]).slice(-5).join("") || "N/A";
+    const hPts5       = (h.form||[]).slice(-5).reduce((s,r)=>s+(r==="W"?3:r==="D"?1:0),0);
+    const aPts5       = (a.form||[]).slice(-5).reduce((s,r)=>s+(r==="W"?3:r==="D"?1:0),0);
+
+    // ── H2H ─────────────────────────────────────────────────
+    const h2h = matchData?.h2h || [];
+    const h2hHome = h2h.filter(x=>x.winner==="home").length;
+    const h2hAway = h2h.filter(x=>x.winner==="away").length;
+    const h2hDraw = h2h.filter(x=>x.winner==="draw").length;
+    const h2hBtts = h2h.filter(x=>{ const [gf,ga]=(x.score||"").split(" - ").map(Number); return gf>0&&ga>0; }).length;
+    const h2hOver  = h2h.filter(x=>{ const [gf,ga]=(x.score||"").split(" - ").map(Number); return gf+ga>2; }).length;
+
+    // ── Météo ─────────────────────────────────────────────────
+    let weatherContext = "";
+    if (weatherData) {
+      const wh = weatherData.home || weatherData;
+      if (wh.condStats?.length) {
+        const best = [...wh.condStats].sort((a,b)=>(b.w/(b.n||1))-(a.w/(a.n||1)))[0];
+        const worst = [...wh.condStats].sort((a,b)=>(a.w/(a.n||1))-(b.w/(b.n||1)))[0];
+        weatherContext = `Météo ${home}: Meilleure perf en "${best?.label}" (${best?.w}V/${best?.n}M), moins bonne en "${worst?.label}" (${worst?.w}V/${worst?.n}M).`;
+      }
+    }
+
+    // ── Score confiance domicile ──────────────────────────────
+    const xHomeConf = Math.min(95, Math.max(5,
+      50
+      + (homeWinDom ? (homeWinDom-50)*0.4 : 0)
+      + (awayLossExt ? (awayLossExt-30)*0.3 : 0)
+      + (hPts5-aPts5)*2
+      + ((h.avgGoalsScored||0)-(a.avgGoalsScored||0))*3
+      - ((h.avgGoalsConceded||0)-(a.avgGoalsConceded||0))*2
+    ));
+
+    // ── Date du match ─────────────────────────────────────────
+    const matchDate = fixture?.date ? new Date(fixture.date).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"}) : null;
+
+    const contextLines = [
+      `=== MATCH : ${home} (dom.) vs ${away} (ext.) — ${competition} ===`,
+      matchDate ? `Date: ${matchDate}` : "",
+      ``,
+      `── ÉQUIPE DOMICILE: ${home} ──`,
+      `Forme 5 derniers: ${hForm5} (${hPts5}/15 pts)`,
+      `Buts marqués/match: ${(h.avgGoalsScored||0).toFixed(2)} | Buts encaissés: ${(h.avgGoalsConceded||0).toFixed(2)}`,
+      homeWinDom !== null ? `Win% à domicile: ${homeWinDom}% (${h.homeRecord?.w||0}V ${h.homeRecord?.d||0}N ${h.homeRecord?.l||0}D)` : "",
+      `BTTS: ${h.btts||0}% | Over 2.5: ${h.over25||0}% | Clean sheet: ${h.cleanSheet||0}% | Sans marquer: ${h.failedToScore||0}%`,
+      h.doubleChance?.notLosing ? `Double chance (ne perd pas dom.): ${h.doubleChance.notLosing}%` : "",
+      h.scorers?.length ? `Top buteurs: ${h.scorers.slice(0,3).map(s=>`${s.name} (${s.scored} buts)`).join(", ")}` : "",
+      ``,
+      `── ÉQUIPE EXTÉRIEUR: ${away} ──`,
+      `Forme 5 derniers: ${aForm5} (${aPts5}/15 pts)`,
+      `Buts marqués/match: ${(a.avgGoalsScored||0).toFixed(2)} | Buts encaissés: ${(a.avgGoalsConceded||0).toFixed(2)}`,
+      awayWinExt !== null ? `Win% à l'extérieur: ${awayWinExt}% | Défaites ext.: ${awayLossExt}% (${a.awayRecord?.w||0}V ${a.awayRecord?.d||0}N ${a.awayRecord?.l||0}D)` : "",
+      `BTTS: ${a.btts||0}% | Over 2.5: ${a.over25||0}% | Clean sheet: ${a.cleanSheet||0}% | Sans marquer: ${a.failedToScore||0}%`,
+      a.doubleChance?.notLosing ? `Double chance (ne perd pas ext.): ${a.doubleChance.notLosing}%` : "",
+      a.scorers?.length ? `Top buteurs: ${a.scorers.slice(0,3).map(s=>`${s.name} (${s.scored} buts)`).join(", ")}` : "",
+      ``,
+      `── ANALYSE COMBINÉE ──`,
+      `Moyenne buts: ${avgGoals.toFixed(2)}/match | BTTS combiné: ${bttsComb}% | Over 2.5 combiné: ${over25Comb}%`,
+      `Score de confiance domicile calculé: ${xHomeConf.toFixed(0)}%`,
+      h2h.length ? `H2H (${h2h.length} matchs): ${h2hHome}V dom. | ${h2hDraw}N | ${h2hAway}V ext. | BTTS: ${h2hBtts}/${h2h.length} | Over2.5: ${h2hOver}/${h2h.length}` : "H2H: Pas de données",
+      h2h.length >= 3 ? `Derniers H2H: ${h2h.slice(0,5).map(x=>`${x.score||"?"}`).join(", ")}` : "",
+      weatherContext ? `\n── MÉTÉO & CONDITIONS ──\n${weatherContext}` : "",
+    ].filter(Boolean).join("\n");
+
+    const ctx = {
+      league: competition, home: { name: home, ...h }, away: { name: away, ...a },
+      h2h, score: matchData?.score, date: matchData?.date,
+    };
 
     const schema = `{
-  "resume": "1 phrase percutante sur ce match",
+  "resume": "1 phrase percutante et précise sur ce match",
+  "alertes": [
+    {"niveau": "ROUGE|ORANGE|VERT", "icone": "⚠️|🌡️|📊|🔥|💧", "titre": "Titre court alerte", "texte": "Explication détaillée de l'alerte pour le parieur"}
+  ],
   "forme": {
-    "home": {"resultats": ["V","D","V","V","N"], "desc": "analyse de la forme en 1 phrase"},
-    "away": {"resultats": ["N","V","D","V","V"], "desc": "analyse de la forme en 1 phrase"}
+    "home": {"resultats": ["V","D","V","V","N"], "desc": "analyse factuelle de la forme (cite les stats)"},
+    "away": {"resultats": ["N","V","D","V","V"], "desc": "analyse factuelle de la forme (cite les stats)"}
   },
   "stats": [
     {"label": "Buts/match", "home": 1.8, "away": 1.2},
     {"label": "Buts encaissés", "home": 1.1, "away": 1.4},
+    {"label": "Win% terrain", "home": 65, "away": 35},
     {"label": "BTTS %", "home": 55, "away": 60},
     {"label": "Over 2.5 %", "home": 60, "away": 45},
     {"label": "Clean sheets %", "home": 40, "away": 30},
-    {"label": "Tirs/match", "home": 14, "away": 11},
-    {"label": "Possession %", "home": 54, "away": 46}
+    {"label": "Sans marquer %", "home": 20, "away": 30},
+    {"label": "Double chance %", "home": 75, "away": 60}
   ],
+  "h2h_analyse": "2 phrases sur les confrontations directes avec chiffres précis",
   "joueurs_cles": {
-    "home": [{"nom": "nom", "poste": "poste", "stat": "stat clé"}, {"nom": "nom2", "poste": "poste", "stat": "stat"}],
-    "away": [{"nom": "nom", "poste": "poste", "stat": "stat clé"}, {"nom": "nom2", "poste": "poste", "stat": "stat"}]
+    "home": [{"nom": "nom", "poste": "poste", "stat": "stat précise basée sur les données"}],
+    "away": [{"nom": "nom", "poste": "poste", "stat": "stat précise"}]
   },
-  "analyse": "3 phrases d'analyse tactique précise basée sur les vraies stats",
+  "analyse": "4 phrases d'analyse tactique et statistique très détaillée basée sur les vraies stats",
   "pronostic": {
     "score": "2-1",
     "resultat": "Victoire domicile",
     "confiance": 65,
-    "explication": "2 phrases d'explication basées sur les données"
+    "explication": "3 phrases d'explication basées sur les données ci-dessus"
   },
   "paris": [
-    {"type": "Victoire domicile", "cote_estimee": "1.75", "valeur": "bonne", "raisonnement": "1 phrase"},
+    {"type": "Victoire domicile", "cote_estimee": "1.75", "valeur": "bonne", "raisonnement": "1 phrase précise avec stats"},
     {"type": "Plus de 2.5 buts", "cote_estimee": "1.90", "valeur": "intéressante", "raisonnement": "1 phrase"},
-    {"type": "BTTS Oui", "cote_estimee": "1.80", "valeur": "neutre", "raisonnement": "1 phrase"}
+    {"type": "BTTS Oui", "cote_estimee": "1.80", "valeur": "neutre", "raisonnement": "1 phrase"},
+    {"type": "Double chance 1X", "cote_estimee": "1.35", "valeur": "sûre", "raisonnement": "1 phrase"}
   ],
-  "verdict": "1 phrase finale de verdict",
-  "facteurs_cles": ["facteur clé 1", "facteur clé 2", "facteur clé 3"],
+  "verdict": "1 phrase finale synthétique",
+  "facteurs_cles": ["facteur clé 1 avec chiffre", "facteur clé 2", "facteur clé 3", "facteur clé 4"],
   "signal_parieur": "fort" ou "moyen" ou "faible"
-}`;
+}
+
+RÈGLES IMPORTANTES:
+- Les "alertes" sont critiques : génère des alertes basées sur les VRAIES stats (météo, forme, H2H, domicile/extérieur)
+- Si équipe forte à domicile (>70% win dom.) → alerte VERTE avantage domicile
+- Si H2H dominé par une équipe → alerte ORANGE
+- Si over25 très élevé des deux côtés → alerte VERT buts attendus
+- Si conditions météo défavorables selon les stats → alerte ROUGE
+- Utilise les données numériques exactes fournies dans ton analyse`;
 
     const r = await fetch("/api/chat", {
       method: "POST",
@@ -285,7 +345,7 @@ export default function FoxLabAnalyzer({ userAccount, onNavigatePremium }) {
     setError(""); setLoading(true); setAnalysis(null); setStep("Connexion à l'IA…");
     try {
       setStep("Analyse des données réelles…");
-      const result = await api.analyzeWithAI(realMatchData, home, away, competition);
+      const result = await api.analyzeWithAI(realMatchData, home, away, competition, null, selectedFixture);
       if (!result.pronostic && !result.resume) throw new Error("Analyse incomplète.");
       setAnalysis({ ...result, home, away, competition });
       setStep("");
@@ -580,6 +640,34 @@ export default function FoxLabAnalyzer({ userAccount, onNavigatePremium }) {
               <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
                 {analysis.signal_parieur&&<span style={{fontSize:10,background:`${analysis.signal_parieur==="fort"?C.green:analysis.signal_parieur==="moyen"?C.warn:C.muted}18`,color:analysis.signal_parieur==="fort"?C.green:analysis.signal_parieur==="moyen"?C.warn:C.muted,borderRadius:20,padding:"3px 12px",fontWeight:700,border:`1px solid currentColor`}}>📡 Signal {analysis.signal_parieur}</span>}
                 {analysis.facteurs_cles.map((f,i)=><span key={i} style={{fontSize:10,background:"rgba(217,119,6,.12)",color:C.warn,borderRadius:20,padding:"3px 12px"}}>⚡ {f}</span>)}
+              </div>
+            )}
+
+            {/* ── ALERTES IA ── */}
+            {analysis.alertes?.length>0&&(
+              <div style={{marginBottom:14,display:"flex",flexDirection:"column",gap:7}}>
+                <div style={{fontSize:10,fontWeight:700,color:C.dark,textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>⚠️ Alertes détectées</div>
+                {analysis.alertes.map((alerte,i)=>{
+                  const col = alerte.niveau==="ROUGE"?"#DC2626":alerte.niveau==="ORANGE"?"#d97706":C.green;
+                  return (
+                    <div key={i} style={{display:"flex",gap:10,padding:"10px 14px",background:`${col}0e`,border:`1px solid ${col}44`,borderRadius:10,borderLeft:`4px solid ${col}`}}>
+                      <span style={{fontSize:18,flexShrink:0}}>{alerte.icone||"⚠️"}</span>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:700,color:col,marginBottom:3}}>{alerte.titre}</div>
+                        <div style={{fontSize:11,color:C.dark,lineHeight:1.5}}>{alerte.texte}</div>
+                      </div>
+                      <span style={{marginLeft:"auto",flexShrink:0,fontSize:9,fontWeight:800,color:col,background:`${col}18`,borderRadius:6,padding:"2px 8px",alignSelf:"flex-start"}}>{alerte.niveau}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── H2H rapide ── */}
+            {analysis.h2h_analyse&&(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px",marginBottom:12}}>
+                <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:6}}>⚔️ Face-à-face</div>
+                <div style={{fontSize:12,color:C.dim,lineHeight:1.6}}>{analysis.h2h_analyse}</div>
               </div>
             )}
 
