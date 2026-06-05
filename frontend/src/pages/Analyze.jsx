@@ -162,13 +162,21 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown.`,
       });
       const data = await res.json();
       const text = data.answer || "";
-      // Extraire le JSON de la réponse
-      const match = text.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error("Format invalide");
-      const parsed = JSON.parse(match[0]);
+      if (!text) throw new Error("Réponse vide du serveur.");
+      // Parsing robuste : tente direct, puis extrait le JSON du texte
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        const clean = text.replace(/```json|```/gi, "").trim();
+        const match = clean.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error("L'IA n'a pas renvoyé un JSON valide. Réessaie.");
+        parsed = JSON.parse(match[0]);
+      }
+      if (!parsed.pronostic && !parsed.resume) throw new Error("Analyse incomplète reçue. Réessaie.");
       setAnalysis({ ...parsed, home, away, competition });
     } catch (e) {
-      setError("Erreur lors de l'analyse. Réessaie dans quelques secondes.");
+      setError(`Erreur : ${e.message}`);
     } finally {
       setLoading(false);
     }

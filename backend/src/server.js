@@ -2307,7 +2307,7 @@ app.post("/api/chat", express.json({ limit: "2mb" }), async (req, res) => {
 IMPORTANT: Réponds UNIQUEMENT avec un objet JSON valide correspondant exactement à ce schéma, sans markdown ni texte supplémentaire autour:
 ${outputSchema}`;
     }
-    const answer = await chat(fullQuestion, context, history || [], teamDatabase || {});
+    const answer = await chat(fullQuestion, context, history || [], teamDatabase || {}, !!structuredOutput);
     res.json({ answer });
   } catch (err) {
     console.error("[/api/chat]", err.message);

@@ -106,7 +106,7 @@ function buildContext(matchCtx, teamDatabase = {}) {
   return matchSection + teamsSection;
 }
 
-export async function chat(question, matchCtx, history = [], teamDatabase = {}) {
+export async function chat(question, matchCtx, history = [], teamDatabase = {}, structuredOutput = false) {
   if (!process.env.GROQ_KEY) {
     throw new Error("GROQ_KEY manquante dans backend/.env. Obtiens une clé gratuite sur https://console.groq.com/");
   }
@@ -118,18 +118,24 @@ DONNÉES DU MATCH ACTUEL :
 ${contextStr}`;
 
   const messages = [
-    { role: "system",    content: systemPrompt },
-    { role: "assistant", content: "Compris. Je suis prêt à analyser le match et répondre à tes questions football. Pose-moi ta question !" },
-    ...history.slice(-10),
-    { role: "user",      content: question },
+    { role: "system", content: systemPrompt },
+    ...(!structuredOutput ? [{ role: "assistant", content: "Compris. Je suis prêt à analyser le match et répondre à tes questions football. Pose-moi ta question !" }] : []),
+    ...history.slice(-6),
+    { role: "user", content: question },
   ];
 
-  const completion = await groq.chat.completions.create({
+  const options = {
     model:       "llama-3.3-70b-versatile",
     messages,
-    max_tokens:  700,
-    temperature: 0.5,
-  });
+    max_tokens:  structuredOutput ? 1800 : 700,
+    temperature: structuredOutput ? 0.3 : 0.5,
+  };
 
+  // Mode JSON structuré : forcer le format JSON pour éviter le markdown
+  if (structuredOutput) {
+    options.response_format = { type: "json_object" };
+  }
+
+  const completion = await groq.chat.completions.create(options);
   return completion.choices[0]?.message?.content?.trim() || "Aucune réponse reçue.";
 }
