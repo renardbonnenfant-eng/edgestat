@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import FoxLabAnalyzer from "./pages/Analyze.jsx";
+import Premium from "./pages/Premium.jsx";
+import Leaderboards from "./pages/Leaderboards.jsx";
+import Pronostics from "./pages/Pronostics.jsx";
+import PaymentSuccess from "./pages/PaymentSuccess.jsx";
+import PaymentCancel from "./pages/PaymentCancel.jsx";
 import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchMatchPlayers, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions, apiRegister, apiLogin, apiGetMe, fetchLeaderboard, fetchFootballNews } from "./api.js";
 import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 
@@ -870,7 +875,7 @@ function SidebarSearch({ allData, logoRegistry, onSelectComp, onSelectTeam, onOp
   );
 }
 
-function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token, onLoginClick, onLogout, tennisId, onTennisSelect, tennisTournaments, allData, logoRegistry, onSelectTeam, onOpenPlayer, onOpenClub }) {
+function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token, onLoginClick, onLogout, tennisId, onTennisSelect, tennisTournaments, allData, logoRegistry, onSelectTeam, onOpenPlayer, onOpenClub, userAccount }) {
   const [openSections, setOpenSections] = useState({ clubs: true, national: false, world: false, tennis: true });
   const toggle = key => setOpenSections(s => ({ ...s, [key]: !s[key] }));
   const mobile = typeof window !== "undefined" && window.innerWidth < 768;
@@ -946,34 +951,55 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
           {[
             { id:"home",         label:"Accueil",      icon:"🏠", color:"#0176D3" },
             { id:"analyze",      label:"Analyse IA",   icon:"🦊", color:"#00D4AA" },
+            { id:"pronostics",   label:"Pronostics",   icon:"🎯", color:"#d97706" },
+            { id:"classements",  label:"Classements",  icon:"🏆", color:"#d97706" },
+            { id:"premium",      label:"Premium",      icon:"⭐", color:"#00D4AA" },
             { id:"foot",         label:"Football",     icon:"⚽", color:"#0176D3" },
             { id:"tennis",       label:"Tennis",       icon:"🎾", color:"#c2692d" },
             { id:"bracket",      label:"Coupes",       icon:"🏆", color:"#0176D3" },
             { id:"quiz",         label:"Quiz",         icon:"🧩", color:"#16a34a" },
-            { id:"leaderboard",  label:"Classement",   icon:"🏆", color:"#d97706" },
             { id:"history",      label:"Histoire",     icon:"📚", color:"#7C3AED" },
             { id:"encyclopedia", label:"Encyclopédie", icon:"📖", color:"#7C3AED" },
             { id:"conseils",     label:"Conseils",     icon:"💡", color:"#d97706" },
             { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
-          ].map(s => {
+          ].map((s, _idx, arr) => {
             const active = sport === s.id;
             return (
-              <button key={s.id} onClick={() => onSportChange(s.id)} style={{
-                display:"flex", alignItems:"center", gap:10,
-                padding: mobile ? "13px 12px" : "10px 12px", // 44px touch target sur mobile
-                borderRadius:8, cursor:"pointer",
-                background: active ? `${s.color}20` : "transparent",
-                borderLeft: `3px solid ${active ? s.color : "transparent"}`,
-                border: "none",
-                color: active ? "#ffffff" : C.sidebarText,
-                fontWeight: active ? 800 : 500, fontSize: mobile ? 14 : 13,
-                transition:"all .15s", textAlign:"left", width:"100%",
-                WebkitTapHighlightColor:"transparent",
-              }}>
-                <span style={{ fontSize: mobile ? 20 : 17 }}>{s.icon}</span>
-                <span>{s.label}</span>
-                {active && <span style={{ marginLeft:"auto", fontSize:9, background:s.color, color:"#fff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>ACTIF</span>}
-              </button>
+              <React.Fragment key={s.id}>
+                {s.id === "favs" && userAccount && userAccount.plan === "free" && (
+                  <button onClick={() => onSportChange("premium")} style={{
+                    display:"flex", alignItems:"center", gap:10,
+                    padding: mobile ? "13px 12px" : "10px 12px",
+                    borderRadius:8, cursor:"pointer",
+                    background: "rgba(217,119,6,.15)",
+                    borderLeft: "3px solid #d97706",
+                    border: "none",
+                    color: "#d97706",
+                    fontWeight: 700, fontSize: mobile ? 14 : 13,
+                    transition:"all .15s", textAlign:"left", width:"100%",
+                    WebkitTapHighlightColor:"transparent",
+                  }}>
+                    <span style={{ fontSize: mobile ? 20 : 17 }}>⚡</span>
+                    <span>Passer Premium</span>
+                  </button>
+                )}
+                <button onClick={() => onSportChange(s.id)} style={{
+                  display:"flex", alignItems:"center", gap:10,
+                  padding: mobile ? "13px 12px" : "10px 12px", // 44px touch target sur mobile
+                  borderRadius:8, cursor:"pointer",
+                  background: active ? `${s.color}20` : "transparent",
+                  borderLeft: `3px solid ${active ? s.color : "transparent"}`,
+                  border: "none",
+                  color: active ? "#ffffff" : C.sidebarText,
+                  fontWeight: active ? 800 : 500, fontSize: mobile ? 14 : 13,
+                  transition:"all .15s", textAlign:"left", width:"100%",
+                  WebkitTapHighlightColor:"transparent",
+                }}>
+                  <span style={{ fontSize: mobile ? 20 : 17 }}>{s.icon}</span>
+                  <span>{s.label}</span>
+                  {active && <span style={{ marginLeft:"auto", fontSize:9, background:s.color, color:"#fff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>ACTIF</span>}
+                </button>
+              </React.Fragment>
             );
           })}
         </div>
@@ -10824,6 +10850,7 @@ export default function App() {
         }}
         onOpenPlayer={(id, name, tsdbId) => setGlobalPlayer({ id, name, tsdbId })}
         onOpenClub={club => setGlobalClub(club)}
+        userAccount={userAccount}
       />
       </div>
 
@@ -10959,7 +10986,17 @@ export default function App() {
                     onOpenClub={club => setGlobalClub(club)}
                   />
                 ) : sport === "analyze" ? (
-                  <FoxLabAnalyzer />
+                  <FoxLabAnalyzer userAccount={userAccount} onNavigatePremium={() => setSport("premium")} />
+                ) : sport === "pronostics" ? (
+                  <Pronostics userAccount={userAccount} nextFixtures={[]} onLogin={() => { setAuthMode("login"); setShowAuthModal(true); }} />
+                ) : sport === "classements" ? (
+                  <Leaderboards userAccount={userAccount} />
+                ) : sport === "premium" ? (
+                  <Premium userAccount={userAccount} />
+                ) : sport === "payment_success" ? (
+                  <PaymentSuccess onNavigate={id => setSport(id)} />
+                ) : sport === "payment_cancel" ? (
+                  <PaymentCancel onNavigate={id => setSport(id)} />
                 ) : sport === "home" ? (
                   <HomeView
                     logoRegistry={logoRegistry}

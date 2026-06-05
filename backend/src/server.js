@@ -14,7 +14,8 @@ import { buildTennisMatch, getTennisTournaments, testTennisApi } from "./tennis.
 import { chat } from "./chat.js";
 import { readCache, writeCache, getDailyCount } from "./cache.js";
 import { apiGet } from "./apiFootball.js";
-import { register, login as loginUser, verifyToken, getUserStats, getLeaderboard } from "./auth.js";
+import { register, login as loginUser, verifyToken, getUserById, getLeaderboard, getPronosticLeaderboard, updatePlan } from "./auth.js";
+import { submitPronostic, getUserPronostics, resolvePronostic, getPronosticStats } from "./pronostics.js";
 import { initQuizWS } from "./quiz-ws.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,6 +41,12 @@ app.post("/api/login", express.json(), (req, res) => {
 // Ping de santé pour garder le serveur éveillé (Render free tier)
 app.get("/ping", (req, res) => res.send("ok"));
 
+// ── Helper auth ──────────────────────────────────────────────
+function requireAuth(req) {
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  return verifyToken(token);
+}
+
 // ── Comptes utilisateurs ─────────────────────────────────────
 app.post("/api/auth/register", express.json(), async (req, res) => {
   try {
@@ -57,18 +64,138 @@ app.post("/api/auth/login", express.json(), async (req, res) => {
   } catch (err) { res.status(401).json({ error: err.message }); }
 });
 
+app.post("/api/auth/logout", (req, res) => res.json({ ok: true }));
+
 app.get("/api/auth/me", (req, res) => {
-  const token = (req.headers.authorization || "").replace("Bearer ", "");
-  const decoded = verifyToken(token);
+  const decoded = requireAuth(req);
   if (!decoded) return res.status(401).json({ error: "Non authentifié." });
-  const data = getUserStats(decoded.id);
+  const data = getUserById(decoded.id);
   if (!data) return res.status(404).json({ error: "Utilisateur introuvable." });
   res.json(data);
 });
 
+// ── Pronostics ───────────────────────────────────────────────
+app.post("/api/pronostics", express.json(), (req, res) => {
+  const decoded = requireAuth(req);
+  if (!decoded) return res.status(401).json({ error: "Connexion requise." });
+  try {
+    const p = submitPronostic(decoded.id, req.body || {});
+    res.json(p);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.get("/api/pronostics/my", (req, res) => {
+  const decoded = requireAuth(req);
+  if (!decoded) return res.status(401).json({ error: "Connexion requise." });
+  res.json(getUserPronostics(decoded.id));
+});
+
+app.get("/api/pronostics/pending", (req, res) => {
+  const decoded = requireAuth(req);
+  if (!decoded) return res.status(401).json({ error: "Connexion requise." });
+  res.json(getUserPronostics(decoded.id, "pending"));
+});
+
+app.get("/api/pronostics/stats", (req, res) => {
+  res.json(getPronosticStats());
+});
+
+// Admin : résoudre un pronostic (sécurisé par secret)
+app.post("/api/pronostics/resolve", express.json(), (req, res) => {
+  const { secret, pronosticId, actualResult, actualScore } = req.body || {};
+  if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: "Accès refusé." });
+  const p = resolvePronostic(Number(pronosticId), actualResult, actualScore);
+  res.json(p || { error: "Pronostic introuvable." });
+});
+
+// ── Classements pronostics ───────────────────────────────────
+app.get("/api/leaderboard/free", (req, res) => {
+  const month = req.query.month || null;
+  res.json(getPronosticLeaderboard(month, "free", 50));
+});
+
+app.get("/api/leaderboard/premium", (req, res) => {
+  const month = req.query.month || null;
+  res.json(getPronosticLeaderboard(month, "premium", 50));
+});
+
+// Classement quiz (existant)
 app.get("/api/leaderboard", (req, res) => {
   try { res.json(getLeaderboard(50)); }
   catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Stripe Paiement ──────────────────────────────────────────
+app.post("/api/payment/create-checkout-session", express.json(), async (req, res) => {
+  const decoded = requireAuth(req);
+  if (!decoded) return res.status(401).json({ error: "Connexion requise." });
+
+  const STRIPE_SK = process.env.STRIPE_SECRET_KEY;
+  if (!STRIPE_SK) return res.status(500).json({ error: "Stripe non configuré. Ajoute STRIPE_SECRET_KEY dans .env" });
+
+  const { plan } = req.body || {};
+  const PRICE_IDS = {
+    premium: process.env.STRIPE_PREMIUM_PRICE_ID,
+    vip:     process.env.STRIPE_VIP_PRICE_ID,
+  };
+  if (!PRICE_IDS[plan]) return res.status(400).json({ error: "Plan invalide." });
+  if (!PRICE_IDS[plan]) return res.status(500).json({ error: `STRIPE_${plan.toUpperCase()}_PRICE_ID manquant dans .env` });
+
+  try {
+    const { default: Stripe } = await import("stripe");
+    const stripe = new Stripe(STRIPE_SK);
+    const baseUrl = process.env.PUBLIC_URL || "https://foxlab.onrender.com";
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
+      success_url: `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${baseUrl}/premium`,
+      metadata: { userId: String(decoded.id), plan },
+      client_reference_id: String(decoded.id),
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  const STRIPE_SK = process.env.STRIPE_SECRET_KEY;
+  const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!STRIPE_SK) return res.status(500).send("Stripe non configuré.");
+
+  try {
+    const { default: Stripe } = await import("stripe");
+    const stripe = new Stripe(STRIPE_SK);
+    let event;
+    if (WEBHOOK_SECRET) {
+      event = stripe.webhooks.constructEvent(req.body, req.headers["stripe-signature"], WEBHOOK_SECRET);
+    } else {
+      event = JSON.parse(req.body.toString());
+    }
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const userId = parseInt(session.metadata?.userId || session.client_reference_id);
+      const plan   = session.metadata?.plan || "premium";
+      if (userId) {
+        const expiresAt = Date.now() + (plan === "vip" ? 31 : 31) * 24 * 60 * 60 * 1000;
+        updatePlan(userId, plan, expiresAt);
+      }
+    }
+
+    if (event.type === "customer.subscription.deleted") {
+      // Downgrade vers free lors de l'annulation
+      const sub = event.data.object;
+      const userId = parseInt(sub.metadata?.userId);
+      if (userId) updatePlan(userId, "free", null);
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error("[webhook]", err.message);
+    res.status(400).send(`Webhook error: ${err.message}`);
+  }
 });
 
 app.get("/api/news/football", async (req, res) => {

@@ -99,7 +99,7 @@ const SectionTitle = ({ children }) => (
   <div style={{ fontSize:9, color:C.muted, letterSpacing:2, textTransform:"uppercase", marginBottom:14 }}>{children}</div>
 );
 
-export default function FoxLabAnalyzer() {
+export default function FoxLabAnalyzer({ userAccount, onNavigatePremium }) {
   const [competition, setCompetition] = useState("Ligue 1");
   const [home, setHome] = useState("");
   const [away, setAway] = useState("");
@@ -296,128 +296,140 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown.`,
             </div>
           </Card>
 
-          {/* Facteurs clés */}
-          {analysis.facteurs_cles?.length > 0 && (
-            <div style={{ display:"flex", gap:6, marginBottom:14, flexWrap:"wrap" }}>
-              {analysis.facteurs_cles.map((f,i) => (
-                <span key={i} style={{ fontSize:11, background:C.warnBg, color:C.warn, border:`1px solid ${C.warn}33`, borderRadius:20, padding:"4px 12px" }}>⚡ {f}</span>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-            {/* Forme */}
-            <Card>
-              <SectionTitle>Forme récente</SectionTitle>
-              <div style={{ marginBottom:12 }}>
-                <div style={{ fontSize:12, color:C.accent, fontWeight:600, marginBottom:7 }}>{analysis.home}</div>
-                <div style={{ display:"flex", gap:4, marginBottom:5 }}>
-                  {(analysis.forme?.home?.resultats||[]).map((r,i)=><FormBadge key={i} r={r}/>)}
-                </div>
-                <div style={{ fontSize:11, color:C.muted, lineHeight:1.5 }}>{analysis.forme?.home?.desc}</div>
-              </div>
-              <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
-                <div style={{ fontSize:12, color:C.blue, fontWeight:600, marginBottom:7 }}>{analysis.away}</div>
-                <div style={{ display:"flex", gap:4, marginBottom:5 }}>
-                  {(analysis.forme?.away?.resultats||[]).map((r,i)=><FormBadge key={i} r={r}/>)}
-                </div>
-                <div style={{ fontSize:11, color:C.muted, lineHeight:1.5 }}>{analysis.forme?.away?.desc}</div>
-              </div>
-            </Card>
-
-            {/* Pronostic */}
-            <Card accent={C.blue}>
-              <SectionTitle>Verdict & Confiance</SectionTitle>
-              <div style={{ display:"flex", gap:14, alignItems:"center", marginBottom:12 }}>
-                <ConfidenceArc value={analysis.pronostic?.confiance||50}/>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:15, fontWeight:700, color:C.dark, marginBottom:5 }}>{analysis.pronostic?.resultat}</div>
-                  <div style={{ fontSize:11, color:C.muted, lineHeight:1.6 }}>{analysis.pronostic?.explication}</div>
-                </div>
-              </div>
-              <div style={{ background:C.accentBg, border:`1px solid ${C.accentBorder}`, borderRadius:8, padding:"9px 12px", fontSize:11, color:C.mid, lineHeight:1.6, fontStyle:"italic" }}>
-                🦊 {analysis.verdict}
-              </div>
-            </Card>
-          </div>
-
-          {/* Stats */}
-          <Card>
-            <SectionTitle>Comparaison statistique</SectionTitle>
-            <div style={{ display:"flex", gap:16, marginBottom:12 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <div style={{ width:10, height:10, borderRadius:2, background:C.accent }}/>
-                <span style={{ fontSize:11, color:C.mid }}>{analysis.home}</span>
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <div style={{ width:10, height:10, borderRadius:2, background:C.blue }}/>
-                <span style={{ fontSize:11, color:C.mid }}>{analysis.away}</span>
-              </div>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 24px" }}>
-              {(analysis.stats||[]).map((s,i)=><StatBar key={i} label={s.label} home={s.home} away={s.away}/>)}
-            </div>
-          </Card>
-
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-            {/* Joueurs clés */}
-            <Card>
-              <SectionTitle>Joueurs à surveiller</SectionTitle>
-              <div style={{ marginBottom:12 }}>
-                <div style={{ fontSize:10, color:C.accent, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>{analysis.home}</div>
-                {(analysis.joueurs_cles?.home||[]).map((j,i)=>(
-                  <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom: i<(analysis.joueurs_cles.home.length-1)?`1px solid ${C.border}`:"none" }}>
-                    <div>
-                      <div style={{ fontSize:12, fontWeight:600, color:C.dark }}>{j.nom}</div>
-                      <div style={{ fontSize:10, color:C.muted }}>{j.poste}</div>
-                    </div>
-                    <div style={{ fontSize:11, color:C.accent, fontWeight:600 }}>{j.stat}</div>
-                  </div>
+          {/* Contenu détaillé — avec overlay freemium si plan gratuit */}
+          <div style={{ position:"relative" }}>
+            {/* Facteurs clés */}
+            {analysis.facteurs_cles?.length > 0 && (
+              <div style={{ display:"flex", gap:6, marginBottom:14, flexWrap:"wrap" }}>
+                {analysis.facteurs_cles.map((f,i) => (
+                  <span key={i} style={{ fontSize:11, background:C.warnBg, color:C.warn, border:`1px solid ${C.warn}33`, borderRadius:20, padding:"4px 12px" }}>⚡ {f}</span>
                 ))}
               </div>
-              <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
-                <div style={{ fontSize:10, color:C.blue, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>{analysis.away}</div>
-                {(analysis.joueurs_cles?.away||[]).map((j,i)=>(
-                  <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom: i<(analysis.joueurs_cles.away.length-1)?`1px solid ${C.border}`:"none" }}>
-                    <div>
-                      <div style={{ fontSize:12, fontWeight:600, color:C.dark }}>{j.nom}</div>
-                      <div style={{ fontSize:10, color:C.muted }}>{j.poste}</div>
-                    </div>
-                    <div style={{ fontSize:11, color:C.blue, fontWeight:600 }}>{j.stat}</div>
-                  </div>
-                ))}
-              </div>
-            </Card>
+            )}
 
-            {/* Paris */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              {/* Forme */}
+              <Card>
+                <SectionTitle>Forme récente</SectionTitle>
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:12, color:C.accent, fontWeight:600, marginBottom:7 }}>{analysis.home}</div>
+                  <div style={{ display:"flex", gap:4, marginBottom:5 }}>
+                    {(analysis.forme?.home?.resultats||[]).map((r,i)=><FormBadge key={i} r={r}/>)}
+                  </div>
+                  <div style={{ fontSize:11, color:C.muted, lineHeight:1.5 }}>{analysis.forme?.home?.desc}</div>
+                </div>
+                <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
+                  <div style={{ fontSize:12, color:C.blue, fontWeight:600, marginBottom:7 }}>{analysis.away}</div>
+                  <div style={{ display:"flex", gap:4, marginBottom:5 }}>
+                    {(analysis.forme?.away?.resultats||[]).map((r,i)=><FormBadge key={i} r={r}/>)}
+                  </div>
+                  <div style={{ fontSize:11, color:C.muted, lineHeight:1.5 }}>{analysis.forme?.away?.desc}</div>
+                </div>
+              </Card>
+
+              {/* Pronostic */}
+              <Card accent={C.blue}>
+                <SectionTitle>Verdict & Confiance</SectionTitle>
+                <div style={{ display:"flex", gap:14, alignItems:"center", marginBottom:12 }}>
+                  <ConfidenceArc value={analysis.pronostic?.confiance||50}/>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:C.dark, marginBottom:5 }}>{analysis.pronostic?.resultat}</div>
+                    <div style={{ fontSize:11, color:C.muted, lineHeight:1.6 }}>{analysis.pronostic?.explication}</div>
+                  </div>
+                </div>
+                <div style={{ background:C.accentBg, border:`1px solid ${C.accentBorder}`, borderRadius:8, padding:"9px 12px", fontSize:11, color:C.mid, lineHeight:1.6, fontStyle:"italic" }}>
+                  🦊 {analysis.verdict}
+                </div>
+              </Card>
+            </div>
+
+            {/* Stats */}
             <Card>
-              <SectionTitle>Paris conseillés</SectionTitle>
-              {(analysis.paris||[]).map((p,i)=>{
-                const valColor = p.valeur==="bonne"||p.valeur==="haute"||p.valeur==="forte" ? C.green : p.valeur==="intéressante" ? C.warn : C.muted;
-                return (
-                  <div key={i} style={{ background:"#0E1A28", borderRadius:9, padding:"10px 13px", marginBottom:8, border:`1px solid ${valColor}33` }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                      <div style={{ fontSize:12, fontWeight:600, color:C.dark }}>{p.type}</div>
-                      <div style={{ fontSize:20, fontWeight:900, color:C.accent }}>{p.cote}</div>
-                    </div>
-                    <div style={{ fontSize:10, color:valColor, marginBottom: p.raisonnement?3:0 }}>
-                      Valeur <strong>{p.valeur}</strong>
-                    </div>
-                    {p.raisonnement && <div style={{ fontSize:10, color:C.muted, lineHeight:1.4 }}>{p.raisonnement}</div>}
-                  </div>
-                );
-              })}
-              <div style={{ fontSize:10, color:C.muted, lineHeight:1.6, marginTop:6 }}>
-                ⚠️ Données historiques uniquement — aucune garantie. Jeu responsable.
+              <SectionTitle>Comparaison statistique</SectionTitle>
+              <div style={{ display:"flex", gap:16, marginBottom:12 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <div style={{ width:10, height:10, borderRadius:2, background:C.accent }}/>
+                  <span style={{ fontSize:11, color:C.mid }}>{analysis.home}</span>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <div style={{ width:10, height:10, borderRadius:2, background:C.blue }}/>
+                  <span style={{ fontSize:11, color:C.mid }}>{analysis.away}</span>
+                </div>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 24px" }}>
+                {(analysis.stats||[]).map((s,i)=><StatBar key={i} label={s.label} home={s.home} away={s.away}/>)}
               </div>
             </Card>
-          </div>
 
-          {/* Analyse tactique */}
-          <Card accent={C.warn}>
-            <SectionTitle>Analyse tactique</SectionTitle>
-            <div style={{ fontSize:13, color:C.mid, lineHeight:1.8 }}>{analysis.analyse}</div>
-          </Card>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              {/* Joueurs clés */}
+              <Card>
+                <SectionTitle>Joueurs à surveiller</SectionTitle>
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:10, color:C.accent, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>{analysis.home}</div>
+                  {(analysis.joueurs_cles?.home||[]).map((j,i)=>(
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom: i<(analysis.joueurs_cles.home.length-1)?`1px solid ${C.border}`:"none" }}>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:600, color:C.dark }}>{j.nom}</div>
+                        <div style={{ fontSize:10, color:C.muted }}>{j.poste}</div>
+                      </div>
+                      <div style={{ fontSize:11, color:C.accent, fontWeight:600 }}>{j.stat}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
+                  <div style={{ fontSize:10, color:C.blue, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>{analysis.away}</div>
+                  {(analysis.joueurs_cles?.away||[]).map((j,i)=>(
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom: i<(analysis.joueurs_cles.away.length-1)?`1px solid ${C.border}`:"none" }}>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:600, color:C.dark }}>{j.nom}</div>
+                        <div style={{ fontSize:10, color:C.muted }}>{j.poste}</div>
+                      </div>
+                      <div style={{ fontSize:11, color:C.blue, fontWeight:600 }}>{j.stat}</div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Paris */}
+              <Card>
+                <SectionTitle>Paris conseillés</SectionTitle>
+                {(analysis.paris||[]).map((p,i)=>{
+                  const valColor = p.valeur==="bonne"||p.valeur==="haute"||p.valeur==="forte" ? C.green : p.valeur==="intéressante" ? C.warn : C.muted;
+                  return (
+                    <div key={i} style={{ background:"#0E1A28", borderRadius:9, padding:"10px 13px", marginBottom:8, border:`1px solid ${valColor}33` }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:C.dark }}>{p.type}</div>
+                        <div style={{ fontSize:20, fontWeight:900, color:C.accent }}>{p.cote}</div>
+                      </div>
+                      <div style={{ fontSize:10, color:valColor, marginBottom: p.raisonnement?3:0 }}>
+                        Valeur <strong>{p.valeur}</strong>
+                      </div>
+                      {p.raisonnement && <div style={{ fontSize:10, color:C.muted, lineHeight:1.4 }}>{p.raisonnement}</div>}
+                    </div>
+                  );
+                })}
+                <div style={{ fontSize:10, color:C.muted, lineHeight:1.6, marginTop:6 }}>
+                  ⚠️ Données historiques uniquement — aucune garantie. Jeu responsable.
+                </div>
+              </Card>
+            </div>
+
+            {/* Analyse tactique */}
+            <Card accent={C.warn}>
+              <SectionTitle>Analyse tactique</SectionTitle>
+              <div style={{ fontSize:13, color:C.mid, lineHeight:1.8 }}>{analysis.analyse}</div>
+            </Card>
+
+            {/* Overlay freemium */}
+            {(!userAccount || userAccount.plan === "free") && (
+              <div style={{ position:"absolute", inset:0, background:"linear-gradient(to bottom, transparent 0%, #141C28 40%)", zIndex:10, display:"flex", alignItems:"flex-end", justifyContent:"center", paddingBottom:30, borderRadius:12 }}>
+                <button onClick={onNavigatePremium} style={{ background:"#00D4AA", color:"#0A1428", border:"none", borderRadius:10, padding:"12px 24px", cursor:"pointer", fontSize:14, fontWeight:800 }}>
+                  🔓 Débloquer l'analyse complète — Premium
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

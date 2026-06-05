@@ -1,15 +1,14 @@
 // ============================================================
-// Auth — inscription, connexion, JWT
-// Stockage : JSON pur via db.js (aucune dépendance native)
+// Auth — inscription, connexion, JWT, plans
 // ============================================================
 import bcrypt   from "bcryptjs";
 import jwt      from "jsonwebtoken";
 import store, { persist } from "./db.js";
 
-const JWT_SECRET  = process.env.JWT_SECRET || "verdikt-secret-2024";
+const JWT_SECRET  = process.env.JWT_SECRET || "foxlab-secret-2024";
 const JWT_EXPIRES = "30d";
 
-const AVATAR_COLORS = ["#00D4AA","#3b82f6","#f97316","#a78bfa","#f43f5e","#facc15","#22d3ee","#fb7185"];
+const AVATAR_COLORS = ["#00D4AA","#3b82f6","#f97316","#a78bfa","#f43f5e","#facc15","#22d3ee","#fb7185","#34d399","#f59e0b"];
 
 // ── Inscription ─────────────────────────────────────────────
 export async function register(email, username, password) {
@@ -29,15 +28,29 @@ export async function register(email, username, password) {
   const id    = store.nextId++;
   const color = AVATAR_COLORS[id % AVATAR_COLORS.length];
 
-  const user = { id, email: emailLc, username: usernameTr, password_hash: hash, avatar_color: color, created_at: Date.now() };
+  const user = {
+    id, email: emailLc, username: usernameTr, password_hash: hash,
+    avatar_color: color,
+    plan: "free",           // free | premium | vip
+    plan_expires_at: null,  // timestamp expiration abonnement
+    created_at: Date.now(),
+    // Stats pronostics
+    pronostics_count: 0,
+    good_pronostics: 0,
+    points_pronostics: 0,
+    monthly_points: {},     // { "2026-06": 42 }
+    // Streak
+    current_streak: 0,
+    best_streak: 0,
+  };
   store.users[id]                   = user;
   store.usersByEmail[emailLc]       = id;
   store.usersByUsername[usernameLc] = id;
   store.stats[id] = { user_id: id, total_correct: 0, total_wrong: 0, total_games: 0, total_wins: 0, total_response_ms: 0, questions_answered: 0, points: 0 };
   persist();
 
-  const pub = { id, email: emailLc, username: usernameTr, avatar_color: color };
-  return { user: pub, token: jwt.sign({ id, username: usernameTr }, JWT_SECRET, { expiresIn: JWT_EXPIRES }) };
+  const pub = publicUser(user);
+  return { user: pub, token: makeToken(user) };
 }
 
 // ── Connexion ────────────────────────────────────────────────
@@ -53,42 +66,88 @@ export async function login(emailOrUsername, password) {
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) throw new Error("Mot de passe incorrect.");
 
-  const pub = { id: user.id, email: user.email, username: user.username, avatar_color: user.avatar_color };
-  return { user: pub, token: jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: JWT_EXPIRES }) };
+  return { user: publicUser(user), token: makeToken(user) };
 }
 
-// ── Vérification JWT ─────────────────────────────────────────
+// ── JWT ──────────────────────────────────────────────────────
+function makeToken(user) {
+  return jwt.sign({ id: user.id, username: user.username, plan: user.plan }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+}
+
 export function verifyToken(token) {
   try { return jwt.verify(token, JWT_SECRET); }
   catch { return null; }
 }
 
-// ── Profil + stats ───────────────────────────────────────────
-export function getUserStats(userId) {
-  const user  = store.users[userId];
-  if (!user) return null;
-  const stats = store.stats[userId] || {};
-  const avgMs = stats.questions_answered > 0
-    ? Math.round(stats.total_response_ms / stats.questions_answered) : null;
-  const { password_hash, ...pub } = user;
-  return { ...pub, stats: { ...stats, avg_response_ms: avgMs } };
+// ── Profil public ────────────────────────────────────────────
+function publicUser(u) {
+  const winRate = u.pronostics_count > 0 ? Math.round(u.good_pronostics / u.pronostics_count * 100) : 0;
+  return {
+    id: u.id, email: u.email, username: u.username,
+    avatar_color: u.avatar_color, plan: u.plan,
+    plan_expires_at: u.plan_expires_at,
+    created_at: u.created_at,
+    pronostics_count: u.pronostics_count || 0,
+    good_pronostics: u.good_pronostics || 0,
+    points_pronostics: u.points_pronostics || 0,
+    win_rate: winRate,
+    current_streak: u.current_streak || 0,
+    best_streak: u.best_streak || 0,
+  };
 }
 
-// ── Classement ───────────────────────────────────────────────
+export function getUserById(id) {
+  const u = store.users[id];
+  if (!u) return null;
+  const stats = store.stats[id] || {};
+  const avgMs = stats.questions_answered > 0 ? Math.round(stats.total_response_ms / stats.questions_answered) : null;
+  return { ...publicUser(u), quizStats: { ...stats, avg_response_ms: avgMs } };
+}
+
+// ── Mise à jour plan ─────────────────────────────────────────
+export function updatePlan(userId, plan, expiresAt = null) {
+  const u = store.users[userId];
+  if (!u) return;
+  u.plan = plan;
+  u.plan_expires_at = expiresAt;
+  persist();
+}
+
+// ── Classements quiz ─────────────────────────────────────────
 export function getLeaderboard(limit = 50) {
   return Object.values(store.stats)
     .filter(s => s.questions_answered > 0)
     .map(s => {
       const u   = store.users[s.user_id] || {};
-      const avg = s.questions_answered > 0
-        ? Math.round(s.total_response_ms / s.questions_answered) : null;
+      const avg = s.questions_answered > 0 ? Math.round(s.total_response_ms / s.questions_answered) : null;
       return { id: u.id, username: u.username, avatar_color: u.avatar_color, created_at: u.created_at, ...s, avg_response_ms: avg };
     })
     .sort((a, b) => (b.points||0) - (a.points||0) || b.total_correct - a.total_correct)
     .slice(0, limit);
 }
 
-// ── Mise à jour stats ────────────────────────────────────────
+// ── Classement pronostics ────────────────────────────────────
+export function getPronosticLeaderboard(month, league = "free", limit = 50) {
+  return Object.values(store.users)
+    .filter(u => league === "premium" ? (u.plan === "premium" || u.plan === "vip") : true)
+    .map(u => {
+      const monthPts = month ? (u.monthly_points?.[month] || 0) : (u.points_pronostics || 0);
+      const winRate = u.pronostics_count > 0 ? Math.round(u.good_pronostics / u.pronostics_count * 100) : 0;
+      return {
+        id: u.id, username: u.username, avatar_color: u.avatar_color, plan: u.plan,
+        points: monthPts,
+        total_points: u.points_pronostics || 0,
+        pronostics_count: u.pronostics_count || 0,
+        win_rate: winRate,
+        current_streak: u.current_streak || 0,
+      };
+    })
+    .filter(u => u.points > 0 || u.pronostics_count > 0)
+    .sort((a, b) => b.points - a.points || b.win_rate - a.win_rate)
+    .slice(0, limit);
+}
+
+// ── Mise à jour stats quiz ───────────────────────────────────
 export function updateStats(userId, { correct, wrong, responseMs, won, pointsEarned = 0 }) {
   if (!store.stats[userId]) {
     store.stats[userId] = { user_id: userId, total_correct: 0, total_wrong: 0, total_games: 0, total_wins: 0, total_response_ms: 0, questions_answered: 0, points: 0 };
