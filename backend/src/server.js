@@ -1328,14 +1328,69 @@ app.get("/api/injuries/:teamId", async (req, res) => {
 // Statistiques d'un match (tirs, corners, possession…)
 app.get("/api/match-stats/:fixtureId", async (req, res) => {
   const { fixtureId } = req.params;
-  const cacheKey = `match-stats:${fixtureId}`;
+  const cacheKey = `match-stats-v2:${fixtureId}`;
   try {
     const cached = await readCache(cacheKey, 10 * 60 * 1000);
     if (cached?.fresh) return res.json(cached.value);
     const data = await apiGet("fixtures/statistics", { fixture: fixtureId }, 10 * 60 * 1000);
     const result = (data || []).map(team => ({
       team: { id: team.team?.id, name: team.team?.name, logo: team.team?.logo || "" },
-      stats: Object.fromEntries((team.statistics || []).map(s => [s.type, s.value]))
+      stats: Object.fromEntries((team.statistics || []).map(s => [s.type, s.value])),
+    }));
+    await writeCache(cacheKey, result);
+    res.json(result);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.get("/api/match-players/:fixtureId", async (req, res) => {
+  const { fixtureId } = req.params;
+  const cacheKey = `match-players:${fixtureId}`;
+  try {
+    const cached = await readCache(cacheKey, 12 * 60 * 60 * 1000);
+    if (cached?.fresh) return res.json(cached.value);
+    const data = await apiGet("fixtures/players", { fixture: fixtureId }, 12 * 60 * 60 * 1000);
+    const result = (data || []).map(team => ({
+      team: { id: team.team?.id, name: team.team?.name, logo: team.team?.logo || "" },
+      players: (team.players || []).map(p => {
+        const s = p.statistics?.[0] || {};
+        return {
+          id:      p.player?.id,
+          name:    p.player?.name || "",
+          photo:   p.player?.photo || "",
+          number:  p.player?.number ?? null,
+          pos:     s.games?.position || "",
+          rating:  s.games?.rating ? parseFloat(s.games.rating).toFixed(1) : null,
+          minutes: s.games?.minutes ?? null,
+          captain: s.games?.captain || false,
+          // Attaque
+          goals:   s.goals?.total ?? 0,
+          assists: s.goals?.assists ?? 0,
+          shots:   s.shots?.total ?? 0,
+          shotsOn: s.shots?.on ?? 0,
+          // Passes
+          passes:    s.passes?.total ?? 0,
+          keyPasses: s.passes?.key ?? 0,
+          passAcc:   s.passes?.accuracy ?? null,
+          // Défense
+          tackles:       s.tackles?.total ?? 0,
+          blocks:        s.tackles?.blocks ?? 0,
+          interceptions: s.tackles?.interceptions ?? 0,
+          // Duels
+          duelsTotal: s.duels?.total ?? 0,
+          duelsWon:   s.duels?.won ?? 0,
+          // Dribbles
+          dribAttempts: s.dribbles?.attempts ?? 0,
+          dribSuccess:  s.dribbles?.success ?? 0,
+          // Cartons
+          yellow: s.cards?.yellow ?? 0,
+          red:    s.cards?.red ?? 0,
+          // Fautes
+          foulsDrawn:     s.fouls?.drawn ?? 0,
+          foulsCommitted: s.fouls?.committed ?? 0,
+        };
+      }),
     }));
     await writeCache(cacheKey, result);
     res.json(result);

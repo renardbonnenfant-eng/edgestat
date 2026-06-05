@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions, apiRegister, apiLogin, apiGetMe, fetchLeaderboard, fetchFootballNews } from "./api.js";
+import { login, fetchFootball, fetchMatch, fetchCompetition, fetchTennisTournaments, fetchTennisMatch, sendChat, fetchSquad, fetchPlayer, fetchMatchEvents, fetchLineup, fetchLive, fetchNext, fetchStandings, fetchPlayerSearch, fetchWeatherStats, fetchHistorySeasons, fetchHistorySeason, fetchTeamLogo, fetchOdds, fetchBracket, fetchClubFeed, fetchClubCard, fetchMatchStats, fetchMatchPlayers, fetchFullMatchEvents, fetchInjuries, generateQuizQuestions, apiRegister, apiLogin, apiGetMe, fetchLeaderboard, fetchFootballNews } from "./api.js";
 import { HISTORICAL_CHAMPIONS } from "./historicalData.js";
 
 // ============================================================
@@ -1540,88 +1540,263 @@ function TabBar({ tab, setTab }) {
 // ============================================================
 // Onglet : Statistiques de match (tirs, corners, possession)
 // ============================================================
-function TabMatchStats({ fixtureId }) {
+function TabMatchStats({ fixtureId, homeName, awayName, homeId }) {
   const [stats, setStats] = useState(null);
+  const [players, setPlayers] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [playerTab, setPlayerTab] = useState("home"); // home | away
+
   useEffect(() => {
     if (!fixtureId) return;
     setLoading(true);
-    fetchMatchStats(fixtureId)
-      .then(d => { setStats(d); setLoading(false); })
-      .catch(() => setLoading(false));
+    Promise.all([
+      fetchMatchStats(fixtureId),
+      fetchMatchPlayers(fixtureId),
+    ]).then(([s, p]) => {
+      setStats(s?.length >= 2 ? s : null);
+      setPlayers(p?.length >= 2 ? p : null);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, [fixtureId]);
 
   if (loading) return <InfoPanel>Chargement des statistiques…</InfoPanel>;
-  if (!stats || stats.length < 2) return (
-    <InfoPanel>
-      Statistiques non disponibles. Pour les matchs en direct, les stats apparaissent après quelques minutes de jeu.
-      {fixtureId && <div style={{fontSize:10,color:C.muted,marginTop:4}}>ID: {fixtureId}</div>}
-    </InfoPanel>
-  );
+  if (!stats) return <InfoPanel>Statistiques non disponibles (match à venir ou données absentes).</InfoPanel>;
 
   const [home, away] = stats;
   const getVal = (team, key) => {
     const v = team.stats?.[key];
-    return v === null || v === undefined ? "—" : String(v).replace("%","");
+    return v === null || v === undefined ? null : String(v).replace("%", "").trim();
   };
-  const getNum = (team, key) => parseInt(getVal(team, key)) || 0;
+  const getNum = (team, key) => parseFloat(getVal(team, key) || "0") || 0;
 
-  const StatBar = ({ label, homeVal, awayVal, isPercent }) => {
-    const h = isPercent ? parseInt(homeVal)||0 : 0;
-    const hPct = isPercent ? h : (getNum(home, label) / (getNum(home, label)+getNum(away, label)||1)) * 100;
-    const aPct = 100 - hPct;
+  // ── Barre comparative ──────────────────────────────────────
+  const StatBar = ({ label, icon, homeVal, awayVal, isPercent, highlight }) => {
+    const hN = parseFloat(homeVal) || 0;
+    const aN = parseFloat(awayVal) || 0;
+    const total = hN + aN || 1;
+    const hPct = isPercent ? hN : (hN / total) * 100;
+    const aPct = isPercent ? aN : (aN / total) * 100;
+    const hBetter = hN > aN;
+    const aBetter = aN > hN;
+    if (homeVal === null && awayVal === null) return null;
     return (
-      <div style={{ display:"grid", gridTemplateColumns:"60px 1fr 60px", alignItems:"center", gap:10, marginBottom:10 }}>
-        <div style={{ textAlign:"right", fontSize:13, fontWeight:700, color:C.accent }}>{homeVal}</div>
-        <div style={{ background:C.panel2, borderRadius:99, height:7, overflow:"hidden", display:"flex" }}>
-          <div style={{ width:`${hPct}%`, background:C.accent, transition:"width .5s" }}/>
-          <div style={{ width:`${aPct}%`, background:C.blue, transition:"width .5s" }}/>
+      <div style={{ marginBottom:10 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+          <span style={{ fontSize:13, fontWeight: hBetter?700:500, color: hBetter?(highlight||C.accent):C.text, minWidth:40 }}>
+            {homeVal ?? "—"}
+          </span>
+          <span style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.8, textAlign:"center", flex:1 }}>
+            {icon && <span style={{ marginRight:4 }}>{icon}</span>}{label}
+          </span>
+          <span style={{ fontSize:13, fontWeight: aBetter?700:500, color: aBetter?(highlight||C.blue):C.text, minWidth:40, textAlign:"right" }}>
+            {awayVal ?? "—"}
+          </span>
         </div>
-        <div style={{ fontSize:13, fontWeight:700, color:C.blue }}>{awayVal}</div>
+        <div style={{ display:"flex", height:7, borderRadius:99, overflow:"hidden", background:C.panel2 }}>
+          <div style={{ width:`${Math.max(2, hPct)}%`, background: hBetter?(highlight||C.accent):"#3A607A", borderRadius:"99px 0 0 99px", transition:"width .6s" }}/>
+          <div style={{ flex:1 }}/>
+          <div style={{ width:`${Math.max(2, aPct)}%`, background: aBetter?(highlight||C.blue):"#3A607A", borderRadius:"0 99px 99px 0", transition:"width .6s" }}/>
+        </div>
       </div>
     );
   };
 
-  const rows = [
-    { label:"Possession", key:"Ball Possession", isPercent:true },
-    { label:"Tirs total", key:"Total Shots" },
-    { label:"Tirs cadrés", key:"Shots on Goal" },
-    { label:"Corners", key:"Corner Kicks" },
-    { label:"Fautes", key:"Fouls" },
-    { label:"Cartons jaunes", key:"Yellow Cards" },
-    { label:"Cartons rouges", key:"Red Cards" },
-    { label:"Hors-jeu", key:"Offsides" },
-    { label:"Arrêts", key:"Goalkeeper Saves" },
-    { label:"Passes réussies", key:"Passes accurate" },
+  // Groupes de stats
+  const STAT_GROUPS = [
+    {
+      title: "⚽ Buts & xG",
+      icon: "⚽",
+      color: "#16a34a",
+      rows: [
+        { label:"Buts", icon:"⚽", hKey:null, aKey:null, hVal: home.stats?.["Goals"] ?? null, aVal: away.stats?.["Goals"] ?? null },
+        { label:"Buts attendus (xG)", icon:"🎯", hKey:"expected_goals", aKey:"expected_goals", highlight:"#d97706" },
+        { label:"Buts évités (GK)", icon:"🧤", hKey:"goals_prevented", aKey:"goals_prevented" },
+      ]
+    },
+    {
+      title: "🎯 Tirs",
+      icon: "🎯",
+      color: C.accent,
+      rows: [
+        { label:"Tirs total",            icon:"🔫", hKey:"Total Shots",     aKey:"Total Shots" },
+        { label:"Tirs cadrés",           icon:"🎯", hKey:"Shots on Goal",   aKey:"Shots on Goal",    highlight:C.accent },
+        { label:"Tirs non cadrés",       icon:"↗",  hKey:"Shots off Goal",  aKey:"Shots off Goal" },
+        { label:"Tirs bloqués",          icon:"🛡",  hKey:"Blocked Shots",   aKey:"Blocked Shots" },
+        { label:"Tirs dans la surface",  icon:"📍", hKey:"Shots insidebox", aKey:"Shots insidebox",  highlight:"#d97706" },
+        { label:"Tirs hors surface",     icon:"↕",  hKey:"Shots outsidebox",aKey:"Shots outsidebox" },
+        { label:"Arrêts du gardien",     icon:"🧤", hKey:"Goalkeeper Saves",aKey:"Goalkeeper Saves" },
+      ]
+    },
+    {
+      title: "⚙️ Possession & Passes",
+      icon: "⚙️",
+      color: C.blue,
+      rows: [
+        { label:"Possession",        icon:"⚽", hKey:"Ball Possession",  aKey:"Ball Possession",  isPercent:true, highlight:C.blue },
+        { label:"Passes totales",    icon:"→",  hKey:"Total passes",     aKey:"Total passes" },
+        { label:"Passes réussies",   icon:"✓",  hKey:"Passes accurate",  aKey:"Passes accurate",  highlight:C.blue },
+        { label:"Précision passes",  icon:"%",  hKey:"Passes %",         aKey:"Passes %",         isPercent:true },
+      ]
+    },
+    {
+      title: "⚔️ Duel & Discipline",
+      icon: "⚔️",
+      color: "#d97706",
+      rows: [
+        { label:"Corners",        icon:"🚩", hKey:"Corner Kicks",  aKey:"Corner Kicks",  highlight:"#d97706" },
+        { label:"Fautes",         icon:"💥", hKey:"Fouls",         aKey:"Fouls",         invertBetter:true },
+        { label:"Hors-jeu",       icon:"🚫", hKey:"Offsides",      aKey:"Offsides" },
+        { label:"Cartons jaunes", icon:"🟨", hKey:"Yellow Cards",  aKey:"Yellow Cards",  invertBetter:true },
+        { label:"Cartons rouges", icon:"🟥", hKey:"Red Cards",     aKey:"Red Cards",     invertBetter:true },
+      ]
+    },
   ];
+
+  // ── Scores de performance globale ─────────────────────────
+  const homeXG  = getNum(home, "expected_goals");
+  const awayXG  = getNum(away, "expected_goals");
 
   return (
     <div>
       {/* Header équipes */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:12, marginBottom:20, padding:"10px 0" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:10, marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <TeamLogo url={home.team?.logo} size={28} name={home.team?.name} />
-          <span style={{ fontSize:13, fontWeight:600, color:C.accent }}>{home.team?.name}</span>
+          <TeamLogo url={home.team?.logo} size={26} name={home.team?.name} />
+          <span style={{ fontSize:13, fontWeight:700, color:C.accent, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{home.team?.name}</span>
         </div>
-        <span style={{ fontSize:11, color:C.muted, fontWeight:500 }}>vs</span>
+        <span style={{ fontSize:10, color:C.muted, fontWeight:500 }}>STATS</span>
         <div style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end" }}>
-          <span style={{ fontSize:13, fontWeight:600, color:C.blue }}>{away.team?.name}</span>
-          <TeamLogo url={away.team?.logo} size={28} name={away.team?.name} />
+          <span style={{ fontSize:13, fontWeight:700, color:C.blue, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"right" }}>{away.team?.name}</span>
+          <TeamLogo url={away.team?.logo} size={26} name={away.team?.name} />
         </div>
       </div>
-      <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
-        {rows.map(row => {
-          const hv = getVal(home, row.key);
-          const av = getVal(away, row.key);
-          if (hv === "—" && av === "—") return null;
-          return (
-            <div key={row.label}>
-              <div style={{ textAlign:"center", fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:.8, marginBottom:4 }}>{row.label}</div>
-              <StatBar label={row.label} homeVal={hv} awayVal={av} isPercent={row.isPercent} />
+
+      {/* xG highlight card */}
+      {(homeXG > 0 || awayXG > 0) && (
+        <div style={{ background:`linear-gradient(135deg, rgba(217,119,6,.12), rgba(0,212,170,.08))`, border:`1px solid #d97706aa`, borderRadius:10, padding:"10px 14px", marginBottom:14 }}>
+          <div style={{ fontSize:9, color:"#d97706", fontWeight:700, textTransform:"uppercase", letterSpacing:.8, marginBottom:6 }}>⚡ Expected Goals (xG) — buts attendus selon la qualité des occasions</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", gap:8 }}>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontSize:26, fontWeight:900, color: homeXG > awayXG ? "#d97706" : C.dim }}>{homeXG.toFixed(2)}</div>
+              <div style={{ fontSize:9, color:C.muted }}>{home.team?.name?.split(" ").pop()}</div>
             </div>
-          );
-        }).filter(Boolean)}
-      </div>
+            <div style={{ fontSize:10, color:C.muted, textAlign:"center" }}>xG</div>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontSize:26, fontWeight:900, color: awayXG > homeXG ? "#d97706" : C.dim }}>{awayXG.toFixed(2)}</div>
+              <div style={{ fontSize:9, color:C.muted }}>{away.team?.name?.split(" ").pop()}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Groupes de statistiques */}
+      {STAT_GROUPS.map(group => {
+        const rows = group.rows.filter(r => {
+          const hv = r.hVal !== undefined ? r.hVal : getVal(home, r.hKey);
+          const av = r.aVal !== undefined ? r.aVal : getVal(away, r.aKey);
+          return hv !== null || av !== null;
+        });
+        if (rows.length === 0) return null;
+        return (
+          <div key={group.title} style={{ marginBottom:14 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:group.color, textTransform:"uppercase", letterSpacing:.8, marginBottom:8, borderBottom:`1px solid ${group.color}33`, paddingBottom:4 }}>
+              {group.title}
+            </div>
+            {rows.map(r => (
+              <StatBar
+                key={r.label}
+                label={r.label}
+                icon={r.icon}
+                homeVal={r.hVal !== undefined ? (r.hVal !== null ? String(r.hVal) : null) : getVal(home, r.hKey)}
+                awayVal={r.aVal !== undefined ? (r.aVal !== null ? String(r.aVal) : null) : getVal(away, r.aKey)}
+                isPercent={r.isPercent}
+                highlight={r.highlight}
+              />
+            ))}
+          </div>
+        );
+      })}
+
+      {/* Stats par joueur */}
+      {players && (
+        <div style={{ marginTop:16 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:C.text, textTransform:"uppercase", letterSpacing:.8, marginBottom:8 }}>
+            👤 Performances individuelles
+          </div>
+          {/* Sélecteur équipe */}
+          <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+            {players.map((t, i) => (
+              <button key={t.team?.id} onClick={() => setPlayerTab(i===0?"home":"away")} style={{
+                padding:"5px 12px", borderRadius:20, border:`1px solid ${playerTab===(i===0?"home":"away")?C.accent:C.line}`,
+                background:playerTab===(i===0?"home":"away")?C.accentBg:"none",
+                color:playerTab===(i===0?"home":"away")?C.accent:C.dim,
+                cursor:"pointer", fontSize:11, fontWeight:playerTab===(i===0?"home":"away")?700:400,
+                display:"flex", alignItems:"center", gap:5,
+              }}>
+                <TeamLogo url={t.team?.logo} size={12} name={t.team?.name||"?"} />
+                {t.team?.name}
+              </button>
+            ))}
+          </div>
+          {/* Table des joueurs */}
+          {(() => {
+            const teamIdx = playerTab === "home" ? 0 : 1;
+            const teamData = players[teamIdx];
+            const ps = (teamData?.players || [])
+              .filter(p => p.minutes && p.minutes > 0)
+              .sort((a,b) => (b.minutes||0) - (a.minutes||0));
+            return (
+              <div style={{ overflowX:"auto" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11 }}>
+                  <thead>
+                    <tr style={{ background:C.panel2 }}>
+                      {["Joueur","Min","Note","Buts","Pss","Clés","Tirs","Tac","Duels"].map(h => (
+                        <th key={h} style={{ padding:"6px 8px", textAlign: h==="Joueur"?"left":"center", fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:.5, borderBottom:`1px solid ${C.line}`, fontWeight:600 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ps.map((p, i) => (
+                      <tr key={p.id||i} style={{ borderBottom:`1px solid ${C.line}22`, background: i%2===0?"none":C.panel2+"44" }}>
+                        <td style={{ padding:"6px 8px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            {p.number && <span style={{ fontSize:9, color:C.muted, width:14 }}>{p.number}</span>}
+                            <span style={{ fontWeight:500, color:C.text }}>{p.name?.split(" ").pop()}</span>
+                            {p.captain && <span style={{ fontSize:8, background:C.accent, color:"#0A1428", borderRadius:3, padding:"0px 4px", fontWeight:700 }}>C</span>}
+                            <span style={{ fontSize:8, color:C.muted, textTransform:"uppercase" }}>{p.pos?.[0]||""}</span>
+                          </div>
+                        </td>
+                        <td style={{ textAlign:"center", color:C.dim }}>{p.minutes??"-"}</td>
+                        <td style={{ textAlign:"center" }}>
+                          {p.rating ? (
+                            <span style={{ fontWeight:700, color: parseFloat(p.rating)>=7.5?"#16a34a":parseFloat(p.rating)>=6.5?C.dim:"#DC2626" }}>
+                              {p.rating}
+                            </span>
+                          ) : <span style={{ color:C.muted }}>—</span>}
+                        </td>
+                        <td style={{ textAlign:"center" }}>
+                          {p.goals > 0 ? <span style={{ fontWeight:700, color:C.accent }}>⚽{p.goals}</span> : <span style={{ color:C.muted }}>—</span>}
+                          {p.assists > 0 && <span style={{ fontSize:9, color:"#d97706" }}> +{p.assists}</span>}
+                        </td>
+                        <td style={{ textAlign:"center", color:C.dim }}>{p.passes||"—"}</td>
+                        <td style={{ textAlign:"center", color: p.keyPasses>2?C.accent:C.dim }}>{p.keyPasses||"—"}</td>
+                        <td style={{ textAlign:"center", color:C.dim }}>{p.shots||"—"}{p.shotsOn>0?<span style={{fontSize:9,color:C.accent}}> ({p.shotsOn})</span>:""}</td>
+                        <td style={{ textAlign:"center", color:C.dim }}>{p.tackles||"—"}</td>
+                        <td style={{ textAlign:"center", color:C.dim }}>
+                          {p.duelsWon||0}/{p.duelsTotal||0}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ fontSize:9, color:C.muted, marginTop:5, paddingLeft:8 }}>
+                  Note: /10 · Buts (Assists) · Pss=Passes · Clés=Passes clés · Tirs (cadrés) · Tac=Tacles · Duels gagnés/total
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

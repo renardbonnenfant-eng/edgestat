@@ -193,6 +193,13 @@ export async function fetchMatchStats(fixtureId) {
   return res.json().catch(() => []);
 }
 
+export async function fetchMatchPlayers(fixtureId) {
+  if (!fixtureId) return [];
+  const res = await fetch(`/api/match-players/${fixtureId}`);
+  if (!res.ok) return [];
+  return res.json().catch(() => []);
+}
+
 export async function fetchClubFeed(teamId, season) {
   const url = `/api/club-feed/${teamId}${season ? `?season=${season}` : ""}`;
   const res = await fetch(url);

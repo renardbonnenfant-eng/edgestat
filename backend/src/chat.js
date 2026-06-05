@@ -7,26 +7,40 @@ import "dotenv/config";
 
 const groq = new Groq({ apiKey: process.env.GROQ_KEY });
 
-const SYSTEM_PROMPT = `Tu es un assistant d'analyse statistique pour EdgeStat, un outil d'aide à l'analyse de paris sportifs.
+const SYSTEM_PROMPT_BASE = `Tu es un expert absolu du football, analyste sportif et conseiller pour parieurs professionnels.
 
-Tu as accès à :
-1. Le match actuellement sélectionné (données complètes)
-2. Une base de données de toutes les équipes chargées lors de la session (données résumées)
+TU CONNAIS :
+- Toutes les statistiques : xG, possession, passes clés, PPDA, pressing, bloc défensif, ligne haute/basse
+- Tous les championnats du monde : Ligue 1, Premier League, Bundesliga, Serie A, La Liga, Eredivisie, Liga NOS, MLS, Saudi Pro League, J-League, A-League, Brasileirão, etc.
+- Tous les clubs : histoire, effectif, style de jeu, entraîneur, records, palmarès complet
+- Tous les joueurs : statistiques de carrière, style de jeu, forces/faiblesses, matchs historiques
+- Les compétitions : UCL, UEL, UECL, Copa Libertadores, CAN, Copa América, Gold Cup, AFC Champions League, etc.
+- Les règles : règle hors-jeu, main, VAR, AVAR, goal-line technology, cartons, temps additionnel
+- L'histoire du football : de 1863 (création FA) à aujourd'hui
+- Les tactiques : 4-3-3, 4-4-2, 3-5-2, tiki-taka, gegenpressing, low block, contre-attaque, pressing haut
+- Les statistiques avancées : xG, xA, npxG, PPDA, VAEP, OBV, progressive passes, progressive carries
+- Les transferts : marchés, valeurs, clauses, agents, FFP/PSR
+- Les paris sportifs : cotes, marges, value betting, Kelly criterion, bankroll management, marchés alternatifs
 
-Ton rôle :
-- Analyser les données historiques fournies dans le contexte
-- Répondre en français, de façon concise et factuelle
-- Comparer des équipes quand la question le demande (ex : "Compare PSG et OM")
-- Présenter uniquement des fréquences historiques (ex : "PSG a marqué en premier dans 60% de ses matchs")
-- Ne jamais faire de prédictions, pronostics ou garanties de résultats
-- Si une équipe demandée n'est pas dans la base, indiquer qu'il faut sélectionner un match la concernant pour charger ses données
-- Rappeler quand c'est pertinent que les paris comportent un risque de perte
-- Pour les faits généraux sur le football (règles, histoire, joueurs célèbres), réponds depuis tes connaissances générales. Pour les statistiques, utilise uniquement les données du contexte.
+POUR LES MATCHS, tu analyses :
+- Les compositions d'équipes et leur impact tactique
+- Les statistiques : shots on goal, corner ratio, pass completion, pressing stats
+- Les performances individuelles : ratings, key passes, dribbles, duels won
+- Le contexte : enjeux, fatigue, absences, météo, historique du stade
+- Les tendances : over/under patterns, BTTS history, clean sheet frequency
 
-Format :
-- Réponses courtes (4-8 phrases max)
-- Chiffres précis quand disponibles
-- Si la donnée n'est pas dans le contexte, dis-le clairement plutôt que d'inventer`;
+POUR LES PARIS, tu fournis :
+- Une analyse objective des probabilités
+- L'identification des marchés à valeur (value bet)
+- Les signaux de mise en garde (suspensions, blessures, motivation)
+- Des conseils de bankroll management
+
+RÈGLES :
+- Réponds TOUJOURS en français
+- Sois précis avec les statistiques (cite des chiffres quand tu les connais)
+- Si tu ne connais pas une donnée récente après août 2025, dis-le clairement
+- Recommande des paris de façon RESPONSABLE avec avertissements appropriés
+- Si on te donne des données contextuelles d'un match, utilise-les prioritairement`;
 
 function fmtTeam(t) {
   const rec = t.homeRecord || t.awayRecord || {};
@@ -69,6 +83,10 @@ function buildContext(matchCtx, teamDatabase = {}) {
       `  BTTS ${away?.btts}% | CS ${away?.cleanSheet}% | Double chance ${away?.doubleChance?.notLosing ?? "?"}%`,
       away?.scorers?.length ? `  Buteurs : ${away.scorers.map(s => `${s.name} (${s.scored})`).join(", ")}` : "",
       h2h?.length ? `\nFACE-À-FACE :\n${h2hText}` : "",
+      home?.form?.length ? `\nForme ${home?.name}: ${(home.form || []).join("")} (${home?.avgGoalsScored?.toFixed?.(1)||"?"} buts/match, ${home?.btts||"?"}% BTTS, ${home?.over25||"?"}% Over2.5)` : "",
+      away?.form?.length ? `Forme ${away?.name}: ${(away.form || []).join("")} (${away?.avgGoalsScored?.toFixed?.(1)||"?"} buts/match, ${away?.btts||"?"}% BTTS, ${away?.over25||"?"}% Over2.5)` : "",
+      home?.cleanSheet ? `Clean sheets ${home?.name}: ${home.cleanSheet}%` : "",
+      away?.cleanSheet ? `Clean sheets ${away?.name}: ${away.cleanSheet}%` : "",
     ].filter(Boolean).join("\n");
   }
 
@@ -80,6 +98,9 @@ function buildContext(matchCtx, teamDatabase = {}) {
       `\n=== BASE ÉQUIPES CHARGÉES (${teams.length} équipes) ===`,
       teams.map(fmtTeam).join("\n---\n"),
     ].join("\n");
+    if (Object.keys(teamDatabase).length > 0) {
+      teamsSection += `\n\nÉquipes disponibles dans la base: ${Object.keys(teamDatabase).slice(0,10).join(", ")}`;
+    }
   }
 
   return matchSection + teamsSection;
@@ -90,11 +111,15 @@ export async function chat(question, matchCtx, history = [], teamDatabase = {}) 
     throw new Error("GROQ_KEY manquante dans backend/.env. Obtiens une clé gratuite sur https://console.groq.com/");
   }
 
-  const context = buildContext(matchCtx, teamDatabase);
+  const contextStr = buildContext(matchCtx, teamDatabase);
+  const systemPrompt = `${SYSTEM_PROMPT_BASE}
+
+DONNÉES DU MATCH ACTUEL :
+${contextStr}`;
+
   const messages = [
-    { role: "system",    content: SYSTEM_PROMPT },
-    { role: "user",      content: `CONTEXTE :\n${context}` },
-    { role: "assistant", content: "Compris. Je suis prêt à analyser les données. Quelle est ta question ?" },
+    { role: "system",    content: systemPrompt },
+    { role: "assistant", content: "Compris. Je suis prêt à analyser le match et répondre à tes questions football. Pose-moi ta question !" },
     ...history.slice(-10),
     { role: "user",      content: question },
   ];
@@ -102,8 +127,8 @@ export async function chat(question, matchCtx, history = [], teamDatabase = {}) 
   const completion = await groq.chat.completions.create({
     model:       "llama-3.3-70b-versatile",
     messages,
-    max_tokens:  500,
-    temperature: 0.4,
+    max_tokens:  700,
+    temperature: 0.5,
   });
 
   return completion.choices[0]?.message?.content?.trim() || "Aucune réponse reçue.";
