@@ -135,6 +135,20 @@ const LEAGUE_IDS = {
   "Liga Portugal":"pt","Nations League":"nl","Amicaux":"intfriendly",
 };
 
+// Liste statique complète — fallback quand pas de matchs à venir chargés
+const STATIC_TEAMS = {
+  "Ligue 1": ["Paris Saint-Germain","Olympique de Marseille","Olympique Lyonnais","AS Monaco","Lille OSC","RC Lens","Stade Rennais","OGC Nice","Stade de Reims","FC Nantes","RC Strasbourg","Toulouse FC","Montpellier HSC","Brest","Le Havre","Angers"],
+  "Premier League": ["Arsenal","Liverpool","Manchester City","Chelsea","Tottenham","Manchester United","Aston Villa","Newcastle United","Brighton","West Ham","Wolverhampton","Fulham","Brentford","Everton","Crystal Palace","Bournemouth","Nottingham Forest","Ipswich","Leicester","Southampton"],
+  "La Liga": ["Real Madrid","FC Barcelone","Atlético Madrid","Séville FC","Real Sociedad","Villarreal","Athletic Bilbao","Real Betis","Valence CF","Celta Vigo","Getafe CF","Rayo Vallecano","Girona FC","Las Palmas","Mallorca","Osasuna","Alavés","Leganés","Espanyol","Real Valladolid"],
+  "Serie A": ["Inter Milan","Juventus","AC Milan","SSC Naples","AS Roma","Lazio","Atalanta","Fiorentina","Torino","Bologna","Udinese","Empoli","Sassuolo","Hellas Vérone","Cagliari","Monza","Como","Lecce","Parme","Venise"],
+  "Bundesliga": ["Bayern Munich","Borussia Dortmund","Bayer Leverkusen","RB Leipzig","Union Berlin","Eintracht Francfort","Fribourg","Wolfsburg","Mainz 05","Borussia Mönchengladbach","Hoffenheim","Werder Brème","Augsbourg","Heidenheim","Holstein Kiel","Saint-Pauli"],
+  "Champions League": ["Real Madrid","Manchester City","Bayern Munich","Paris Saint-Germain","Barcelone","Arsenal","Atlético Madrid","Inter Milan","Borussia Dortmund","Liverpool","Chelsea","Juventus","Bayer Leverkusen","Porto","Benfica","PSV Eindhoven","Aston Villa","Atalanta","Lille OSC","Feyenoord"],
+  "Europa League": ["Manchester United","AS Roma","Bayer Leverkusen","Juventus","Tottenham","Ajax","Séville FC","Fenerbahce","Lyon","Anderlecht","Slavia Prague","PAOK"],
+  "Liga Portugal": ["Benfica","FC Porto","Sporting CP","Braga","Vitória Guimarães","Rio Ave","Famalicão","Casa Pia","Arouca","Moreirense"],
+  "Nations League": ["France","Espagne","Allemagne","Angleterre","Portugal","Italie","Pays-Bas","Belgique","Croatie","Autriche","Danemark","Suisse","Hongrie","Écosse","Israël","Turquie"],
+  "Amicaux": ["France","Espagne","Allemagne","Angleterre","Portugal","Brésil","Argentine","Italie","Pays-Bas","Belgique","Maroc","Sénégal","Côte d'Ivoire","Cameroun","Nigeria","USA","Mexique","Japon","Corée du Sud","Australie"],
+};
+
 // ── Composants UI ────────────────────────────────────────────
 const FormBadge = ({ r }) => {
   const cfg = { V:{bg:"rgba(22,163,74,.15)",color:"#16a34a"}, D:{bg:"rgba(220,38,38,.15)",color:"#DC2626"}, N:{bg:"rgba(217,119,6,.15)",color:"#d97706"} }[r] || {bg:"#243548",color:"#4A6A7A"};
@@ -221,11 +235,14 @@ export default function FoxLabAnalyzer({ userAccount, onNavigatePremium }) {
     !compId || f.compId === compId || (competition === "Champions League" && f.compId === "ucl")
   );
 
-  // Teams uniques dans les matchs filtrés
-  const teamsFromFixtures = [...new Set([
+  // Teams : d'abord depuis les matchs API, sinon liste statique complète
+  const teamsFromAPI = [...new Set([
     ...filteredFixtures.map(f => f.home?.name),
     ...filteredFixtures.map(f => f.away?.name),
   ].filter(Boolean))].sort();
+  const teamsFromFixtures = teamsFromAPI.length >= 4
+    ? teamsFromAPI
+    : (STATIC_TEAMS[competition] || []);
 
   // Trouver le fixture correspondant
   const findFixture = (h, a) => filteredFixtures.find(f =>
@@ -468,24 +485,96 @@ export default function FoxLabAnalyzer({ userAccount, onNavigatePremium }) {
       {/* Résultats analyse IA */}
       {analysis&&!loading&&(()=>{
         const showFull = isPremium;
+
+        // 20% visible : header équipes + résumé tronqué (2 premières phrases)
+        const resumeTronque = !showFull
+          ? (analysis.resume||"").split(/[.!?]/).slice(0,1).join(".")+"."
+          : analysis.resume;
+
         return (
           <div style={{position:"relative"}}>
-            {/* Header */}
-            <div style={{background:C.card,border:`2px solid ${C.accent}44`,borderRadius:12,padding:"16px 20px",marginBottom:14}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",alignItems:"center",gap:12}}>
-                <div><div style={{fontSize:16,fontWeight:700,color:C.accent}}>{analysis.home}</div><div style={{fontSize:10,color:C.muted}}>Domicile</div></div>
+            {/* ══ PARTIE VISIBLE (20%) — tout le monde ══ */}
+            <div style={{background:C.card,border:`2px solid ${C.accent}44`,borderRadius:12,padding:"16px 20px",marginBottom:showFull?14:0,borderBottomLeftRadius:showFull?12:0,borderBottomRightRadius:showFull?12:0}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",alignItems:"center",gap:12,marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:16,fontWeight:700,color:C.accent}}>{analysis.home}</div>
+                  <div style={{fontSize:10,color:C.muted}}>Domicile</div>
+                </div>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:10,color:C.muted,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{analysis.competition}</div>
-                  <div style={{fontSize:28,fontWeight:900,color:C.dark,letterSpacing:3}}>{analysis.pronostic?.score||"?-?"}</div>
+                  {/* Score : flou si gratuit */}
+                  {showFull
+                    ? <div style={{fontSize:28,fontWeight:900,color:C.dark,letterSpacing:3}}>{analysis.pronostic?.score||"?-?"}</div>
+                    : <div style={{fontSize:28,fontWeight:900,color:C.dark,letterSpacing:3,filter:"blur(6px)",userSelect:"none"}}>?-?</div>
+                  }
                   <div style={{fontSize:9,color:C.muted,marginTop:3}}>Pronostic IA · {hasRealData?"Données réelles":"Données historiques"}</div>
                 </div>
-                <div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:700,color:C.blue}}>{analysis.away}</div><div style={{fontSize:10,color:C.muted}}>Extérieur</div></div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:16,fontWeight:700,color:C.blue}}>{analysis.away}</div>
+                  <div style={{fontSize:10,color:C.muted}}>Extérieur</div>
+                </div>
               </div>
-              <div style={{marginTop:10,fontSize:12,color:C.mid,background:C.accentBg,border:`1px solid ${C.accentBorder}`,borderRadius:8,padding:"8px 12px"}}>
-                🦊 {analysis.resume}
+              {/* Résumé : 20% visible (1 phrase), reste coupé */}
+              <div style={{background:C.accentBg,border:`1px solid ${C.accentBorder}`,borderRadius:8,padding:"10px 13px",position:"relative",overflow:"hidden"}}>
+                <span style={{fontSize:12,color:C.mid,lineHeight:1.6}}>🦊 {resumeTronque}</span>
+                {!showFull && (
+                  <span style={{fontSize:12,color:C.muted,filter:"blur(4px)",userSelect:"none",pointerEvents:"none"}}>
+                    {" "}L'analyse tactique révèle un avantage domicile net avec des statistiques de pressing supérieures et un xG favorable. Les confrontations directes montrent une nette domination sur les dernières saisons avec un taux de clean sheet remarquable...
+                  </span>
+                )}
               </div>
             </div>
 
+            {/* ══ PARTIE FLOUE (80%) — Premium uniquement ══ */}
+            {!showFull && (
+              <div style={{position:"relative",borderRadius:"0 0 12px 12px",overflow:"hidden"}}>
+                {/* Contenu en arrière-plan — flou */}
+                <div style={{filter:"blur(7px)",pointerEvents:"none",userSelect:"none",background:C.card,border:`1px solid ${C.border}`,borderTop:"none",padding:"16px 20px 200px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                    <div style={{background:"#1A2030",borderRadius:10,padding:"14px 16px",height:120}}/>
+                    <div style={{background:"#1A2030",borderRadius:10,padding:"14px 16px",height:120}}/>
+                  </div>
+                  <div style={{background:"#1A2030",borderRadius:10,padding:"14px 16px",marginBottom:12,height:140}}/>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                    <div style={{background:"#1A2030",borderRadius:10,padding:"14px 16px",height:180}}/>
+                    <div style={{background:"#1A2030",borderRadius:10,padding:"14px 16px",height:180}}/>
+                  </div>
+                </div>
+                {/* Overlay CTA */}
+                <div style={{
+                  position:"absolute",inset:0,
+                  background:"linear-gradient(to bottom, rgba(20,28,40,0) 0%, rgba(20,28,40,.6) 30%, rgba(20,28,40,.95) 60%)",
+                  display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",
+                  paddingBottom:28,gap:12,
+                }}>
+                  <div style={{textAlign:"center",padding:"0 20px"}}>
+                    <div style={{fontSize:14,fontWeight:800,color:C.dark,marginBottom:6}}>🔒 Analyse complète réservée aux membres Premium</div>
+                    <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:16}}>
+                      Formulaires de forme · Statistiques avancées · Joueurs clés · Paris à valeur · Analyse tactique complète
+                    </div>
+                    <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                      <button onClick={()=>onNavigatePremium?.()} style={{
+                        background:C.accent,color:"#0A1428",border:"none",borderRadius:10,
+                        padding:"12px 28px",cursor:"pointer",fontSize:14,fontWeight:900,
+                        boxShadow:`0 4px 20px ${C.accent}55`,
+                      }}>
+                        🔓 Débloquer — 10€/mois
+                      </button>
+                      <button onClick={()=>onNavigatePremium?.()} style={{
+                        background:"none",color:C.muted,border:`1px solid #243548`,
+                        borderRadius:10,padding:"12px 16px",cursor:"pointer",fontSize:12,
+                      }}>
+                        Voir les avantages
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ══ CONTENU COMPLET si Premium ══ */}
+            {showFull && (
+              <>
             {/* Facteurs + signal */}
             {analysis.facteurs_cles?.length>0&&(
               <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
@@ -494,8 +583,8 @@ export default function FoxLabAnalyzer({ userAccount, onNavigatePremium }) {
               </div>
             )}
 
-            {/* Contenu masqué si gratuit */}
-            <div style={{position:"relative",filter:showFull?"none":"blur(5px)",pointerEvents:showFull?"auto":"none",userSelect:showFull?"auto":"none"}}>
+            {/* Contenu complet Premium */}
+            <div style={{position:"relative"}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
                 {/* Forme */}
                 <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px"}}>
@@ -575,16 +664,10 @@ export default function FoxLabAnalyzer({ userAccount, onNavigatePremium }) {
                 <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>Analyse tactique</div>
                 <div style={{fontSize:13,color:C.mid,lineHeight:1.8}}>{analysis.analyse}</div>
               </div>
-            </div>
+            </div>{/* fin contenu complet */}
+              </>
+            )}{/* fin showFull */}
 
-            {/* Overlay freemium */}
-            {!showFull&&(
-              <div style={{position:"absolute",bottom:0,left:0,right:0,height:300,background:`linear-gradient(to bottom, transparent, ${C.bg})`,display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:24}}>
-                <button onClick={()=>onNavigatePremium?.()} style={{background:C.accent,color:"#0A1428",border:"none",borderRadius:10,padding:"13px 28px",cursor:"pointer",fontSize:14,fontWeight:800,boxShadow:`0 4px 20px ${C.accent}44`}}>
-                  🔓 Débloquer l&apos;analyse complète — Premium 10€/mois
-                </button>
-              </div>
-            )}
           </div>
         );
       })()}
