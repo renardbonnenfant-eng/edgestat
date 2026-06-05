@@ -4,6 +4,7 @@
 // ============================================================
 import Groq from "groq-sdk";
 import "dotenv/config";
+import { searchFootballNews, formatSearchForPrompt } from "./search.js";
 
 const groq = new Groq({ apiKey: process.env.GROQ_KEY });
 
@@ -156,11 +157,24 @@ export async function chat(question, matchCtx, history = [], teamDatabase = {}, 
     throw new Error("GROQ_KEY manquante dans backend/.env. Obtiens une clé gratuite sur https://console.groq.com/");
   }
 
+  // ── Recherche web en temps réel (Tavily) ──────────────────
+  // On cherche pour les questions non-structurées (chat normal)
+  // On évite pour les analyses JSON (structuredOutput) pour ne pas dépasser les tokens
+  let searchSection = "";
+  if (!structuredOutput && process.env.TAVILY_API_KEY) {
+    try {
+      const results = await searchFootballNews(question, matchCtx, 4);
+      if (results?.sources?.length) {
+        searchSection = formatSearchForPrompt(results);
+      }
+    } catch { /* non-bloquant */ }
+  }
+
   const contextStr = buildContext(matchCtx, teamDatabase);
   const systemPrompt = `${SYSTEM_PROMPT_BASE}
 
 DONNÉES DU MATCH ACTUEL :
-${contextStr}`;
+${contextStr}${searchSection ? `\n${searchSection}` : ""}`;
 
   // Si l'utilisateur mentionne des équipes non présentes dans le contexte,
   // l'IA doit utiliser ses propres connaissances sans dire "pas de données"
