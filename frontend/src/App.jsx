@@ -7688,148 +7688,301 @@ function FootballNewsTicker() {
 // FootballHub — Page d'accueil Football
 // ============================================================
 // URL logos API-Sports pour les compétitions lazy (non chargées au démarrage)
+// Logo via api-sports pour tout id numérique ou compId connu
+const logoUrl = (apiId) => `https://media.api-sports.io/football/leagues/${apiId}.png`;
 const STATIC_LOGOS = {
-  wc:          "https://media.api-sports.io/football/leagues/1.png",
-  euro:        "https://media.api-sports.io/football/leagues/4.png",
-  copa:        "https://media.api-sports.io/football/leagues/9.png",
-  nl:          "https://media.api-sports.io/football/leagues/5.png",
-  can:         "https://media.api-sports.io/football/leagues/6.png",
-  en:          "https://media.api-sports.io/football/leagues/39.png",
-  es:          "https://media.api-sports.io/football/leagues/140.png",
-  de:          "https://media.api-sports.io/football/leagues/78.png",
-  it:          "https://media.api-sports.io/football/leagues/135.png",
-  fr:          "https://media.api-sports.io/football/leagues/61.png",
-  pt:          "https://media.api-sports.io/football/leagues/94.png",
-  en_ch:       "https://media.api-sports.io/football/leagues/40.png",
-  fr_l2:       "https://media.api-sports.io/football/leagues/62.png",
-  de_b2:       "https://media.api-sports.io/football/leagues/79.png",
-  es_l2:       "https://media.api-sports.io/football/leagues/141.png",
-  it_sb:       "https://media.api-sports.io/football/leagues/136.png",
-  ucl:         "https://media.api-sports.io/football/leagues/2.png",
-  uel:         "https://media.api-sports.io/football/leagues/3.png",
-  uecl:        "https://media.api-sports.io/football/leagues/848.png",
-  intfriendly: "https://media.api-sports.io/football/leagues/10.png",
-  clubfriendly:"https://media.api-sports.io/football/leagues/667.png",
+  wc:1,euro:4,copa:9,nl:5,can:6,en:39,es:140,de:78,it:135,fr:61,pt:94,
+  en_ch:40,fr_l2:62,de_b2:79,es_l2:141,it_sb:136,
+  ucl:2,uel:3,uecl:848,intfriendly:10,clubfriendly:667,
+};
+const getLogoUrl = (comp) => {
+  if (comp.logo) return comp.logo;
+  if (STATIC_LOGOS[comp.id]) return logoUrl(STATIC_LOGOS[comp.id]);
+  if (comp.apiId) return logoUrl(comp.apiId);
+  return null;
 };
 
-const FOOT_SECTIONS = [
-  {
-    title: "🏆 Compétitions Internationales",
-    comps: [
-      { id:"wc",    name:"Coupe du Monde 2026", flag:"🌍" },
-      { id:"euro",  name:"UEFA Euro 2024",      flag:"🇪🇺" },
-      { id:"copa",  name:"Copa América",        flag:"🌎" },
-      { id:"nl",    name:"UEFA Nations League", flag:"🏴" },
-      { id:"can",   name:"CAN",                 flag:"🌍" },
-    ]
-  },
-  {
-    title: "⭐ Top 5 Ligues",
-    comps: [
-      { id:"en",  name:"Premier League",  flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-      { id:"es",  name:"La Liga",         flag:"🇪🇸" },
-      { id:"de",  name:"Bundesliga",      flag:"🇩🇪" },
-      { id:"it",  name:"Serie A",         flag:"🇮🇹" },
-      { id:"fr",  name:"Ligue 1",         flag:"🇫🇷" },
-    ]
-  },
-  {
-    title: "🥈 Autres Ligues",
-    comps: [
-      { id:"pt",    name:"Liga Portugal",  flag:"🇵🇹" },
-      { id:"en_ch", name:"Championship",   flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-      { id:"fr_l2", name:"Ligue 2",        flag:"🇫🇷" },
-      { id:"de_b2", name:"2. Bundesliga",  flag:"🇩🇪" },
-      { id:"es_l2", name:"La Liga 2",      flag:"🇪🇸" },
-      { id:"it_sb", name:"Serie B",        flag:"🇮🇹" },
-    ]
-  },
-  {
-    title: "🏅 Coupes Européennes",
-    comps: [
-      { id:"ucl",  name:"Ligue des Champions", flag:"⭐" },
-      { id:"uel",  name:"Europa League",        flag:"🟠" },
-      { id:"uecl", name:"Conference League",    flag:"🟢" },
-    ]
-  },
-  {
-    title: "🤝 Amicaux",
-    comps: [
-      { id:"intfriendly",  name:"Amicaux Internationaux", flag:"🌐" },
-      { id:"clubfriendly", name:"Amicaux Clubs",           flag:"🤝" },
-    ]
-  },
-];
+// ── Détection compétition "chaude" (en cours ou récente -7j) ──────────
+function isHotCompetition(comp) {
+  const now = new Date();
+  const m = now.getMonth()+1, y = now.getFullYear(), d = now.getDate();
+  const HOT_WINDOWS = [
+    { id:"wc",   start:[2026,6,11], end:[2026,7,19] },
+    { id:"euro", start:[2024,6,14], end:[2024,7,14] },
+    { id:"copa", start:[2024,6,20], end:[2024,7,14] },
+    { id:"can",  start:[2025,12,21],end:[2026,1,18] },
+    { id:"ucl",  start:[2025,9,17], end:[2026,5,30] },
+    { id:"uel",  start:[2025,9,18], end:[2026,5,20] },
+    { id:"uecl", start:[2025,9,19], end:[2026,5,27] },
+    { id:"cdc",  start:[2025,6,14], end:[2025,7,13] },
+    { id:"lib",  start:[2025,2,4],  end:[2025,11,29] },
+  ];
+  const win = HOT_WINDOWS.find(w => w.id === comp.id || w.id === comp.compId);
+  if (!win) return false;
+  const nowMs  = now.getTime();
+  const startMs = new Date(win.start[0], win.start[1]-1, win.start[2]).getTime();
+  const endMs   = new Date(win.end[0],   win.end[1]-1,   win.end[2]).getTime() + 7*24*60*60*1000;
+  return nowMs >= startMs && nowMs <= endMs;
+}
+
+// ── Base complète des championnats du monde ────────────────────────────
+const ALL_LEAGUES = {
+  // ── Top 10 classement mondial (ordre strict) ──
+  TOP10: [
+    { id:"en",    name:"Premier League",       flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", apiId:39,  rank:1 },
+    { id:"es",    name:"La Liga",              flag:"🇪🇸", apiId:140, rank:2 },
+    { id:"de",    name:"Bundesliga",           flag:"🇩🇪", apiId:78,  rank:3 },
+    { id:"it",    name:"Serie A",              flag:"🇮🇹", apiId:135, rank:4 },
+    { id:"fr",    name:"Ligue 1",              flag:"🇫🇷", apiId:61,  rank:5 },
+    { id:"mls",   name:"Major League Soccer",  flag:"🇺🇸", apiId:253, rank:6 },
+    { id:"br_sa", name:"Brasileirão Série A",  flag:"🇧🇷", apiId:71,  rank:7 },
+    { id:"mx",    name:"Liga MX",              flag:"🇲🇽", apiId:262, rank:8 },
+    { id:"pt",    name:"Primeira Liga",        flag:"🇵🇹", apiId:94,  rank:9 },
+    { id:"nl",    name:"Eredivisie",           flag:"🇳🇱", apiId:88,  rank:10 },
+  ],
+  // ── Coupes Européennes ──
+  EUROPE_CUPS: [
+    { id:"ucl",  name:"Ligue des Champions",  flag:"⭐", apiId:2 },
+    { id:"uel",  name:"Europa League",         flag:"🟠", apiId:3 },
+    { id:"uecl", name:"Conference League",     flag:"🟢", apiId:848 },
+  ],
+  // ── Compétitions Mondiales ──
+  WORLD_CUPS: [
+    { id:"wc",   name:"Coupe du Monde 2026",  flag:"🌍", apiId:1 },
+    { id:"copa", name:"Copa América",          flag:"🌎", apiId:9 },
+    { id:"can",  name:"CAN",                  flag:"🌍", apiId:6 },
+    { id:"afc",  name:"AFC Asian Cup",         flag:"🌏", apiId:7 },
+    { id:"gold", name:"Gold Cup CONCACAF",     flag:"🏆", apiId:26 },
+    { id:"cdc",  name:"Coupe du Monde des clubs", flag:"🌐", apiId:22 },
+    { id:"nl",   name:"Nations League UEFA",   flag:"🇪🇺", apiId:5 },
+    { id:"lib",  name:"Copa Libertadores",     flag:"🌎", apiId:11 },
+    { id:"sula", name:"Copa Sudamericana",     flag:"🌎", apiId:13 },
+    { id:"intfriendly", name:"Amicaux Internationaux", flag:"🤝", apiId:10 },
+    { id:"clubfriendly", name:"Amicaux Clubs", flag:"🤝", apiId:667 },
+  ],
+  // ── Reste de l'Europe ──
+  EUROPE_REST: [
+    { id:"en_ch",name:"Championship 🏴",      flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", apiId:40 },
+    { id:"fr_l2",name:"Ligue 2",              flag:"🇫🇷", apiId:62 },
+    { id:"de_b2",name:"2. Bundesliga",         flag:"🇩🇪", apiId:79 },
+    { id:"es_l2",name:"La Liga 2",             flag:"🇪🇸", apiId:141 },
+    { id:"it_sb",name:"Serie B",               flag:"🇮🇹", apiId:136 },
+    { id:"be",   name:"Pro League Belgique",   flag:"🇧🇪", apiId:144 },
+    { id:"tr",   name:"Süper Lig Turquie",     flag:"🇹🇷", apiId:203 },
+    { id:"ru",   name:"Premier League Russie", flag:"🇷🇺", apiId:235 },
+    { id:"sc",   name:"Scottish Premiership",  flag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿", apiId:179 },
+    { id:"gr",   name:"Super League Grèce",    flag:"🇬🇷", apiId:197 },
+    { id:"ro",   name:"Liga I Roumanie",       flag:"🇷🇴", apiId:283 },
+    { id:"ua",   name:"Premier League Ukraine",flag:"🇺🇦", apiId:333 },
+    { id:"cz",   name:"Czech Liga",            flag:"🇨🇿", apiId:345 },
+    { id:"pl",   name:"Ekstraklasa Pologne",   flag:"🇵🇱", apiId:106 },
+    { id:"no",   name:"Eliteserien Norvège",   flag:"🇳🇴", apiId:103 },
+    { id:"se",   name:"Allsvenskan Suède",     flag:"🇸🇪", apiId:113 },
+    { id:"dk",   name:"Superliga Danemark",    flag:"🇩🇰", apiId:119 },
+    { id:"ch",   name:"Super League Suisse",   flag:"🇨🇭", apiId:207 },
+    { id:"at",   name:"Bundesliga Autriche",   flag:"🇦🇹", apiId:218 },
+    { id:"nl_l2",name:"Eerste Divisie",        flag:"🇳🇱", apiId:89 },
+    { id:"hr",   name:"HNL Croatie",           flag:"🇭🇷", apiId:210 },
+    { id:"rs",   name:"Super Liga Serbie",     flag:"🇷🇸", apiId:286 },
+  ],
+  // ── Amériques ──
+  AMERICAS: [
+    { id:"br_b",  name:"Brasileirão Série B",  flag:"🇧🇷", apiId:75 },
+    { id:"ar",    name:"Primera División Argentina", flag:"🇦🇷", apiId:128 },
+    { id:"co",    name:"Liga BetPlay Colombie", flag:"🇨🇴", apiId:239 },
+    { id:"cl",    name:"Primera División Chili",flag:"🇨🇱", apiId:265 },
+    { id:"pe",    name:"Liga 1 Pérou",          flag:"🇵🇪", apiId:281 },
+    { id:"ec",    name:"Liga Pro Équateur",     flag:"🇪🇨", apiId:240 },
+    { id:"uy",    name:"Primera División Uruguay", flag:"🇺🇾", apiId:268 },
+    { id:"ve",    name:"Primera Venezuela",     flag:"🇻🇪", apiId:298 },
+    { id:"us2",   name:"USL Championship",      flag:"🇺🇸", apiId:255 },
+  ],
+  // ── Asie ──
+  ASIA: [
+    { id:"jp",    name:"J-League",              flag:"🇯🇵", apiId:98 },
+    { id:"kr",    name:"K-League",              flag:"🇰🇷", apiId:292 },
+    { id:"cn",    name:"Chinese Super League",  flag:"🇨🇳", apiId:169 },
+    { id:"au",    name:"A-League",              flag:"🇦🇺", apiId:188 },
+    { id:"sa",    name:"Saudi Pro League",      flag:"🇸🇦", apiId:307 },
+    { id:"ae",    name:"UAE Pro League",        flag:"🇦🇪", apiId:332 },
+    { id:"ir",    name:"Persian Gulf Pro League",flag:"🇮🇷", apiId:290 },
+    { id:"in",    name:"ISL Inde",              flag:"🇮🇳", apiId:323 },
+    { id:"th",    name:"Thai League",           flag:"🇹🇭", apiId:296 },
+  ],
+  // ── Afrique & Moyen-Orient ──
+  AFRICA: [
+    { id:"eg",    name:"Egyptian Premier League",flag:"🇪🇬", apiId:233 },
+    { id:"ma",    name:"Botola Pro Maroc",       flag:"🇲🇦", apiId:200 },
+    { id:"za",    name:"PSL Afrique du Sud",     flag:"🇿🇦", apiId:288 },
+    { id:"ng",    name:"NPFL Nigeria",           flag:"🇳🇬", apiId:338 },
+    { id:"tn",    name:"Ligue Pro Tunisie",      flag:"🇹🇳", apiId:208 },
+    { id:"dz",    name:"Ligue Pro Algérie",      flag:"🇩🇿", apiId:394 },
+    { id:"gh",    name:"Ghana Premier League",   flag:"🇬🇭", apiId:370 },
+    { id:"sn",    name:"Ligue 1 Sénégal",        flag:"🇸🇳", apiId:495 },
+    { id:"ci",    name:"Ligue 1 Côte d'Ivoire",  flag:"🇨🇮", apiId:463 },
+  ],
+  // ── Jeunes ──
+  YOUTH: [
+    { id:"ucl19", name:"UEFA Youth League (U19)",flag:"🌟", apiId:677 },
+    { id:"euro21",name:"UEFA Euro U21",          flag:"🇪🇺", apiId:8 },
+    { id:"euro19",name:"UEFA Euro U19",          flag:"🇪🇺", apiId:703 },
+    { id:"wc20",  name:"Coupe du Monde U20 FIFA",flag:"🌍", apiId:3 },
+    { id:"jl_u23",name:"J-League U23",           flag:"🇯🇵", apiId:100 },
+    { id:"fr_u19",name:"Championnat U19 France", flag:"🇫🇷", apiId:164 },
+    { id:"en_u18",name:"U18 Premier League",     flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", apiId:748 },
+    { id:"es_u19",name:"División Honor Juvenil", flag:"🇪🇸", apiId:349 },
+    { id:"olym",  name:"JO Football (U23)",      flag:"🏅", apiId:32 },
+  ],
+  // ── Féminin ──
+  WOMEN: [
+    { id:"wwc",   name:"Coupe du Monde Féminine",flag:"🌍", apiId:8 },
+    { id:"wucl",  name:"Women's Champions League",flag:"⭐",apiId:545 },
+    { id:"wpl",   name:"WSL (Angleterre)",        flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", apiId:737 },
+    { id:"wligue1",name:"D1 Arkema (France)",     flag:"🇫🇷", apiId:816 },
+    { id:"wbundesliga",name:"Frauen-Bundesliga",  flag:"🇩🇪", apiId:834 },
+    { id:"nwsl",  name:"NWSL (USA)",              flag:"🇺🇸", apiId:253 },
+    { id:"weuro", name:"UEFA Women's Euro",       flag:"🇪🇺", apiId:501 },
+    { id:"wnsl",  name:"A-League Women",          flag:"🇦🇺", apiId:189 },
+  ],
+};
+
+const FOOT_SECTIONS = [];  // legacy, non utilisé
 
 function FootballHub({ allData, leagueLogos, logoRegistry, loading, onSelectComp }) {
-  // Bulle compétition — format compact identique pour toutes
-  const CompBubble = ({ comp }) => {
+  const [showAllEurope, setShowAllEurope] = useState(false);
+  const [showAllAmericas, setShowAllAmericas] = useState(false);
+  const [showAllAsia, setShowAllAsia] = useState(false);
+  const [showAllAfrica, setShowAllAfrica] = useState(false);
+
+  const CompBubble = ({ comp, size, rankBadge }) => {
     const data    = allData[comp.id];
-    const logo    = data?.leagueLogo || leagueLogos[comp.id] || STATIC_LOGOS[comp.id];
+    const logo    = data?.leagueLogo || leagueLogos[comp.id] || getLogoUrl(comp);
     const hasLive = data?.recentFixtures?.some(f => ["1H","2H","HT","ET","BT","P"].includes(f.status));
     const upcoming = data?.recentFixtures?.filter(f => f.status === "NS" || f.status === "upcoming")?.length || 0;
+    const hot     = isHotCompetition(comp);
+    const large   = size === "large";
     return (
       <button onClick={() => onSelectComp(comp.id)} style={{
-        display:"flex", flexDirection:"column", alignItems:"center", gap:8,
-        background:C.panel, border:`1px solid ${C.line}`,
-        borderRadius:16, padding:"16px 10px", cursor:"pointer",
-        transition:"all .15s", position:"relative", minWidth:0,
+        display:"flex", flexDirection:"column", alignItems:"center", gap:large?10:6,
+        background: hot ? "linear-gradient(135deg,rgba(220,38,38,.12),rgba(217,119,6,.08))" : C.panel,
+        border:"1px solid " + (hot?"rgba(220,38,38,.5)":hasLive?"rgba(255,68,68,.4)":C.line),
+        borderRadius:14, padding:large?"18px 14px":"14px 8px",
+        cursor:"pointer", transition:"all .15s", position:"relative", minWidth:0,
       }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.background=C.accentBg; e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=`0 4px 16px ${C.accent}22`; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor=C.line; e.currentTarget.style.background=C.panel; e.currentTarget.style.transform=""; e.currentTarget.style.boxShadow=""; }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.background=C.accentBg; e.currentTarget.style.transform="translateY(-2px)"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor=hot?"rgba(220,38,38,.5)":hasLive?"rgba(255,68,68,.4)":C.line; e.currentTarget.style.background=hot?"linear-gradient(135deg,rgba(220,38,38,.12),rgba(217,119,6,.08))":C.panel; e.currentTarget.style.transform=""; }}
       >
-        {/* Badge LIVE */}
-        {hasLive && (
-          <div style={{ position:"absolute", top:8, right:8, width:8, height:8, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", animation:"verdikt-blink 1.2s infinite" }}/>
-        )}
-        {/* Logo */}
-        <div style={{ width:52, height:52, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          {logo
-            ? <img src={logo} style={{ width:52, height:52, objectFit:"contain" }} onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }} alt={comp.name} />
-            : null}
-          <div style={{ display: logo ? "none" : "flex", width:52, height:52, alignItems:"center", justifyContent:"center", fontSize:28 }}>{comp.flag}</div>
+        {rankBadge && <div style={{ position:"absolute", top:-8, left:8, fontSize:14 }}>{rankBadge}</div>}
+        {hot && <div style={{ position:"absolute", top:5, right:5, fontSize:8, background:"linear-gradient(135deg,#DC2626,#f97316)", color:"#fff", borderRadius:8, padding:"1px 4px", fontWeight:900 }}>HOT</div>}
+        {!hot && hasLive && <div style={{ position:"absolute", top:8, right:8, width:7, height:7, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", animation:"verdikt-blink 1.2s infinite" }}/>}
+        <div style={{ width:large?52:42, height:large?52:42, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {logo ? <img src={logo} style={{ width:"100%", height:"100%", objectFit:"contain" }} onError={e=>{ e.target.style.display="none"; if(e.target.nextSibling)e.target.nextSibling.style.display="flex"; }} alt={comp.name} /> : null}
+          <div style={{ display: logo ? "none" : "flex", width:"100%", height:"100%", alignItems:"center", justifyContent:"center", fontSize:large?28:20 }}>{comp.flag}</div>
         </div>
-        {/* Nom */}
-        <div style={{ fontSize:11, fontWeight:600, color:C.text, textAlign:"center", lineHeight:1.3, maxWidth:100, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
-          {comp.name}
-        </div>
-        {/* Statut */}
-        <div style={{ fontSize:9, color: hasLive?"#FF4444": upcoming>0?C.accent:C.muted, fontWeight: hasLive||upcoming>0?700:400 }}>
-          {hasLive ? "● En direct" : upcoming > 0 ? `${upcoming} à venir` : "Stats"}
+        <div style={{ fontSize:large?11:9, fontWeight:600, color:hot?C.warn:C.text, textAlign:"center", lineHeight:1.3, maxWidth:large?110:90, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{comp.name}</div>
+        <div style={{ fontSize:8, color: hot?"#f97316":hasLive?"#FF4444":upcoming>0?C.accent:C.muted, fontWeight:700 }}>
+          {hot?"En cours":hasLive?"LIVE":upcoming>0?(upcoming+" a venir"):"Stats"}
         </div>
       </button>
     );
   };
 
+  const STitle = ({ children, count }) => (
+    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+      <span style={{ fontSize:12, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, whiteSpace:"nowrap" }}>{children}</span>
+      {count && <span style={{ fontSize:9, color:C.muted, background:C.panel2, borderRadius:10, padding:"1px 7px" }}>{count}</span>}
+      <div style={{ flex:1, height:1, background:C.line }}/>
+    </div>
+  );
+
+  const allWorldComps = [...ALL_LEAGUES.WORLD_CUPS, ...ALL_LEAGUES.EUROPE_CUPS];
+  const hotComps = allWorldComps.filter(c => isHotCompetition(c));
+  const totalCount = Object.values(ALL_LEAGUES).flat().length;
+  const GRID = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(110px, 1fr))", gap:8 };
+
   return (
     <div style={{ padding:"20px 24px" }}>
-      {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:24 }}>
-        <div style={{ width:44, height:44, borderRadius:12, background:"rgba(0,212,170,.12)", display:"grid", placeItems:"center", fontSize:24, border:`1px solid rgba(0,212,170,.2)` }}>⚽</div>
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:20 }}>
+        <div style={{ width:44, height:44, borderRadius:12, background:"rgba(0,212,170,.12)", display:"grid", placeItems:"center", fontSize:24, border:"1px solid rgba(0,212,170,.2)" }}>football</div>
         <div>
-          <div style={{ fontSize:20, fontWeight:900, color:C.text }}>Football</div>
-          <div style={{ fontSize:11, color:C.dim }}>{Object.values(FOOT_SECTIONS).flatMap(s=>s.comps).length} compétitions disponibles</div>
+          <div style={{ fontSize:20, fontWeight:900, color:C.text }}>Football Mondial</div>
+          <div style={{ fontSize:11, color:C.dim }}>{totalCount}+ competitions - Monde entier - Jeunes - Feminin</div>
         </div>
       </div>
 
-      {loading && <InfoPanel>Chargement des données…</InfoPanel>}
-
-      {FOOT_SECTIONS.map(section => (
-        <div key={section.title} style={{ marginBottom:24 }}>
-          {/* Titre section */}
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-            <span style={{ fontSize:12, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, whiteSpace:"nowrap" }}>{section.title}</span>
-            <div style={{ flex:1, height:1, background:C.line }}/>
-          </div>
-          {/* Grille de bulles */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(110px, 1fr))", gap:8 }}>
-            {section.comps.map(comp => <CompBubble key={comp.id} comp={comp} />)}
+      {hotComps.length > 0 && (
+        <div style={{ marginBottom:20, background:"linear-gradient(135deg,rgba(220,38,38,.1),rgba(217,119,6,.06))", border:"1px solid rgba(220,38,38,.3)", borderRadius:14, padding:"14px 16px" }}>
+          <STitle count={hotComps.length}>En ce moment</STitle>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:10 }}>
+            {hotComps.map(c => <CompBubble key={c.id} comp={c} size="large" />)}
           </div>
         </div>
-      ))}
+      )}
+
+      <div style={{ marginBottom:20 }}>
+        <STitle count="Top 10">Classement Mondial - Top 10</STitle>
+        <div style={GRID}>
+          {ALL_LEAGUES.TOP10.map(comp => (
+            <CompBubble key={comp.id} comp={comp} size="large" rankBadge={comp.rank<=3?["gold","silver","bronze"][comp.rank-1]===undefined?null:["medal1","medal2","medal3"][comp.rank-1]:null} />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom:20 }}>
+        <STitle>Coupes Europeennes</STitle>
+        <div style={GRID}>{ALL_LEAGUES.EUROPE_CUPS.map(c => <CompBubble key={c.id} comp={c} />)}</div>
+      </div>
+
+      <div style={{ marginBottom:20 }}>
+        <STitle>Competitions Mondiales et Continentales</STitle>
+        <div style={GRID}>{ALL_LEAGUES.WORLD_CUPS.map(c => <CompBubble key={c.id} comp={c} />)}</div>
+      </div>
+
+      <div style={{ marginBottom:20 }}>
+        <STitle count={ALL_LEAGUES.YOUTH.length}>Jeunes (U19 - U21 - U23)</STitle>
+        <div style={GRID}>{ALL_LEAGUES.YOUTH.map(c => <CompBubble key={c.id} comp={c} />)}</div>
+      </div>
+
+      <div style={{ marginBottom:20 }}>
+        <STitle count={ALL_LEAGUES.WOMEN.length}>Football Feminin</STitle>
+        <div style={GRID}>{ALL_LEAGUES.WOMEN.map(c => <CompBubble key={c.id} comp={c} />)}</div>
+      </div>
+
+      <div style={{ marginBottom:20 }}>
+        <STitle count={ALL_LEAGUES.EUROPE_REST.length}>Europe - Reste</STitle>
+        <div style={GRID}>{(showAllEurope ? ALL_LEAGUES.EUROPE_REST : ALL_LEAGUES.EUROPE_REST.slice(0,12)).map(c => <CompBubble key={c.id} comp={c} />)}</div>
+        {ALL_LEAGUES.EUROPE_REST.length > 12 && <button onClick={()=>setShowAllEurope(v=>!v)} style={{ marginTop:8, background:"none", border:"1px solid "+C.line, borderRadius:8, padding:"5px 14px", cursor:"pointer", fontSize:11, color:C.muted, width:"100%" }}>{showAllEurope ? "Voir moins" : "Voir tous ("+ALL_LEAGUES.EUROPE_REST.length+")"}</button>}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:20 }}>
+        <div>
+          <STitle count={ALL_LEAGUES.AMERICAS.length}>Ameriques</STitle>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(100px, 1fr))", gap:8 }}>{(showAllAmericas ? ALL_LEAGUES.AMERICAS : ALL_LEAGUES.AMERICAS.slice(0,6)).map(c => <CompBubble key={c.id} comp={c} />)}</div>
+          {ALL_LEAGUES.AMERICAS.length > 6 && <button onClick={()=>setShowAllAmericas(v=>!v)} style={{ marginTop:6, background:"none", border:"1px solid "+C.line, borderRadius:8, padding:"4px 10px", cursor:"pointer", fontSize:10, color:C.muted, width:"100%" }}>{showAllAmericas ? "Moins" : "+"+String(ALL_LEAGUES.AMERICAS.length-6)}</button>}
+        </div>
+        <div>
+          <STitle count={ALL_LEAGUES.ASIA.length}>Asie et Oceanie</STitle>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(100px, 1fr))", gap:8 }}>{(showAllAsia ? ALL_LEAGUES.ASIA : ALL_LEAGUES.ASIA.slice(0,6)).map(c => <CompBubble key={c.id} comp={c} />)}</div>
+          {ALL_LEAGUES.ASIA.length > 6 && <button onClick={()=>setShowAllAsia(v=>!v)} style={{ marginTop:6, background:"none", border:"1px solid "+C.line, borderRadius:8, padding:"4px 10px", cursor:"pointer", fontSize:10, color:C.muted, width:"100%" }}>{showAllAsia ? "Moins" : "+"+String(ALL_LEAGUES.ASIA.length-6)}</button>}
+        </div>
+      </div>
+
+      <div style={{ marginBottom:20 }}>
+        <STitle count={ALL_LEAGUES.AFRICA.length}>Afrique</STitle>
+        <div style={GRID}>{(showAllAfrica ? ALL_LEAGUES.AFRICA : ALL_LEAGUES.AFRICA.slice(0,8)).map(c => <CompBubble key={c.id} comp={c} />)}</div>
+        {ALL_LEAGUES.AFRICA.length > 8 && <button onClick={()=>setShowAllAfrica(v=>!v)} style={{ marginTop:6, background:"none", border:"1px solid "+C.line, borderRadius:8, padding:"5px 14px", cursor:"pointer", fontSize:11, color:C.muted, width:"100%" }}>{showAllAfrica ? "Voir moins" : "Voir tous ("+ALL_LEAGUES.AFRICA.length+")"}</button>}
+      </div>
+
+      <div>
+        <STitle>Amicaux</STitle>
+        <div style={GRID}>
+          {[{id:"intfriendly",name:"Amicaux Intl",flag:"globe",apiId:10},{id:"clubfriendly",name:"Amicaux Clubs",flag:"handshake",apiId:667}].map(c=><CompBubble key={c.id} comp={c}/>)}
+        </div>
+      </div>
     </div>
   );
 }
+
 
 // ============================================================
 // Panel "Matchs à venir" avec filtres (extrait d'une IIFE pour respecter les règles des hooks)
