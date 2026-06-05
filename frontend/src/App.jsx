@@ -7834,11 +7834,21 @@ function FootballHub({ allData, leagueLogos, logoRegistry, loading, onSelectComp
 // ============================================================
 // Panel "Matchs à venir" avec filtres (extrait d'une IIFE pour respecter les règles des hooks)
 // ============================================================
-function UpcomingMatchesPanel({ nextFixtures, nextLoading, nextError, logoRegistry, onMatchClick }) {
+function UpcomingMatchesPanel({ nextFixtures, nextLoading, nextError, logoRegistry, onMatchClick, onRefresh }) {
   const [filterLeague, setFilterLeague] = React.useState("");
   const [filterTeam,   setFilterTeam]   = React.useState("");
   const [searchTeam,   setSearchTeam]   = React.useState("");
   const [showFilters,  setShowFilters]  = React.useState(false);
+  const [refreshing,   setRefreshing]   = React.useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetch("/api/next/refresh", { method:"POST" });
+      onRefresh?.();
+    } catch {}
+    setTimeout(() => setRefreshing(false), 2000);
+  };
 
   // Listes uniques pour les filtres
   const leagues = [...new Map(nextFixtures.map(f => [f.league, { id:f.leagueId, name:f.league, logo:f.leagueLogo, flag:f.country }])).values()]
@@ -7879,8 +7889,20 @@ function UpcomingMatchesPanel({ nextFixtures, nextLoading, nextError, logoRegist
             {filtered.length}/{nextFixtures.length}
           </span>
         )}
+        {/* Bouton actualiser */}
+        <button onClick={handleRefresh} disabled={refreshing} title="Actualiser les matchs à venir" style={{
+          marginLeft:"auto", background:"none", border:`1px solid ${C.line}`, borderRadius:20,
+          padding:"5px 10px", cursor:"pointer", fontSize:11, color:C.muted,
+          display:"flex", alignItems:"center", gap:4, transition:"all .15s",
+        }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;e.currentTarget.style.color=C.muted;}}
+        >
+          <span style={{ display:"inline-block", animation:refreshing?"spin .8s linear infinite":"none" }}>🔄</span>
+          {refreshing ? "..." : ""}
+        </button>
         <button onClick={() => setShowFilters(v => !v)} style={{
-          marginLeft:"auto", display:"flex", alignItems:"center", gap:5,
+          display:"flex", alignItems:"center", gap:5,
           background: activeFilters > 0 ? C.accentBg : C.panel2,
           border:`1px solid ${activeFilters > 0 ? C.accent : C.line}`,
           borderRadius:20, padding:"5px 12px", cursor:"pointer", fontSize:11,
@@ -8459,6 +8481,10 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
         nextError={nextError}
         logoRegistry={logoRegistry}
         onMatchClick={onMatchClick}
+        onRefresh={() => {
+          setNextLoading(true);
+          fetchNext(500).then(d => { setNextFixtures(d||[]); setNextLoading(false); }).catch(()=>setNextLoading(false));
+        }}
       />
 
       {/* === CE JOUR DANS L'HISTOIRE === */}

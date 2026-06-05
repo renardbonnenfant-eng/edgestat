@@ -650,163 +650,102 @@ app.get("/api/tennis/:tournamentId", async (req, res) => {
 // Prochains matchs des ligues suivies (TTL 1h)
 // Stratégie : collecte depuis caches existants (payload + caches de fixtures par ligue)
 app.get("/api/next", async (req, res) => {
-  const cacheKey = "next:tracked:v3";
+  // Cache 1h — suffisamment frais pour capturer les nouveaux matchs dès leur annonce
+  const cacheKey = "next:global:v1";
   try {
-    const cached = await readCache(cacheKey, 2 * 60 * 60 * 1000); // cache 2h
+    const cached = await readCache(cacheKey, 60 * 60 * 1000);
     if (cached?.fresh) return res.json(cached.value);
 
-    const fixtureMap = new Map(); // dédupliquation par id
-    const FINISHED_SET = new Set(["FT","AET","PEN","AWD","WO","CANC","PST"]);
-    const now = Date.now();
+    const fixtureMap = new Map();
+    const FINISHED   = new Set(["FT","AET","PEN","AWD","WO","CANC","PST"]);
 
-    const addFixture = (f) => {
+    const addF = (f) => {
       if (!f.id || fixtureMap.has(f.id)) return;
-      // Accepter TOUS les matchs non terminés, passés ou à venir
       fixtureMap.set(f.id, f);
     };
 
-    // ── 1. Ligues eager (Top 5 + UCL + etc.) ─────────────────
+    // ── SOURCE 1 (PRINCIPALE) : fixtures?next=500 ─────────────
+    // Un seul appel qui retourne les 500 prochains matchs programmés
+    // de TOUTES les compétitions, TOUTES saisons confondues.
+    // Dès qu'un match est annoncé dans l'API, il apparaît ici.
+    try {
+      const globalData = await apiGet("fixtures", { next: 500 }, 60 * 60 * 1000);
+      (globalData || []).forEach(f => addF({
+        id:         f.fixture.id,
+        date:       f.fixture.date,
+        round:      f.league?.round || "",
+        league:     f.league?.name  || "",
+        leagueLogo: f.league?.logo  || "",
+        leagueId:   f.league?.id,
+        country:    f.league?.country || "",
+        compId:     API_ID_TO_COMP[f.league?.id] || null,
+        home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo || "" },
+        away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo || "" },
+        status: "upcoming",
+      }));
+      console.log(`[/api/next] global next:500 → ${globalData?.length || 0} matchs`);
+    } catch(e) { console.warn("[/api/next] global:", e.message); }
+
+    // ── SOURCE 2 : matchs des ligues trackées (cache existant) ─
+    // Complète avec tous les matchs des ligues eager (Top 5, UCL…)
+    // qui sont déjà en cache depuis le payload principal
     const payloadCached = await readCache("payload:football:v2", 12 * 60 * 60 * 1000);
-    const eagerLeagues  = payloadCached?.value?.leagues || {};
-    Object.entries(eagerLeagues).forEach(([compId, compData]) => {
+    Object.entries(payloadCached?.value?.leagues || {}).forEach(([compId, compData]) => {
       (compData.recentFixtures || [])
-        .filter(f => {
-          const s = f.status;
-          return !FINISHED_SET.has(s) && s !== "FT";
-        })
-        .forEach(f => addFixture({
-          id:         f.id,
-          date:       f.date,
-          round:      f.round || "",
-          league:     compData.league || "",
-          leagueLogo: compData.leagueLogo || "",
-          leagueId:   compData.apiId,
-          country:    compData.country || "",
-          compId,
-          home: f.home,
-          away: f.away,
-          status: "upcoming",
+        .filter(f => !FINISHED.has(f.status) && f.status !== "FT")
+        .forEach(f => addF({
+          id: f.id, date: f.date, round: f.round || "",
+          league: compData.league || "", leagueLogo: compData.leagueLogo || "",
+          leagueId: compData.apiId, country: compData.country || "",
+          compId, home: f.home, away: f.away, status: "upcoming",
         }));
     });
 
-    // ── 2. Toutes les compétitions majeures — toute la saison ─
-    const MAJOR_LEAGUES = [
-      { apiId:1,   season:2026, compId:"wc",    name:"FIFA World Cup 2026",    country:"World",   logo:"https://media.api-sports.io/football/leagues/1.png" },
-      { apiId:2,   season:2025, compId:"ucl",   name:"Ligue des Champions",    country:"Europe",  logo:"https://media.api-sports.io/football/leagues/2.png" },
-      { apiId:3,   season:2025, compId:"uel",   name:"Europa League",          country:"Europe",  logo:"https://media.api-sports.io/football/leagues/3.png" },
-      { apiId:848, season:2025, compId:"uecl",  name:"Conference League",      country:"Europe",  logo:"https://media.api-sports.io/football/leagues/848.png" },
-      { apiId:4,   season:2024, compId:"euro",  name:"UEFA Euro 2024",         country:"Europe",  logo:"https://media.api-sports.io/football/leagues/4.png" },
-      { apiId:9,   season:2024, compId:"copa",  name:"Copa América 2024",      country:"America", logo:"https://media.api-sports.io/football/leagues/9.png" },
-      { apiId:5,   season:2025, compId:"nl",    name:"Nations League",         country:"Europe",  logo:"https://media.api-sports.io/football/leagues/5.png" },
-      { apiId:6,   season:2025, compId:"can",   name:"CAN 2025",               country:"Africa",  logo:"https://media.api-sports.io/football/leagues/6.png" },
-      { apiId:11,  season:2025, compId:"lib",   name:"Copa Libertadores",      country:"CONMEBOL",logo:"https://media.api-sports.io/football/leagues/11.png" },
-      { apiId:22,  season:2025, compId:"cdc",   name:"Coupe du Monde des clubs",country:"World",  logo:"https://media.api-sports.io/football/leagues/22.png" },
-      // Top 5 ligues — toute la saison
-      { apiId:39,  season:2025, compId:"en",    name:"Premier League",         country:"England", logo:"https://media.api-sports.io/football/leagues/39.png" },
-      { apiId:61,  season:2025, compId:"fr",    name:"Ligue 1",                country:"France",  logo:"https://media.api-sports.io/football/leagues/61.png" },
-      { apiId:78,  season:2025, compId:"de",    name:"Bundesliga",             country:"Germany", logo:"https://media.api-sports.io/football/leagues/78.png" },
-      { apiId:135, season:2025, compId:"it",    name:"Serie A",                country:"Italy",   logo:"https://media.api-sports.io/football/leagues/135.png" },
-      { apiId:140, season:2025, compId:"es",    name:"La Liga",                country:"Spain",   logo:"https://media.api-sports.io/football/leagues/140.png" },
-      { apiId:94,  season:2025, compId:"pt",    name:"Liga Portugal",          country:"Portugal",logo:"https://media.api-sports.io/football/leagues/94.png" },
-      // Matchs internationaux et amicaux clubs
-      { apiId:10,  season:2026, compId:"intfriendly",  name:"Amicaux internationaux", country:"World", logo:"https://media.api-sports.io/football/leagues/10.png" },
-      { apiId:667, season:2026, compId:"clubfriendly", name:"Amicaux clubs",           country:"World", logo:"https://media.api-sports.io/football/leagues/667.png" },
-      // Saison 2026 pour les compétitions qui commencent en été 2026
-      { apiId:2,   season:2026, compId:"ucl",  name:"Ligue des Champions 2026",  country:"Europe", logo:"https://media.api-sports.io/football/leagues/2.png" },
-      { apiId:39,  season:2026, compId:"en",   name:"Premier League 2026",       country:"England",logo:"https://media.api-sports.io/football/leagues/39.png" },
-      { apiId:61,  season:2026, compId:"fr",   name:"Ligue 1 2026",              country:"France", logo:"https://media.api-sports.io/football/leagues/61.png" },
-      { apiId:78,  season:2026, compId:"de",   name:"Bundesliga 2026",           country:"Germany",logo:"https://media.api-sports.io/football/leagues/78.png" },
-      { apiId:135, season:2026, compId:"it",   name:"Serie A 2026",              country:"Italy",  logo:"https://media.api-sports.io/football/leagues/135.png" },
-      { apiId:140, season:2026, compId:"es",   name:"La Liga 2026",              country:"Spain",  logo:"https://media.api-sports.io/football/leagues/140.png" },
-    ];
-
-    // Charger chaque compétition depuis son cache (sans appel API si déjà en cache)
-    for (const lc of MAJOR_LEAGUES) {
-      // Essayer plusieurs clés de cache possibles
-      const cacheKeys = [
-        `fixtures?league=${lc.apiId}&season=${lc.season}`,
-        `payload:competition:v2:${lc.compId}`,
-      ];
-      let found = false;
-      for (const k of cacheKeys) {
-        const lcc = await readCache(k, 6 * 60 * 60 * 1000);
-        if (!lcc?.value) continue;
-        const fxArray = Array.isArray(lcc.value) ? lcc.value : (lcc.value?.recentFixtures || []);
-        fxArray.forEach(f => {
-          const fxId = f.fixture?.id || f.id;
-          const fxDate = f.fixture?.date || f.date;
-          const status = f.fixture?.status?.short || f.status || "";
-          if (!fxId || FINISHED_SET.has(status)) return;
-          addFixture({
-            id:         fxId,
-            date:       fxDate,
-            round:      f.league?.round || f.round || "",
-            league:     lc.name,
-            leagueLogo: lc.logo,
-            leagueId:   lc.apiId,
-            country:    lc.country,
-            compId:     lc.compId,
-            home: f.home || { id: f.teams?.home?.id, name: f.teams?.home?.name, logo: f.teams?.home?.logo || "" },
-            away: f.away || { id: f.teams?.away?.id, name: f.teams?.away?.name, logo: f.teams?.away?.logo || "" },
-            status: "upcoming",
-          });
-        });
-        found = true;
-        break;
-      }
-
-      // Si pas en cache, faire un appel API pour les plus importantes (WC, UCL)
-      if (!found && [1, 2, 3, 39, 61, 78, 135, 140].includes(lc.apiId)) {
-        try {
-          const liveData = await apiGet("fixtures", { league: lc.apiId, season: lc.season, status: "NS" }, 4 * 60 * 60 * 1000);
-          (liveData || []).slice(0, 200).forEach(f => {
-            addFixture({
-              id:         f.fixture.id,
-              date:       f.fixture.date,
-              round:      f.league?.round || "",
-              league:     lc.name,
-              leagueLogo: lc.logo,
-              leagueId:   lc.apiId,
-              country:    lc.country,
-              compId:     lc.compId,
-              home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo || "" },
-              away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo || "" },
-              status: "upcoming",
-            });
-          });
-        } catch { /* non-bloquant */ }
-      }
-    }
-
-    // ── 3. Prochains 100 matchs globaux (toutes compétitions) ─
+    // ── SOURCE 3 : WC 2026 spécifique (tous les matchs planifiés) ─
     try {
-      const globalNext = await apiGet("fixtures", { next: 200 }, 30 * 60 * 1000);
-      (globalNext || []).forEach(f => {
-        addFixture({
-          id:         f.fixture.id,
-          date:       f.fixture.date,
-          round:      f.league?.round || "",
-          league:     f.league?.name  || "",
-          leagueLogo: f.league?.logo  || "",
-          leagueId:   f.league?.id,
-          country:    f.league?.country || "",
-          compId:     API_ID_TO_COMP[f.league?.id] || null,
-          home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo || "" },
-          away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo || "" },
-          status: "upcoming",
-        });
-      });
+      const wcData = await apiGet("fixtures", { league: 1, season: 2026 }, 4 * 60 * 60 * 1000);
+      (wcData || []).filter(f => !FINISHED.has(f.fixture?.status?.short)).forEach(f => addF({
+        id: f.fixture.id, date: f.fixture.date, round: f.league?.round || "",
+        league: "FIFA World Cup 2026", leagueLogo: "https://media.api-sports.io/football/leagues/1.png",
+        leagueId: 1, country: "World", compId: "wc",
+        home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo || "" },
+        away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo || "" },
+        status: "upcoming",
+      }));
     } catch { /* non-bloquant */ }
 
     const fixtures = [...fixtureMap.values()]
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+    console.log(`[/api/next] total: ${fixtures.length} matchs à venir`);
     await writeCache(cacheKey, fixtures);
     res.json(fixtures);
   } catch (err) {
     console.error("[/api/next]", err.message);
     res.status(502).json({ error: err.message });
   }
+});
+
+// Endpoint pour forcer le rafraîchissement des matchs à venir (vide le cache)
+app.post("/api/next/refresh", async (req, res) => {
+  try {
+    const { promises: fsp } = await import("node:fs");
+    const { default: pathm } = await import("node:path");
+    const cDir = pathm.join(pathm.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), "..", "cache");
+    const files = await fsp.readdir(cDir);
+    let cleared = 0;
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      try {
+        const raw = JSON.parse(await fsp.readFile(pathm.join(cDir, file), "utf8"));
+        if ((raw.key||"").includes("next:global")) {
+          await fsp.unlink(pathm.join(cDir, file));
+          cleared++;
+        }
+      } catch {}
+    }
+    res.json({ ok: true, cleared, message: `${cleared} cache(s) supprimé(s). Prochain appel rechargera tout.` });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Cotes de match — API-Football /odds
