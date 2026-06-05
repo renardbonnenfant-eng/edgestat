@@ -199,133 +199,113 @@ app.post("/api/payment/webhook", express.raw({ type: "application/json" }), asyn
 });
 
 app.get("/api/news/football", async (req, res) => {
-  // Cache 30 min — news basées uniquement sur vrais résultats des 48h
-  const cacheKey = `football-news-v4:${Math.floor(Date.now() / (30*60*1000))}`;
+  const cacheKey = `football-news-tavily:${Math.floor(Date.now() / (20*60*1000))}`; // reset toutes les 20 min
   try {
-    const cached = await readCache(cacheKey, 30 * 60 * 1000);
+    const cached = await readCache(cacheKey, 20 * 60 * 1000);
     if (cached?.fresh) return res.json(cached.value);
 
-    // ── Collecter les vrais résultats des 48h depuis les fixtures en cache ──
-    const now = Date.now();
-    const h48 = now - 48 * 60 * 60 * 1000;
-    const TOP_LEAGUES = new Set([39, 61, 78, 135, 140, 94, 2, 3, 848, 1, 4, 9, 6, 11, 13]);
-    const recentResults = [];
+    const TAVILY_KEY = process.env.TAVILY_API_KEY;
+    const groqKey   = process.env.GROQ_KEY;
 
-    // Scanner le payload principal ET tous les caches competition:v2
-    const { promises: fs } = await import("node:fs");
-    const { default: pathMod } = await import("node:path");
-    const { fileURLToPath: furl } = await import("node:url");
-    const cDir = pathMod.join(pathMod.dirname(furl(import.meta.url)), "..", "cache");
-    const scanLeague = (lg) => {
-      for (const f of (lg.recentFixtures || [])) {
-        const d = new Date(f.date).getTime();
-        if (d > h48 && d <= now && f.score && (f.status === "FT" || f.status === "AET" || f.status === "PEN")) {
-          const [h, a] = (f.score||"").split(" - ").map(Number);
-          if (!isNaN(h) && !isNaN(a)) {
-            const ageH = Math.round((now - d) / 3600000);
-            recentResults.push({ id:String(f.id||""), home:f.home?.name||"?", away:f.away?.name||"?", score:f.score, league:lg.league||"", leagueId:lg.apiId, diff:Math.abs(h-a), total:h+a, ageH, date:f.date });
-          }
+    if (!TAVILY_KEY && !groqKey) return res.json(getFallbackNews());
+
+    let searchResults = [];
+    // ── Tavily : chercher les vraies infos football ──────────
+    if (TAVILY_KEY) {
+      try {
+        const searches = [
+          "football actualités du jour transferts résultats 2026",
+          "football blessure suspension scandale surprenant insolite 2026",
+          "ligue 1 premier league bundesliga serie a la liga résultats score 2026",
+        ];
+        const randomQuery = searches[Math.floor(Date.now()/1000) % searches.length];
+        const tavilyRes = await fetch("https://api.tavily.com/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_key: TAVILY_KEY,
+            query: randomQuery,
+            search_depth: "basic",
+            max_results: 8,
+            include_answer: true,
+            include_raw_content: false,
+            include_domains: ["lequipe.fr","goal.com","eurosport.fr","footmercato.net","sofoot.com","rmcsport.bfmtv.com","bbc.com","skysports.com","football365.fr","transfermarkt.com","beinsports.com","rmc.fr"],
+          }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (tavilyRes.ok) {
+          const td = await tavilyRes.json();
+          searchResults = (td.results || []).slice(0, 8).map(r => ({
+            title: r.title,
+            content: r.content?.slice(0, 400) || "",
+            url: r.url,
+            date: r.published_date || null,
+          }));
         }
-      }
-    };
-    try {
-      // 1. Payload principal
-      const payload = await readCache("payload:football:v2", 24*60*60*1000);
-      if (payload?.value) Object.values(payload.value.leagues||{}).forEach(scanLeague);
-      // 2. Tous les caches competition:v2 (amicaux, coupes, etc.)
-      const files = await fs.readdir(cDir);
-      for (const file of files) {
-        if (!file.endsWith(".json")) continue;
-        try {
-          const raw = JSON.parse(await fs.readFile(pathMod.join(cDir, file), "utf8"));
-          if ((raw.key||"").includes("competition:v2")) {
-            const val = raw.value;
-            if (val?.recentFixtures) scanLeague(val);
-            else if (val?.leagues) Object.values(val.leagues).forEach(scanLeague);
-          }
-        } catch {}
-      }
-    } catch {}
-
-    // Trier : top ligues d'abord, puis par intérêt (gros écarts), puis récents
-    recentResults.sort((a, b) => {
-      const aTop = TOP_LEAGUES.has(a.leagueId) ? 1 : 0;
-      const bTop = TOP_LEAGUES.has(b.leagueId) ? 1 : 0;
-      if (bTop !== aTop) return bTop - aTop;
-      return (b.diff + b.total) - (a.diff + a.total);
-    });
-
-    // Convertir directement en news — AUCUNE IA, uniquement les vraies données
-    const EMOJIS = { 0:"😐", 1:"⚽", 2:"🔥", 3:"💥", 4:"🚀" };
-    const CATS   = ["résultat","résultat","résultat","résultat","résultat"];
-
-    const news = recentResults.slice(0, 8).map((r, i) => {
-      const [h, a] = r.score.split(" - ").map(Number);
-      const winner = h > a ? r.home : a > h ? r.away : null;
-      const isUpset = r.diff >= 3;
-      const isBigScore = r.total >= 5;
-      const isDraw = h === a;
-
-      let title = "";
-      let summary = "";
-      let betImpact = "";
-
-      if (isUpset) {
-        title = `${r.league} : ${winner} s'impose largement (${r.score})`;
-        summary = `${r.home} ${r.score} ${r.away}. ${winner ? `${winner} domine nettement avec ${Math.max(h,a)} buts marqués.` : ""}`;
-        betImpact = `${winner} en grande forme — à surveiller pour les prochains paris.`;
-      } else if (isBigScore) {
-        title = `Festival de buts : ${r.home} ${r.score} ${r.away}`;
-        summary = `${r.total} buts au total dans ${r.league}. Les défenses en difficulté.`;
-        betImpact = `Over 2.5 dans le prochain match de ces équipes à envisager.`;
-      } else if (isDraw) {
-        title = `${r.league} : match nul entre ${r.home} et ${r.away} (${r.score})`;
-        summary = `Partage des points entre les deux équipes.`;
-        betImpact = "";
-      } else {
-        title = `${r.league} : ${winner} l'emporte ${r.score} contre ${h < a ? r.home : r.away}`;
-        summary = `${r.home} ${r.score} ${r.away} — victoire serrée en ${r.league}.`;
-        betImpact = `${winner} conserve sa dynamique.`;
-      }
-
-      return {
-        id: `r${i}`,
-        title: title.slice(0, 90),
-        summary,
-        category: "résultat",
-        entity: winner || r.home,
-        entityType: "club",
-        leagueId: r.leagueId,
-        emoji: isUpset ? "🔥" : isBigScore ? "💥" : isDraw ? "🤝" : "⚽",
-        hot: isUpset || isBigScore,
-        betImpact: betImpact || undefined,
-        ageH: r.ageH,
-        score: r.score,
-        homeTeam: r.home,
-        awayTeam: r.away,
-      };
-    });
-
-    // Si aucun résultat réel → afficher une news générique datée d'aujourd'hui
-    if (news.length === 0) {
-      const d = new Date().toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
-      news.push({
-        id:"empty",
-        title:`Aucun résultat disponible pour les dernières 48h`,
-        summary:`Les données de matchs se chargent. Reviens dans quelques minutes pour voir les derniers résultats du ${d}.`,
-        category:"résultat", entity:"Football", entityType:"competition",
-        emoji:"⏳", hot:false, ageH:0,
-      });
+      } catch(e) { console.warn("[news/tavily]", e.message); }
     }
 
-    const result = { news, generatedAt: new Date().toISOString(), source: "real-fixtures" };
+    // ── Groq : transformer les résultats en flash infos ──────
+    let news = [];
+    if (groqKey && searchResults.length > 0) {
+      try {
+        const { default: Groq } = await import("groq-sdk");
+        const groq = new Groq({ apiKey: groqKey });
+        const sources = searchResults.map((r,i) => `[${i+1}] ${r.title}\n${r.content}`).join("\n\n");
+        const completion = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [{
+            role: "user",
+            content: `Tu es un journaliste sportif. Voici des articles récents sur le football:\n\n${sources}\n\nCrée 6 flash infos football CROUSTILLANTES et VARIÉES à partir de ces sources réelles.
+Mix : transferts, résultats inattendus, blessures importantes, polémiques, records, anecdotes.
+Chaque info doit être UTILE pour un parieur sportif.
+
+Format JSON strict:
+{
+  "news": [
+    {
+      "id": "n1",
+      "title": "Titre accrocheur max 85 chars — basé sur les sources",
+      "summary": "2 phrases factuelles. Impact pour les parieurs si pertinent.",
+      "category": "résultat|transfert|blessure|record|polémique|insolite",
+      "entity": "club ou joueur principal",
+      "entityType": "club|player|competition",
+      "emoji": "⚽",
+      "hot": true,
+      "betImpact": "impact cours pour les paris (optionnel, 1 phrase)",
+      "ageH": 0
+    }
+  ]
+}
+Réponds UNIQUEMENT avec le JSON.`,
+          }],
+          max_tokens: 1200,
+          temperature: 0.6,
+          response_format: { type: "json_object" },
+        });
+        const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        news = parsed.news || [];
+      } catch(e) { console.warn("[news/groq]", e.message); }
+    }
+
+    // Fallback si pas de résultats
+    if (news.length === 0 && searchResults.length > 0) {
+      news = searchResults.slice(0, 6).map((r, i) => ({
+        id: `r${i}`, title: r.title.slice(0, 85),
+        summary: r.content.slice(0, 200),
+        category: "résultat", entity: "Football", entityType: "competition",
+        emoji: "⚽", hot: false, ageH: 0,
+      }));
+    }
+
+    if (news.length === 0) return res.json(getFallbackNews());
+
+    const result = { news, generatedAt: new Date().toISOString(), source: "tavily+groq" };
     await writeCache(cacheKey, result);
     res.json(result);
   } catch (err) {
     console.error("[news]", err.message);
-    // Fallback minimal basé sur la date du jour
-    const d = new Date().toLocaleDateString("fr-FR");
-    res.json({ news: [{ id:"err", title:`Flash infos du ${d} — données en cours de chargement`, summary:"Actualisation des résultats en cours. Recharge dans quelques minutes.", emoji:"⏳", category:"résultat", hot:false, ageH:0 }], generatedAt: new Date().toISOString() });
+    res.json(getFallbackNews());
   }
 });
 

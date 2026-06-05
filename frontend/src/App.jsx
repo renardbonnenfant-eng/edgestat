@@ -956,10 +956,8 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
             { id:"premium",      label:"Premium",      icon:"⭐", color:"#00D4AA" },
             { id:"foot",         label:"Football",     icon:"⚽", color:"#0176D3" },
             { id:"tennis",       label:"Tennis",       icon:"🎾", color:"#c2692d" },
-            { id:"bracket",      label:"Coupes",       icon:"🏆", color:"#0176D3" },
             { id:"quiz",         label:"Quiz",         icon:"🧩", color:"#16a34a" },
-            { id:"history",      label:"Histoire",     icon:"📚", color:"#7C3AED" },
-            { id:"encyclopedia", label:"Encyclopédie", icon:"📖", color:"#7C3AED" },
+            { id:"culture",      label:"Culture Foot", icon:"🏛", color:"#7C3AED" },
             { id:"conseils",     label:"Conseils",     icon:"💡", color:"#d97706" },
             { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
           ].map((s, _idx, arr) => {
@@ -6834,6 +6832,203 @@ function foundedYear(apiId) {
 // API-Football IDs qui ont une correspondance TheSportsDB (données historiques disponibles)
 const TSDB_LEAGUE_IDS = new Set([61,39,78,140,135,94,2,3,1,4,9,6,11,13,71,128,45,65]);
 
+// ============================================================
+// FAITS_HISTORIQUES — données statiques hors composant
+// ============================================================
+const FAITS_HISTORIQUES = [
+  // ── INSOLITES ──
+  { cat:"🤯 Insolite", title:"Le match le plus long", text:"En 1997, un match de 2e division brésilienne entre Esportivo et Hercílio Luz dure 3h23 à cause de... bagarre générale, envahissement de terrain, et 6 expulsions. Score final : 0-0." },
+  { cat:"🤯 Insolite", title:"But marqué depuis son propre camp (87m)", text:"Asmir Begović (Stoke City) marque contre QPR en 2013 depuis un dégagement en 13 secondes. Parcouru 91,9m, record homologué Guinness." },
+  { cat:"🤯 Insolite", title:"Le but en 2 secondes", text:"Nawaf Al-Abed (Al-Hilal) marque en 2,4 secondes en Arabie Saoudite en 2009 via un tir depuis le centre au coup d'envoi. Plus rapide que Hakan Şükür (11 sec, CdM 2002)." },
+  { cat:"🤯 Insolite", title:"Madagascar 149-0", text:"AS Adema bat SO l'Emyrne 149-0 en 2002 lors d'un match de protestation. L'Emyrne marque intentionnellement contre son camp à chaque reprise pour protester contre l'arbitrage de la semaine précédente." },
+  { cat:"🤯 Insolite", title:"Le gardien qui marque 3 buts en un match", text:"José Luis Chilavert (Vélez Sársfield) marque 3 buts en un match de championnat argentin en 1999. Il finira sa carrière avec 62 buts marqués — record pour un gardien." },
+  { cat:"🤯 Insolite", title:"Le seul carton rouge pour les deux équipes", text:"Lors de la finale de la CdM 2006, Zidane reçoit un rouge pour son coup de tête sur Materazzi à la 110e minute. L'Italie gagne aux tirs au but. Zidane finit MVP du tournoi malgré tout." },
+  // ── RECORDS ──
+  { cat:"📊 Records", title:"Messi : 8 Ballons d'Or, 91 buts en 2012", text:"Messi marque 91 buts en 2012 (toutes compétitions) battant Gerd Müller (85 en 1972). Il inscrit 50 buts en Liga cette saison. Son record de 8 Ballons d'Or (2009-2023) reste imbattu." },
+  { cat:"📊 Records", title:"Ronaldo : plus de 900 buts en carrière", text:"Cristiano Ronaldo dépasse les 900 buts officiels en carrière clubs+sélection en 2024, dont 800+ lors de ses 20 premières saisons professionnelles. Record mondial absolu toutes catégories." },
+  { cat:"📊 Records", title:"Just Fontaine : 13 buts en 1 CdM", text:"Lors du Mondial 1958 en Suède, le Français Just Fontaine marque 13 buts en 6 matchs. Record jamais approché depuis 66 ans. Haaland à Qatar 2022 en marque 1. Le plus proche reste Gerd Müller avec 10 en 1970." },
+  { cat:"📊 Records", title:"Bayer Leverkusen : première saison invaincu de l'histoire de la Bundesliga", text:"En 2023-24, Leverkusen de Xabi Alonso finit champion sans la moindre défaite (26V 8N), coupe DFB incluse. 51 matchs sans défaite toutes compétitions. Record européen pour une saison complète." },
+  // ── HISTOIRE ──
+  { cat:"📖 Histoire", title:"Naissance du football moderne (1863)", text:"La Football Association est fondée le 26 octobre 1863 à la taverne Freemason's Arms à Londres. 12 clubs créent les premières règles écrites. Le football se sépare définitivement du rugby. La première règle controversée : interdire de porter le ballon à la main." },
+  { cat:"📖 Histoire", title:"La première Coupe du Monde (Uruguay, 1930)", text:"13 pays participent, 4 viennent d'Europe (en bateau). Uruguay organise et gagne le tournoi 4-2 contre l'Argentine. Les ballons sont fournis... par les deux équipes (Argentine 1ère mi-temps, Uruguay 2e). Aucune retransmission radio en direct." },
+  { cat:"📖 Histoire", title:"Le Calciopoli (2006) : le plus grand scandale", text:"Juventus rétrogradée en Serie B, privée de ses 2 titres. AC Milan perd 8 points, Fiorentina 19. Des écoutes téléphoniques révèlent que Luciano Moggi (DG Juve) manipulait la désignation des arbitres depuis des années." },
+  { cat:"📖 Histoire", title:"Hillsborough (1989) : 97 morts", text:"Le 15 avril 1989, 97 supporters de Liverpool meurent écrasés lors de la demi-finale de FA Cup contre Nottingham Forest. La police a mal géré les entrées. Pendant 23 ans, les familles ont lutté pour faire reconnaître la responsabilité policière." },
+  // ── TACTIQUES ──
+  { cat:"⚙️ Tactiques", title:"L'invention du tiki-taka", text:"Le tiki-taka ne vient pas de Guardiola mais de Johan Cruyff (Barça 1988-96) et Rinus Michels. Guardiola la perfectionne avec Xavi, Iniesta, Busquets. La clé : PPDA (passes autorisées avant récupération) sous 5 = pressing ultra intense." },
+  { cat:"⚙️ Tactiques", title:"Le gegenpressing de Klopp", text:"Inventé à Dortmund (2008-2015), repris à Liverpool. Principe : récupérer le ballon dans les 5 secondes suivant la perte, zone de pression = moitié adverse. Les joueurs doivent couvrir 12km+ par match. Sprint répété toutes les 90 secondes." },
+  { cat:"⚙️ Tactiques", title:"Le 'catenaccio' révolution italienne", text:"Inventé par Karl Rappan (Suisse, 1930s), popularisé en Italie par Helenio Herrera à l'Inter (1960s). Le libero couvre les défenseurs. L'Inter de Herrera gagne 2 LDC avec cette tactique. On s'ennuie, mais on gagne." },
+  { cat:"⚙️ Tactiques", title:"xG : la stat qui a révolutionné le football", text:"L'Expected Goals (xG) naît en 2012 chez Opta et Stats Perform. En dessous de 0.1 xG par tir = quasi-impossible. En dessus de 0.8 = très probable. Liverpool sous Klopp, Man City sous Guardiola et Bayer 2023-24 dominent les xG sur 3 saisons consécutives." },
+  // ── PARIS & ÉCONOMIE ──
+  { cat:"💰 Économie", title:"Le football : industrie de 50 milliards d'euros", text:"La Premier League génère 6Mds€/an. Les droits TV français valent 500M€/an. Un maillot Mbappé = 150€, vendus à 1M+ d'exemplaires la 1ère semaine au Real Madrid. Total marché transferts 2023 : 9,5 milliards d'euros mondiaux." },
+  { cat:"💰 Économie", title:"Leicester 5000:1 : le pari le plus fou", text:"Leicester City sacré champion d'Angleterre 2015-16 à 5000 contre 1. Un fan misait 20£ chaque saison sur Leicester champion. Il récupère 100 000£. Le bookmaker Paddy Power perd plusieurs millions. Roi en est informé et tweete sa surprise." },
+  { cat:"💰 Économie", title:"Le transfert le plus délirant de l'histoire", text:"Neymar PSG 2017 : 222M€. Pour financer ce transfert, le Qatar doit sortir l'argent directement du fonds souverain national. Le PSG touche 222M€ en un virement. Barca s'en sert pour recruter Dembélé (105M€) et Coutinho (160M€). Les deux flops." },
+  // ── COUPE DU MONDE ──
+  { cat:"🌍 Coupes du Monde", title:"Le penalty raté qui marque l'histoire (Baggio, 1994)", text:"Roberto Baggio tire le dernier penalty de la finale CdM 1994 Brésil vs Italie. Il rate au-dessus. Le Brésil est champion. Baggio : 'C'est l'instant le plus douloureux de ma carrière'. La photo de Baggio regardant le ciel est l'image la plus reproduite du football." },
+  { cat:"🌍 Coupes du Monde", title:"Allemagne 7-1 Brésil : le Mineirazo", text:"8 juillet 2014, demi-finale. En 18 minutes (23e-29e), l'Allemagne marque 4 buts. Kroos en marque 2 en 69 secondes. 80 000 Brésiliens pleurent. Scolari : 'C'est la pire défaite de l'histoire du football brésilien.' L'Allemagne gagne la CdM 4 jours plus tard." },
+  { cat:"🌍 Coupes du Monde", title:"Le But du siècle (Maradona, 1986)", text:"22 juin 1986, Argentine vs Angleterre. Maradona part de sa moitié de terrain, dribble 5 Anglais sur 60 mètres en 10 secondes, marque. Élu 'But du siècle' par la FIFA en 2002. Dans le même match : 'La Main de Dieu' à la 51e. Double légende en 30 minutes." },
+  // ── JOUEURS LÉGENDAIRES ──
+  { cat:"👑 Légendes", title:"Pelé : 1281 buts officiels... vraiment ?", text:"Pelé revendique 1281 buts en carrière. La FIFA reconnaît officiellement 757 buts compétitifs. La différence vient des matchs amicaux, exhibitions, et parties non officielles. Quoi qu'il en soit : il marque 643 buts en 659 matchs officiels avec Santos. Inhumain." },
+  { cat:"👑 Légendes", title:"Garrincha : le dribbleur avec des jambes inégales", text:"Garrincha, champion du monde 1958 et 1962, est né avec les deux jambes arquées — la gauche tournée vers l'intérieur, la droite tournée vers l'extérieur. Les médecins lui recommandent de ne jamais jouer au football. Il devient l'un des plus grands dribbleurs de l'histoire." },
+  { cat:"👑 Légendes", title:"Ronaldo R9 : le meilleur attaquant de l'histoire selon ses pairs", text:"R9 est élu 2 fois Ballon d'Or, 3 fois meilleur joueur FIFA. Zidane : 'Le plus grand de tous'. Messi et Ronaldo CR7 l'ont tous les deux cité comme le meilleur attaquant de l'histoire. Ses genoux cassés à 26 ans le privent de 5 ans de sommet. Son retour en 2002 reste miraculeux." },
+  // ── ARBITRAGE & RÈGLES ──
+  { cat:"⚖️ Règles", title:"La règle du hors-jeu a changé 6 fois", text:"1866 : 3 joueurs entre le joueur et le but. 1925 : réduit à 2 (révolution offensive). 1992 : position du bras exclue. 2005 : 'avantage de position'. 2021 : millimètre près avec la VAR crée polémique. 2024 : retour en arrière partiel sur le bras." },
+  { cat:"⚖️ Règles", title:"VAR : révolution ou catastrophe ?", text:"Le VAR est testé en 2016, adopté en Serie A et Bundesliga 2017. En Coupe du Monde 2018 : 14 pénaltys accordés (record). 73% des décisions révisées sont correctes selon l'IFAB. Mais le temps moyen d'attente : 90 secondes qui tue l'ambiance selon supporters." },
+];
+
+// Sous-composant : liste filtrée des faits (nécessite ses propres hooks)
+function FaitsView({ onBack }) {
+  const cats = [...new Set(FAITS_HISTORIQUES.map(f=>f.cat))];
+  const [activeCat, setActiveCat] = useState("tous");
+  const [search, setSearch] = useState("");
+  const filtered = FAITS_HISTORIQUES.filter(f =>
+    (activeCat === "tous" || f.cat === activeCat) &&
+    (!search || f.title.toLowerCase().includes(search.toLowerCase()) || f.text.toLowerCase().includes(search.toLowerCase()))
+  );
+  return (
+    <div style={{ height:"100%", overflow:"hidden", display:"flex", flexDirection:"column" }}>
+      {/* Header */}
+      <div style={{ padding:"12px 20px", borderBottom:`1px solid ${C.line}`, display:"flex", alignItems:"center", gap:10, flexShrink:0, background:C.panel }}>
+        <button onClick={onBack} style={{ background:"none", border:`1px solid ${C.line}`, borderRadius:6, padding:"5px 10px", cursor:"pointer", fontSize:11, color:C.muted }}>← Retour</button>
+        <span style={{ fontSize:14, fontWeight:700, color:C.text }}>🎭 Faits historiques & insolites</span>
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:7, background:C.panel2, border:`1px solid ${C.line}`, borderRadius:8, padding:"5px 10px" }}>
+          <span style={{ fontSize:11, color:C.muted }}>🔍</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher…" style={{ background:"none", border:"none", outline:"none", fontSize:11, color:C.text, width:120 }}/>
+        </div>
+      </div>
+      {/* Cats */}
+      <div style={{ display:"flex", gap:5, padding:"8px 20px", overflowX:"auto", scrollbarWidth:"none", borderBottom:`1px solid ${C.line}`, flexShrink:0 }}>
+        <button onClick={()=>setActiveCat("tous")} style={{ padding:"4px 12px", borderRadius:20, border:`1px solid ${activeCat==="tous"?C.accent:C.line}`, background:activeCat==="tous"?C.accentBg:"none", color:activeCat==="tous"?C.accent:C.muted, cursor:"pointer", fontSize:10, fontWeight:activeCat==="tous"?700:400, flexShrink:0 }}>Tout ({FAITS_HISTORIQUES.length})</button>
+        {cats.map(c=>(
+          <button key={c} onClick={()=>setActiveCat(activeCat===c?"tous":c)} style={{ padding:"4px 12px", borderRadius:20, border:`1px solid ${activeCat===c?C.accent:C.line}`, background:activeCat===c?C.accentBg:"none", color:activeCat===c?C.accent:C.muted, cursor:"pointer", fontSize:10, fontWeight:activeCat===c?700:400, flexShrink:0, whiteSpace:"nowrap" }}>{c}</button>
+        ))}
+      </div>
+      {/* Faits */}
+      <div style={{ flex:1, overflowY:"auto", padding:"16px 20px", display:"flex", flexDirection:"column", gap:10 }}>
+        {filtered.map((f,i)=>(
+          <div key={i} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"14px 16px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+              <span style={{ fontSize:11, fontWeight:700, color:C.accent, background:C.accentBg, borderRadius:20, padding:"2px 10px" }}>{f.cat}</span>
+            </div>
+            <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:7 }}>{f.title}</div>
+            <div style={{ fontSize:12, color:C.dim, lineHeight:1.7 }}>{f.text}</div>
+          </div>
+        ))}
+        {filtered.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"32px"}}>Aucun résultat pour "{search}"</div>}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// CultureFootView — Palmarès + Faits historiques & insolites
+// ============================================================
+function CultureFootView({ onNavigate }) {
+  const [section, setSection] = useState(null); // null | "palmares" | "faits"
+
+  if (section === "palmares") {
+    return (
+      <div style={{ height:"100%", overflow:"hidden", display:"flex", flexDirection:"column" }}>
+        <div style={{ padding:"12px 20px", borderBottom:`1px solid ${C.line}`, display:"flex", alignItems:"center", gap:10, flexShrink:0, background:C.panel }}>
+          <button onClick={()=>setSection(null)} style={{ background:"none", border:`1px solid ${C.line}`, borderRadius:6, padding:"5px 10px", cursor:"pointer", fontSize:11, color:C.muted, display:"flex", alignItems:"center", gap:4 }}>← Retour</button>
+          <span style={{ fontSize:14, fontWeight:700, color:C.text }}>🏆 Palmarès & Histoire</span>
+        </div>
+        <div style={{ flex:1, overflow:"hidden" }}>
+          <HistoryView initialComp={null} onConsumeInitComp={()=>{}} />
+        </div>
+      </div>
+    );
+  }
+
+  if (section === "faits") {
+    return <FaitsView onBack={()=>setSection(null)} />;
+  }
+
+  // ── Page d'accueil Culture Foot ──────────────────────────
+  return (
+    <div style={{ padding:"28px 24px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:32 }}>
+        <div style={{ width:48, height:48, borderRadius:13, background:"rgba(124,58,237,.15)", display:"grid", placeItems:"center", fontSize:24, border:"1px solid rgba(124,58,237,.3)" }}>🏛</div>
+        <div>
+          <div style={{ fontSize:22, fontWeight:900, color:C.text }}>Culture Football</div>
+          <div style={{ fontSize:11, color:C.dim }}>Histoire · Palmarès · Faits insolites · Records · Tactiques</div>
+        </div>
+      </div>
+
+      {/* Deux grandes bulles */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:24 }}>
+        {/* Bulle 1 — Palmarès */}
+        <button onClick={()=>setSection("palmares")} style={{
+          background:`linear-gradient(135deg, #1a1030, #2a1060)`,
+          border:"1px solid rgba(124,58,237,.4)", borderRadius:20, padding:"28px 24px",
+          cursor:"pointer", textAlign:"left", transition:"all .15s",
+          display:"flex", flexDirection:"column", gap:12,
+        }}
+          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 8px 32px rgba(124,58,237,.3)";}}
+          onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";}}
+        >
+          <div style={{ fontSize:40 }}>🏆</div>
+          <div>
+            <div style={{ fontSize:18, fontWeight:800, color:"#D0E8F4", marginBottom:6 }}>Palmarès</div>
+            <div style={{ fontSize:12, color:"rgba(208,232,244,.6)", lineHeight:1.6 }}>
+              Tous les champions, toutes les compétitions, depuis leurs premières éditions. UCL, CdM, Ligues nationales...
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+            {["🏆 UCL","🌍 CdM","🇫🇷 Ligue 1","⭐ Ballon d'Or","🌎 Copa"].map(t=>(
+              <span key={t} style={{ fontSize:9, background:"rgba(124,58,237,.2)", color:"#A78BFA", borderRadius:20, padding:"2px 8px" }}>{t}</span>
+            ))}
+          </div>
+          <div style={{ fontSize:11, color:"#7C3AED", fontWeight:700, display:"flex", alignItems:"center", gap:4 }}>
+            Explorer → <span style={{ fontSize:14 }}>›</span>
+          </div>
+        </button>
+
+        {/* Bulle 2 — Faits historiques */}
+        <button onClick={()=>setSection("faits")} style={{
+          background:`linear-gradient(135deg, #0d1a2e, #1a2e4a)`,
+          border:"1px solid rgba(0,212,170,.3)", borderRadius:20, padding:"28px 24px",
+          cursor:"pointer", textAlign:"left", transition:"all .15s",
+          display:"flex", flexDirection:"column", gap:12,
+        }}
+          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 8px 32px rgba(0,212,170,.2)";}}
+          onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";}}
+        >
+          <div style={{ fontSize:40 }}>🎭</div>
+          <div>
+            <div style={{ fontSize:18, fontWeight:800, color:"#D0E8F4", marginBottom:6 }}>Faits historiques & insolites</div>
+            <div style={{ fontSize:12, color:"rgba(208,232,244,.6)", lineHeight:1.6 }}>
+              {FAITS_HISTORIQUES.length}+ anecdotes, records incroyables, scandales, tactiques et moments qui ont forgé l'histoire du football.
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+            {["🤯 Insolite","📊 Records","📖 Histoire","⚙️ Tactiques","💰 Économie"].map(t=>(
+              <span key={t} style={{ fontSize:9, background:"rgba(0,212,170,.12)", color:"#00D4AA", borderRadius:20, padding:"2px 8px" }}>{t}</span>
+            ))}
+          </div>
+          <div style={{ fontSize:11, color:C.accent, fontWeight:700, display:"flex", alignItems:"center", gap:4 }}>
+            Découvrir → <span style={{ fontSize:14 }}>›</span>
+          </div>
+        </button>
+      </div>
+
+      {/* Preview faits aléatoires */}
+      <div style={{ fontSize:11, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, marginBottom:10 }}>💡 Le saviez-vous ?</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        {FAITS_HISTORIQUES
+          .sort(()=>Math.random()-.5)
+          .slice(0,4)
+          .map((f,i)=>(
+          <div key={i} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"12px 14px", cursor:"pointer" }} onClick={()=>setSection("faits")}>
+            <div style={{ fontSize:9, color:C.accent, fontWeight:700, marginBottom:5 }}>{f.cat}</div>
+            <div style={{ fontSize:12, fontWeight:600, color:C.text, marginBottom:4 }}>{f.title}</div>
+            <div style={{ fontSize:11, color:C.muted, lineHeight:1.5, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{f.text}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HistoryView({ initialComp, onConsumeInitComp }) {
   const [selComp,   setSelComp]   = useState(initialComp || null);
   const [seasons,   setSeasons]   = useState([]);      // saisons avec données API
@@ -11189,11 +11384,8 @@ export default function App() {
                   <QuizView userAccount={userAccount} />
                 ) : sport === "encyclopedia" ? (
                   <EncyclopediaView />
-                ) : sport === "bracket" ? (
-                  <BracketView
-                    onMatchClick={handleMatchClick}
-                    onOpenClub={club => setGlobalClub(club)}
-                  />
+                ) : sport === "culture" ? (
+                  <CultureFootView onNavigate={id => setSport(id)} />
                 ) : sport === "analyze" ? (
                   <FoxLabAnalyzer userAccount={userAccount} onNavigatePremium={() => setSport("premium")} />
                 ) : sport === "pronostics" ? (
