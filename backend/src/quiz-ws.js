@@ -342,6 +342,7 @@ IMPORTANT: mélange l'index correct (0,1,2 ou 3 aléatoirement). Réponds UNIQUE
   closeRound() {
     if (this.status !== "playing") return;
     const q = this._currentQ;
+    if (!q) return;
 
     const corrects = [...this.currentAnswers.entries()]
       .filter(([, a]) => a.correct)

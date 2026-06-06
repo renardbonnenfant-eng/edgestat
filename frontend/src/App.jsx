@@ -71,12 +71,12 @@ const NAV = [
   {
     section: "⚽  Clubs — Europe", key: "clubs",
     groups: [
-      { label: "Top 5", items: [
-        { id:"fr",      flag:"🇫🇷", label:"Ligue 1" },
+      { label: "Top 6", items: [
         { id:"en",      flag:"🏴",  label:"Premier League" },
         { id:"it",      flag:"🇮🇹", label:"Serie A" },
-        { id:"de",      flag:"🇩🇪", label:"Bundesliga" },
         { id:"es",      flag:"🇪🇸", label:"La Liga" },
+        { id:"de",      flag:"🇩🇪", label:"Bundesliga" },
+        { id:"fr",      flag:"🇫🇷", label:"Ligue 1" },
         { id:"pt",      flag:"🇵🇹", label:"Primeira Liga" },
       ]},
       { label: "Coupes européennes", items: [
@@ -668,13 +668,13 @@ function SidebarSearch({ allData, logoRegistry, onSelectComp, onSelectTeam, onOp
       timerRef.current = setTimeout(() => {
         setLoading(true);
         fetchPlayerSearch(query.trim())
-          .then(p => { setResults(r => ({ ...r, players: p.slice(0,6) })); setLoading(false); })
+          .then(p => { const players = Array.isArray(p) ? p.slice(0,6) : []; setResults(r => ({ ...r, players })); setLoading(false); })
           .catch(() => setLoading(false));
       }, 450);
     } else {
       setResults(r => ({ ...r, players:[] }));
     }
-  }, [query, allData]);
+  }, [query, allData, logoRegistry]);
 
   const total = results.comps.length + results.teams.length + results.players.length;
   const showDrop = open && query.trim().length > 0;
@@ -891,7 +891,7 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
     }}>
       {/* Logo — cliquable → Accueil */}
       <button onClick={() => onSportChange("home")} style={{
-        padding:"14px 16px 12px", borderBottom:`1px solid ${C.sidebarBorder}`,
+        padding:"14px 16px 12px",
         display:"flex", alignItems:"center", gap:10, flexShrink:0,
         background:"none", border:"none", borderBottom:`1px solid ${C.sidebarBorder}`,
         cursor:"pointer", width:"100%", textAlign:"left",
@@ -944,63 +944,148 @@ function Sidebar({ activeId, onSelect, leagueLogos, sport, onSportChange, token,
         if (onSelect) onSelect(cid);
       }} />
 
-      {/* Sport toggle — bien visible */}
-      <div style={{ padding:"10px 10px 12px", borderBottom:`1px solid ${C.sidebarBorder}` }}>
-        <div style={{ fontSize:9, color:C.sidebarSection, textTransform:"uppercase", letterSpacing:2, marginBottom:6, paddingLeft:2 }}>Sport</div>
-        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-          {[
-            { id:"home",         label:"Accueil",      icon:"🏠", color:"#0176D3" },
-            { id:"analyze",      label:"Analyse IA",   icon:"🦊", color:"#00D4AA" },
-            { id:"pronostics",   label:"Pronostics",   icon:"🎯", color:"#d97706" },
-            { id:"classements",  label:"Classements",  icon:"🏆", color:"#d97706" },
-            { id:"premium",      label:"Premium",      icon:"⭐", color:"#00D4AA" },
-            { id:"foot",         label:"Football",     icon:"⚽", color:"#0176D3" },
-            { id:"tennis",       label:"Tennis",       icon:"🎾", color:"#c2692d" },
-            { id:"quiz",         label:"Quiz",         icon:"🧩", color:"#16a34a" },
-            { id:"culture",      label:"Culture Foot", icon:"🏛", color:"#7C3AED" },
-            { id:"conseils",     label:"Conseils",     icon:"💡", color:"#d97706" },
-            { id:"favs",         label:"Favoris",      icon:"⭐", color:"#d97706" },
-          ].map((s, _idx, arr) => {
-            const active = sport === s.id;
-            return (
-              <React.Fragment key={s.id}>
-                {s.id === "favs" && userAccount && userAccount.plan === "free" && (
-                  <button onClick={() => onSportChange("premium")} style={{
-                    display:"flex", alignItems:"center", gap:10,
-                    padding: mobile ? "13px 12px" : "10px 12px",
-                    borderRadius:8, cursor:"pointer",
-                    background: "rgba(217,119,6,.15)",
-                    borderLeft: "3px solid #d97706",
-                    border: "none",
-                    color: "#d97706",
-                    fontWeight: 700, fontSize: mobile ? 14 : 13,
-                    transition:"all .15s", textAlign:"left", width:"100%",
-                    WebkitTapHighlightColor:"transparent",
-                  }}>
-                    <span style={{ fontSize: mobile ? 20 : 17 }}>⚡</span>
-                    <span>Passer Premium</span>
-                  </button>
-                )}
-                <button onClick={() => onSportChange(s.id)} style={{
-                  display:"flex", alignItems:"center", gap:10,
-                  padding: mobile ? "13px 12px" : "10px 12px", // 44px touch target sur mobile
-                  borderRadius:8, cursor:"pointer",
-                  background: active ? `${s.color}20` : "transparent",
-                  borderLeft: `3px solid ${active ? s.color : "transparent"}`,
-                  border: "none",
-                  color: active ? "#ffffff" : C.sidebarText,
-                  fontWeight: active ? 800 : 500, fontSize: mobile ? 14 : 13,
-                  transition:"all .15s", textAlign:"left", width:"100%",
-                  WebkitTapHighlightColor:"transparent",
-                }}>
-                  <span style={{ fontSize: mobile ? 20 : 17 }}>{s.icon}</span>
-                  <span>{s.label}</span>
-                  {active && <span style={{ marginLeft:"auto", fontSize:9, background:s.color, color:"#fff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>ACTIF</span>}
-                </button>
-              </React.Fragment>
-            );
-          })}
+      {/* Navigation principale */}
+      <div style={{ padding:"8px 10px 10px", borderBottom:`1px solid ${C.sidebarBorder}` }}>
+
+        {/* ── Premium CTA en haut ── */}
+        <div style={{ marginBottom:12 }}>
+          {sport !== "premium" ? (
+            <button onClick={() => onSportChange("premium")} style={{
+              width:"100%", border:"none", borderRadius:9, cursor:"pointer",
+              padding:"11px 12px", textAlign:"left",
+              background:"linear-gradient(135deg, #78350F 0%, #B45309 40%, #D97706 100%)",
+              boxShadow:"0 4px 14px rgba(217,119,6,.35)",
+              transition:"opacity .15s, box-shadow .15s",
+              WebkitTapHighlightColor:"transparent",
+            }}
+              onMouseEnter={e=>{ e.currentTarget.style.opacity=".9"; e.currentTarget.style.boxShadow="0 6px 20px rgba(217,119,6,.5)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.opacity="1"; e.currentTarget.style.boxShadow="0 4px 14px rgba(217,119,6,.35)"; }}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:4 }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="#FEF3C7" stroke="none">
+                  <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+                </svg>
+                <span style={{ fontSize:12, fontWeight:700, color:"#FEF3C7", letterSpacing:.4 }}>Passer Premium</span>
+              </div>
+              <div style={{ fontSize:10, color:"rgba(254,243,199,.65)", lineHeight:1.4 }}>
+                Pronostics illimités · Stats avancées · Sans pub
+              </div>
+            </button>
+          ) : (
+            <div style={{
+              padding:"9px 12px", borderRadius:9,
+              background:"linear-gradient(135deg,#78350F,#D97706)",
+              display:"flex", alignItems:"center", gap:9,
+            }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="#FEF3C7" stroke="none">
+                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+              </svg>
+              <span style={{ fontSize:12.5, fontWeight:600, color:"#FEF3C7" }}>Premium</span>
+              <span style={{ marginLeft:"auto", width:6, height:6, borderRadius:"50%", background:"#FEF3C7", flexShrink:0 }}/>
+            </div>
+          )}
         </div>
+
+        {/* ── Quiz CTA ── */}
+        <div style={{ marginBottom:12 }}>
+          {sport !== "quiz" ? (
+            <button onClick={() => onSportChange("quiz")} style={{
+              width:"100%", border:"none", borderRadius:9, cursor:"pointer",
+              padding:"11px 12px", textAlign:"left",
+              background:"linear-gradient(135deg, #2D1B69 0%, #5B21B6 50%, #7C3AED 100%)",
+              boxShadow:"0 4px 14px rgba(124,58,237,.35)",
+              transition:"opacity .15s, box-shadow .15s",
+              WebkitTapHighlightColor:"transparent",
+            }}
+              onMouseEnter={e=>{ e.currentTarget.style.opacity=".9"; e.currentTarget.style.boxShadow="0 6px 20px rgba(124,58,237,.5)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.opacity="1"; e.currentTarget.style.boxShadow="0 4px 14px rgba(124,58,237,.35)"; }}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:4 }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#E9D5FF" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17" strokeWidth={3}/>
+                </svg>
+                <span style={{ fontSize:12, fontWeight:700, color:"#E9D5FF", letterSpacing:.4 }}>Quiz Football</span>
+              </div>
+              <div style={{ fontSize:10, color:"rgba(233,213,255,.65)", lineHeight:1.4 }}>
+                Multijoueur · Classement · Culture foot
+              </div>
+            </button>
+          ) : (
+            <div style={{
+              padding:"9px 12px", borderRadius:9,
+              background:"linear-gradient(135deg,#2D1B69,#7C3AED)",
+              display:"flex", alignItems:"center", gap:9,
+            }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#E9D5FF" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17" strokeWidth={3}/>
+              </svg>
+              <span style={{ fontSize:12.5, fontWeight:600, color:"#E9D5FF" }}>Quiz Football</span>
+              <span style={{ marginLeft:"auto", width:6, height:6, borderRadius:"50%", background:"#E9D5FF", flexShrink:0 }}/>
+            </div>
+          )}
+        </div>
+
+        {/* ── Liens de navigation ── */}
+        {[
+          { header: null, items: [
+            { id:"home",        label:"Accueil" },
+          ]},
+          { header:"Analyses", items: [
+            { id:"analyze",     label:"Analyse IA" },
+            { id:"pronostics",  label:"Pronostics" },
+            { id:"classements", label:"Classements" },
+          ]},
+          { header:"Sports", items: [
+            { id:"leagues",     label:"Football" },
+            { id:"tennis",      label:"Tennis" },
+          ]},
+          { header:"Contenu", items: [
+            { id:"culture",     label:"Culture Foot" },
+            { id:"conseils",    label:"Conseils" },
+            { id:"favs",        label:"Favoris" },
+          ]},
+        ].map(section => (
+          <div key={section.header || "top"} style={{ marginBottom:4 }}>
+            {section.header && (
+              <div style={{
+                fontSize:9, fontWeight:700, letterSpacing:1.6,
+                textTransform:"uppercase", color:"#243E52",
+                padding:"6px 6px 3px",
+              }}>{section.header}</div>
+            )}
+            {section.items.map(s => {
+              const active = sport === s.id;
+              return (
+                <button key={s.id} onClick={() => onSportChange(s.id)} style={{
+                  display:"flex", alignItems:"center", width:"100%",
+                  padding: mobile ? "11px 8px" : "7px 8px",
+                  border:"none", borderRadius:6, cursor:"pointer",
+                  background: active ? "rgba(255,255,255,0.07)" : "transparent",
+                  color: active ? "#E8F4FF" : "#4E7290",
+                  fontSize:13, fontWeight: active ? 600 : 400,
+                  letterSpacing: active ? 0.1 : 0,
+                  transition:"background .12s, color .12s",
+                  textAlign:"left", WebkitTapHighlightColor:"transparent",
+                }}
+                  onMouseEnter={e=>{ if(!active){ e.currentTarget.style.background="rgba(255,255,255,0.04)"; e.currentTarget.style.color="#8AAEC5"; } }}
+                  onMouseLeave={e=>{ if(!active){ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#4E7290"; } }}
+                >
+                  {active && (
+                    <span style={{ width:3, height:14, borderRadius:2, background:"#00D4AA", flexShrink:0, marginRight:8 }}/>
+                  )}
+                  {!active && (
+                    <span style={{ width:3, height:14, marginRight:8, flexShrink:0 }}/>
+                  )}
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       {/* Navigation Football */}
@@ -1837,10 +1922,10 @@ function TabResultat({ m, period }) {
       <StatRow label="Buts marqués"   a={m.home.avgGoalsScored}   b={m.away.avgGoalsScored}   max={3} />
       <StatRow label="Buts encaissés" a={m.home.avgGoalsConceded} b={m.away.avgGoalsConceded} max={3} invert />
       <SectionTitle>Face-à-face — 5 derniers</SectionTitle>
-      {m.h2h.length === 0
+      {(m.h2h || []).length === 0
         ? <div style={{ color:C.dim, fontSize:12 }}>Aucune confrontation directe récente.</div>
         : <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-            {m.h2h.map((h,i) => (
+            {(m.h2h || []).map((h,i) => (
               <div key={i} style={{ display:"grid", gridTemplateColumns:"64px 1fr 64px", alignItems:"center", background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, padding:"9px 14px", fontSize:13 }}>
                 <span style={{ color:C.dim, fontSize:11 }}>{h.date}</span>
                 <span style={{ textAlign:"center", fontWeight:800, color:h.winner==="home"?C.accent:h.winner==="away"?C.blue:C.dim }}>{h.score}</span>
@@ -2010,7 +2095,7 @@ function TabButs({ m, period }) {
     <div>
       <div style={{ fontSize:11, color, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>{team.short} · {label}</div>
       <div style={{ fontSize:11, color:C.dim, marginBottom:6 }}>Répartition des buts marqués</div>
-      {team.goalsDist.map((g,i) => (
+      {(team.goalsDist || []).map((g,i) => (
         <div key={i} style={{ display:"grid", gridTemplateColumns:"56px 1fr 36px", alignItems:"center", gap:10, marginBottom:7 }}>
           <span style={{ fontSize:12, color:C.text }}>{g.label}</span>
           <Bar value={g.pct} color={color} />
@@ -2018,7 +2103,7 @@ function TabButs({ m, period }) {
         </div>
       ))}
       <div style={{ fontSize:11, color:C.dim, margin:"12px 0 6px" }}>Seuils (over)</div>
-      {team.over.map((o,i) => (
+      {(team.over || []).map((o,i) => (
         <div key={i} style={{ display:"grid", gridTemplateColumns:"56px 1fr 36px", alignItems:"center", gap:10, marginBottom:7 }}>
           <span style={{ fontSize:12, color:C.text }}>{o.label}</span>
           <Bar value={o.pct} color={`${color}88`} />
@@ -2459,6 +2544,7 @@ function TennisRankingView({ type }) {
   const [error,       setError]       = useState("");
 
   useEffect(() => {
+    const timers = [];
     setLoading(true); setError(""); setPlayers([]);
     fetch(`/api/tennis/top200/${type}`)
       .then(r => { if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
@@ -2500,11 +2586,13 @@ function TennisRankingView({ type }) {
         };
         // Charger en 4 lots progressifs : top 50 en premier, puis les autres
         loadBatch(enriched.slice(0, 30));    // Lot 1 : top 30 immédiatement
-        setTimeout(() => loadBatch(enriched.slice(30, 80)),  2000);  // Lot 2 : 31-80 après 2s
-        setTimeout(() => loadBatch(enriched.slice(80, 140)), 5000);  // Lot 3 : 81-140 après 5s
-        setTimeout(() => loadBatch(enriched.slice(140, 200)),9000);  // Lot 4 : 141-200 après 9s
+        const t1 = setTimeout(() => loadBatch(enriched.slice(30, 80)),  2000);
+        const t2 = setTimeout(() => loadBatch(enriched.slice(80, 140)), 5000);
+        const t3 = setTimeout(() => loadBatch(enriched.slice(140, 200)),9000);
+        timers.push(t1, t2, t3);
       })
       .catch(e => { setError(e.message); setLoading(false); });
+    return () => timers.forEach(t => clearTimeout(t));
   }, [type]);
 
   // Liste des pays disponibles (triés par nombre de joueurs)
@@ -3031,7 +3119,7 @@ function ChatWidget({ matchContext, teamDatabase = {} }) {
             <strong style={{ display:"block", marginBottom:3, fontSize:12.5, color:"#0A1428" }}>
               Hello !
             </strong>
-            Si tu as une question sur le monde du foot, je suis là pour t'aider !
+            Encyclopédie football — qui jouait où en 1982 ? Quel score en finale 1999 ? Je sais tout !
           </div>
           {/* Triangle du nuage */}
           <div style={{
@@ -3190,7 +3278,7 @@ function ChatWidget({ matchContext, teamDatabase = {} }) {
 // ============================================================
 // Modal Fiche Club
 // ============================================================
-function ClubModal({ teamId, teamName, teamLogo, onClose, isFav, onToggleFav }) {
+function ClubModal({ teamId, teamName, teamLogo, onClose, isFav, onToggleFav, onMatchClick }) {
   const [data,         setData]        = useState(null);
   const [loading,      setLoading]     = useState(true);
   const [error,        setError]       = useState("");
@@ -3373,7 +3461,13 @@ function ClubModal({ teamId, teamName, teamLogo, onClose, isFav, onToggleFav }) 
                         </div>
                         <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                           {visible.map((f,i) => (
-                            <div key={f.id||i} style={{ display:"flex", alignItems:"center", gap:10, background:C.panel2, borderRadius:8, padding:"7px 12px" }}>
+                            <div key={f.id||i}
+                              onClick={() => f.id && onMatchClick?.({ fixtureId: f.id, leagueId: f.leagueId })}
+                              style={{ display:"flex", alignItems:"center", gap:10, background:C.panel2, borderRadius:8, padding:"7px 12px",
+                                cursor: f.id && onMatchClick ? "pointer" : "default", transition:"background .12s" }}
+                              onMouseEnter={e=>{ if(f.id && onMatchClick) e.currentTarget.style.background="#1A3045"; }}
+                              onMouseLeave={e=>{ e.currentTarget.style.background=C.panel2; }}
+                            >
                               <span style={{ width:18, height:18, borderRadius:4, display:"grid", placeItems:"center", fontSize:9, fontWeight:700,
                                 background: f.result==="W"?"#16a34a":f.result==="L"?"#dc2626":"#d97706", color:"#fff" }}>{f.result}</span>
                               <div style={{ display:"flex", alignItems:"center", gap:6, flex:1, minWidth:0 }}>
@@ -3385,6 +3479,7 @@ function ClubModal({ teamId, teamName, teamLogo, onClose, isFav, onToggleFav }) 
                               <span style={{ fontSize:10, color:C.dim, flexShrink:0 }}>{f.league}</span>
                               <span style={{ fontSize:12, fontWeight:600, color:C.text, flexShrink:0 }}>{f.score}</span>
                               <span style={{ fontSize:9, color:C.muted, flexShrink:0 }}>{new Date(f.date).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"2-digit"})}</span>
+                              {f.id && onMatchClick && <span style={{ fontSize:9, color:C.accent, flexShrink:0 }}>›</span>}
                             </div>
                           ))}
                         </div>
@@ -6862,6 +6957,41 @@ const FAITS_HISTORIQUES = [
   { cat:"💰 Économie", title:"Le football : industrie de 50 milliards d'euros", text:"La Premier League génère 6Mds€/an. Les droits TV français valent 500M€/an. Un maillot Mbappé = 150€, vendus à 1M+ d'exemplaires la 1ère semaine au Real Madrid. Total marché transferts 2023 : 9,5 milliards d'euros mondiaux." },
   { cat:"💰 Économie", title:"Leicester 5000:1 : le pari le plus fou", text:"Leicester City sacré champion d'Angleterre 2015-16 à 5000 contre 1. Un fan misait 20£ chaque saison sur Leicester champion. Il récupère 100 000£. Le bookmaker Paddy Power perd plusieurs millions. Roi en est informé et tweete sa surprise." },
   { cat:"💰 Économie", title:"Le transfert le plus délirant de l'histoire", text:"Neymar PSG 2017 : 222M€. Pour financer ce transfert, le Qatar doit sortir l'argent directement du fonds souverain national. Le PSG touche 222M€ en un virement. Barca s'en sert pour recruter Dembélé (105M€) et Coutinho (160M€). Les deux flops." },
+  // ── INSOLITES SUPPLÉMENTAIRES ──
+  { cat:"🤯 Insolite", title:"L'arbitre qui expulse… lui-même", text:"En 1998 en Argentine, l'arbitre Héctor Baldassi s'octroie un carton jaune et le montre à lui-même après s'être blessé à la main en sifflant. Puis il l'annule. La scène est filmée et diffusée dans le monde entier." },
+  { cat:"🤯 Insolite", title:"Un but de 80 mètres sous la pluie", text:"Peter Cech — gardien — marque en 2003 avec Chmel Blšany depuis sa propre surface lors d'un coup de vent exceptionnel. La balle rebondit trois fois avant de rentrer. Score : 1-0 à la 90e." },
+  { cat:"🤯 Insolite", title:"Le match qui ne devait jamais avoir lieu", text:"En 1999, lors de Barbade vs Grenade, les Barbadiens marquent intentionnellement contre leur camp en prolongation. Pourquoi ? La règle du tournoi comptait un but en 'or' double. Ils avaient besoin d'exactement 2 buts d'écart. La Grenade mène 2-1, puis Barbade égalise à 2-2 et gagne aux tirs au but." },
+  { cat:"🤯 Insolite", title:"Le coup du chapeau le plus rapide de l'histoire", text:"Tommy Ross marque 3 buts en 90 secondes pour Ross County (Écosse) en 1964. En Premier League, Sadio Mané marque en 2 minutes 56 secondes avec Southampton contre Aston Villa en 2015. Record officiel." },
+  { cat:"🤯 Insolite", title:"Un stade se remplit… à l'envers", text:"Lors de la finale de la CdM 1950 au Maracanã, 199 854 spectateurs sont officiellement comptés — record mondial absolu. L'Uruguay bat le Brésil 2-1 dans un silence de mort. Ce choc sera appelé 'Maracanazo'. Des supporters brésiliens mourront de crise cardiaque ce soir-là." },
+  { cat:"🤯 Insolite", title:"Hakan Şükür : 11 secondes, plus vite que tout", text:"11 novembre 2002, Corée du Sud vs Turquie (petite finale CdM 2002). Hakan Şükür marque après 10,8 secondes — record mondial officiel pour un but en Coupe du Monde. La Turquie gagne 3-2 et finit 3e." },
+  { cat:"🤯 Insolite", title:"Le gardien qui court le plus vite", text:"Manuel Neuer a parcouru 7,68 km en moyenne par match sous Guardiola en 2013-14 — plus que plusieurs milieux de terrain adverses. Son 'sweeper-keeper' révolutionne le rôle du gardien moderne." },
+  { cat:"🤯 Insolite", title:"Le seul pays à remporter la CdM sans y participer", text:"Faux ! Mais voici l'insolite : la France aurait pu ne pas participer à la CdM 1998. Le comité de candidature français avait failli perdre l'organisation face au Maroc. Sans l'organisation, Aimé Jacquet aurait eu moins de temps de préparation." },
+  // ── RECORDS SUPPLÉMENTAIRES ──
+  { cat:"📊 Records", title:"Pelé : seul joueur à 3 CdM gagnées", text:"Pelé est l'unique joueur à remporter la Coupe du Monde 3 fois : 1958, 1962, 1970. En 1958 il a 17 ans, en 1970 il marque le but d'anthologie et fait la passe du but final. 1 283 buts en carrière (compétitions officielles + amicaux) selon la CBF." },
+  { cat:"📊 Records", title:"Arjen Robben : le meilleur ratio chance/but", text:"Robben est surnommé 'Mr Coupe de gauche' : 83% de ses buts en Bundesliga ont été marqués du pied gauche. Il a le meilleur ratio xG/but en PL (0,42 xG par but) sur la décennie 2010. Invincible dans un couloir, le monde entier sait ce qu'il va faire… et ne peut pas l'arrêter." },
+  { cat:"📊 Records", title:"La meilleure défense de l'histoire : Atlético 2013-14", text:"L'Atlético de Madrid de Simeone n'encaisse que 26 buts en 38 matchs de Liga (0,68/match). Sur 38 journées, 0 but encaissé lors de 24 rencontres. Courtois/Oblak + Godín/Miranda/Juanfran/Filipe Luis. Remporte la Liga et atteint la finale UCL." },
+  { cat:"📊 Records", title:"Gerd Müller : le ratio de buts le plus incroyable", text:"Gerd Müller marque 68 buts en 62 matchs en sélection allemande (ratio 1.10). Il marque 40 buts en Bundesliga en 1971-72 — record qui tient 40 ans jusqu'à Robert Lewandowski (41 en 2020-21). Il marque 365 buts en 427 matchs de Bundesliga." },
+  { cat:"📊 Records", title:"Liverpool 97 points : record Premier League", text:"Manchester City bat le record de Liverpool en 2019 avec 98 points, mais Liverpool frappe encore en 2019-20 avec 99 points en 38 matchs — le plus grand total de l'histoire d'une grande ligue européenne pour un champion. 32 victoires, 3 nuls, 3 défaites." },
+  { cat:"📊 Records", title:"Le penalty manqué le plus cher de l'histoire", text:"Roberto Baggio rate le penalty décisif lors de la finale CdM 1994 (Brésil vs Italie). Scoreless après prolongations. Ce manqué coûte la Coupe du Monde à l'Italie. Baggio dira : 'Je rêve encore de ce penalty. Je rêverai toujours de ce penalty.'" },
+  // ── HISTOIRE SUPPLÉMENTAIRE ──
+  { cat:"📖 Histoire", title:"La finale de la CdM 1966 : le but qui n'en est pas un", text:"En finale Angleterre-Allemagne de l'Ouest, Geoff Hurst tire sur la barre. Le ballon touche la ligne... ou pas. L'arbitre de touche soviétique accorde le but. 4-2 final. L'Allemagne conteste encore. En 2016, des analyses 3D prouvent que le ballon n'a PAS entièrement franchi la ligne." },
+  { cat:"📖 Histoire", title:"Johan Cruyff : l'homme qui a refusé la CdM 1978", text:"Cruyff, meilleur joueur du monde, refuse de rejoindre l'équipe des Pays-Bas pour la CdM 1978 en Argentine. Raison officielle : 'raisons personnelles'. Raison réelle révélée en 2008 : un commando armé avait tenté de kidnapper sa famille à Barcelone. Les Pays-Bas atteignent la finale sans lui." },
+  { cat:"📖 Histoire", title:"Le Miracle de Berne (1954)", text:"La RFA bat la Hongrie 3-2 en finale de CdM 1954 à Berne. La Hongrie était invaincue depuis 4 ans (32 matchs !), avait écrasé l'Angleterre 6-3 à Wembley, et avait battu la RFA 8-3 en poules. En finale, Morlock et Rahn retournent le match. 'Das Wunder von Bern' relance l'Allemagne d'après-guerre." },
+  { cat:"📖 Histoire", title:"L'Inter de Helenio Herrera : le 'Grand Inter'", text:"De 1960 à 1968, l'Inter Milan domine l'Europe avec 2 Coupes des clubs champions (1964, 1965), 3 titres italiens, 2 Coupes intercontinentales. Herrera impose un régime de vie strict : pas d'alcool, séances communes, matchs analysés au millimètre. Surnommé 'Il Mago' (le Magicien)." },
+  { cat:"📖 Histoire", title:"La 'Bataille de Santiago' (1962)", text:"Chili vs Italie, CdM 1962. L'un des matchs les plus violents de l'histoire : 2 expulsions, bagarre générale, intervention de la police sur le terrain. Commentaire BBC : 'La pire que nous ayons jamais vue.' Résultat : Chili 2-0 Italie. Le football survit à peine." },
+  { cat:"📖 Histoire", title:"Le but fantôme de Frank Lampard (2010)", text:"CdM 2010, Allemagne vs Angleterre. Lampard tire, la balle rebondit 60 cm derrière la ligne. L'arbitre ne valide pas. La FIFA introduit la goal-line technology en 2012 directement à cause de ce but. L'Angleterre perd 4-1." },
+  { cat:"📖 Histoire", title:"L'Ajax de 1972 : le premier triplé européen", text:"L'Ajax d'Amsterdam (Johan Cruyff, Neeskens, Rep, Krol) remporte 3 Coupes d'Europe consécutives : 1971, 1972, 1973. Le football total (totaalvoetbal) où chaque joueur peut jouer à chaque poste révolutionne le monde. Johan Cruyff sera vendu 922 000£ à Barcelone après — record mondial." },
+  // ── TACTIQUES SUPPLÉMENTAIRES ──
+  { cat:"⚙️ Tactiques", title:"Le pressing de Ralf Rangnick : origine du klopp", text:"Ralf Rangnick a développé le 'gegenpressing' à Hoffenheim et Leipzig. Klopp était son disciple direct. Rangnick parle de 'pressing intensity' et mesure les 'pressure events' : équipe cible = 200+ tentatives de pression par match. Ce système consomme 11,5km de course par joueur." },
+  { cat:"⚙️ Tactiques", title:"Le 3-5-2 d'Antonio Conte", text:"Conte utilise le 3-5-2 pour maximiser les zones de compacité : 5 défenseurs au bloc défensif = 0 espace entre les lignes. Les wingbacks font 14km par match. Italie Championne d'Europe 2021 avec ce système (Mancini). Conte l'utilise à Chelsea, Inter (doublé 2021), Tottenham, Naples." },
+  { cat:"⚙️ Tactiques", title:"Le faux 9 de Guardiola", text:"Guardiola invente le 'faux numéro 9' à Barcelone : Messi joue au poste d'avant-centre mais descend constamment. Résultat : les défenseurs centraux ne savent pas qui marquer. En 2009-10, le Barça marque 98 buts en Liga. Messi marque 34 buts depuis cette position." },
+  { cat:"⚙️ Tactiques", title:"Le low block d'Atletico : la forteresse imprenable", text:"Simeone structure son Atlético en 4-4-2 bas (parfois 4-4-1-1). La ligne défensive recule à 30m du but. Entre 2012 et 2022, l'Atlético concède le moins de buts d'Europe sur 10 saisons : 26 buts en 38 matchs en Liga 2013-14, 27 en 2015-16. Les équipes adverses regardent le mur et paniquent." },
+  { cat:"⚙️ Tactiques", title:"Le milieu de terrain triple pivot", text:"Pep Guardiola à Man City crée le 'triple pivot' avec Rodri, De Bruyne et Bernardo Silva : 3 milieux en rotation permanente. Aucun joueur ne reste en position fixe plus de 5 secondes. Man City 2022-23 : 94 points, 94 buts en PL. Rodri remporte le Ballon d'Or 2024 en grande partie pour cette saison." },
+  // ── ÉCONOMIE SUPPLÉMENTAIRE ──
+  { cat:"💰 Économie", title:"Le projet Super League : le coup raté de 2021", text:"12 clubs fondateurs (Real, Barça, Juventus, 6 anglais, AC Milan, Atlético, Inter) annoncent la Super League en avril 2021. 72 heures plus tard, les 6 clubs anglais se retirent sous pression des fans. Le projet s'effondre. Liverpool, Man United, Tottenham s'excusent publiquement. Real, Barça, Juve continuent seuls." },
+  { cat:"💰 Économie", title:"Les droits TV : l'or du football anglais", text:"La Premier League signe un contrat de droits TV à 12 milliards de livres pour 2025-2028. Le dernier club de PL touche plus que le champion de Bundesliga. En 2023, chaque club PL reçoit en moyenne 170M€ de droits. Brentford touchait 18M€ en Championship… et 145M€ en PL." },
+  { cat:"💰 Économie", title:"Manchester City et le fair-play financier", text:"Man City, racheté par Abu Dhabi en 2008, injecte 1,5 milliard de livres sur 15 ans. La Premier League ouvre 115 charges financières en 2023 pour violations du FFP entre 2009-2018. Le procès tenu fin 2024 est le plus long de l'histoire du football anglais. Potentiellement : rétrogradation ou points retirés." },
+  { cat:"💰 Économie", title:"Le marché des agents : l'argent invisible", text:"En 2022-23, les clubs de Premier League versent 350M£ aux agents. Jorge Mendes (agent de CR7, Félix, Cancelo) pèse 300M€ de commissions sur sa carrière. Jonathan Barnett (agent de Bale) a négocié 60M€/an brut à la Juventus pour un joueur qui jouait au golf. Les agents gagnent parfois plus que les joueurs." },
   // ── COUPE DU MONDE ──
   { cat:"🌍 Coupes du Monde", title:"Le penalty raté qui marque l'histoire (Baggio, 1994)", text:"Roberto Baggio tire le dernier penalty de la finale CdM 1994 Brésil vs Italie. Il rate au-dessus. Le Brésil est champion. Baggio : 'C'est l'instant le plus douloureux de ma carrière'. La photo de Baggio regardant le ciel est l'image la plus reproduite du football." },
   { cat:"🌍 Coupes du Monde", title:"Allemagne 7-1 Brésil : le Mineirazo", text:"8 juillet 2014, demi-finale. En 18 minutes (23e-29e), l'Allemagne marque 4 buts. Kroos en marque 2 en 69 secondes. 80 000 Brésiliens pleurent. Scolari : 'C'est la pire défaite de l'histoire du football brésilien.' L'Allemagne gagne la CdM 4 jours plus tard." },
@@ -6873,6 +7003,15 @@ const FAITS_HISTORIQUES = [
   // ── ARBITRAGE & RÈGLES ──
   { cat:"⚖️ Règles", title:"La règle du hors-jeu a changé 6 fois", text:"1866 : 3 joueurs entre le joueur et le but. 1925 : réduit à 2 (révolution offensive). 1992 : position du bras exclue. 2005 : 'avantage de position'. 2021 : millimètre près avec la VAR crée polémique. 2024 : retour en arrière partiel sur le bras." },
   { cat:"⚖️ Règles", title:"VAR : révolution ou catastrophe ?", text:"Le VAR est testé en 2016, adopté en Serie A et Bundesliga 2017. En Coupe du Monde 2018 : 14 pénaltys accordés (record). 73% des décisions révisées sont correctes selon l'IFAB. Mais le temps moyen d'attente : 90 secondes qui tue l'ambiance selon supporters." },
+  // ── PARIS SPORTIFS ──
+  { cat:"🎰 Stats Paris", title:"Football : le sport qui ruine le plus les parieurs", text:"Selon les études de marque de bookmakers européens, 97% des parieurs sur le football finissent en négatif sur 12 mois. Les combinés de plus de 4 matchs ont un taux de réussite inférieur à 5%. La maison garde en moyenne 8% de marge sur chaque pari — soit 8€ perdu pour 100€ misés en espérance mathématique." },
+  { cat:"🎰 Stats Paris", title:"Tennis : le sport le plus 'jouable' pour les parieurs experts", text:"Les études académiques (dont celle de l'Université de Salford, 2018) montrent que le tennis est le sport où les parieurs professionnels s'en sortent le mieux. Raison : les matchs retardés, la surface, la fatigue et l'état mental sont des variables prédictibles. Certains traders sportifs vivent uniquement des marchés tennis." },
+  { cat:"🎰 Stats Paris", title:"Basketball : rendements négatifs mais plus réguliers", text:"En NBA, les bookmakers affichent des marges de 5-6%, inférieures au football. Cependant les parieurs perdent en moyenne 4€ pour 100€ misés. La fréquence élevée des matchs (82/saison) accélère le vidage de la bankroll. Les handicaps asiatiques sont plus favorables que les 1N2 classiques." },
+  { cat:"🎰 Stats Paris", title:"Courses hippiques : le plus grand gouffre financier", text:"L'hippisme détient le record de la perte moyenne par parieur : -30% à -40% du capital misé sur une saison selon la FDJ. La maison prélève entre 15% et 25% sur chaque pari (vs 5-8% en football). Les paris en direct sur les courses sont les plus rentables pour les bookmakers de toute l'industrie." },
+  { cat:"🎰 Stats Paris", title:"E-sport : le nouveau terrain des paris risqués", text:"Les paris sur le e-sport (CS:GO, LoL, Dota 2) explosent : 13 milliards de dollars pariés en 2023 selon Sportradar. Mais la manipulation de matchs (match-fixing) est 3x plus fréquente qu'en football professionnel selon l'UNODC. Les parieurs amateurs perdent en moyenne 2x plus vite que sur les sports traditionnels." },
+  { cat:"🎰 Stats Paris", title:"1 parieur sur 3 pense gagner sur le long terme... mais se trompe", text:"Selon une étude de la Gambling Commission (UK, 2022), 34% des parieurs sportifs croient battre le bookmaker sur le long terme. En réalité, moins de 1% y parviennent durablement (2 ans ou plus). Les gagnants durables utilisent systématiquement la recherche de valeur (value betting) et une gestion stricte de la bankroll." },
+  { cat:"🎰 Stats Paris", title:"Le combiné : ennemi numéro un du parieur", text:"Un combiné de 5 matchs à 1.80 de cote chacun donne une cote totale de 18.9 — soit théoriquement 55% de chances si chaque match est à 50/50. Mais avec la marge bookmaker, la probabilité réelle tombe à 35-40%. Sur 1000 combinés 5 sélections, un parieur perd en moyenne 65% du capital misé. Les bookmakers adorent les combinés." },
+  { cat:"🎰 Stats Paris", title:"Le value betting : la seule méthode qui fonctionne vraiment", text:"Le value betting consiste à parier uniquement quand la cote proposée est supérieure à la probabilité réelle estimée. Les études montrent qu'un value bettor rigoureux peut obtenir un ROI positif de +3% à +8% sur le long terme — soit l'équivalent d'un investissement boursier. C'est la méthode utilisée par les 1% de parieurs profitables." },
 ];
 
 // Sous-composant : liste filtrée des faits (nécessite ses propres hooks)
@@ -7535,6 +7674,9 @@ function isFormerWinner(teamName, leagueApiId) {
 
 function isBigGame(f) {
   if (!f.leagueId) return false;
+  // Tournois internationaux : chaque match est une grosse affiche par définition
+  const INTL_TOURNAMENT = new Set([1, 4, 9, 6]); // WC, Euro, Copa América, AFCON
+  if (INTL_TOURNAMENT.has(f.leagueId)) return true;
   return isFormerWinner(f.home?.name, f.leagueId) && isFormerWinner(f.away?.name, f.leagueId);
 }
 
@@ -7552,12 +7694,15 @@ function livePrestige(f) {
 
 // Mapping leagueId → logo URL connu
 const LEAGUE_LOGOS_STATIC = {
+  1:   "https://media.api-sports.io/football/leagues/1.png",   // FIFA World Cup 2026
+  2:   "https://media.api-sports.io/football/leagues/2.png",   // UCL
+  4:   "https://media.api-sports.io/football/leagues/4.png",   // Euro
+  9:   "https://media.api-sports.io/football/leagues/9.png",   // Copa América
   39:  "https://media.api-sports.io/football/leagues/39.png",
   61:  "https://media.api-sports.io/football/leagues/61.png",
   78:  "https://media.api-sports.io/football/leagues/78.png",
   135: "https://media.api-sports.io/football/leagues/135.png",
   140: "https://media.api-sports.io/football/leagues/140.png",
-  2:   "https://media.api-sports.io/football/leagues/2.png",
 };
 
 const CATEGORY_COLORS = {
@@ -8258,7 +8403,7 @@ function QuizPromoBubble() {
   );
 }
 
-function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
+function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC, allData = {} }) {
   const [nextFixtures,  setNextFixtures] = useState([]);
   const [liveMatches,   setLiveMatches]  = useState([]);
   const [nextLoading,   setNextLoading]  = useState(true);
@@ -8355,9 +8500,6 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
 
       {/* Histoire du foot supprimée de l'accueil */}
 
-      {/* === FLASH INFOS FOOTBALL === */}
-      <FootballNewsTicker />
-
       {/* === PROMO QUIZ === */}
       <QuizPromoBubble />
 
@@ -8392,6 +8534,9 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
           </button>
         </div>
       )}
+
+      {/* === FLASH INFOS FOOTBALL === */}
+      <FootballNewsTicker />
 
       {/* === EN DIRECT === */}
       {(() => {
@@ -8555,6 +8700,71 @@ function HomeView({ logoRegistry = {}, onMatchClick, onGoHistory, onGoWC }) {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── ÉQUIPES EN FORME ── */}
+      {(() => {
+        const teamStats = new Map();
+        Object.entries(allData).forEach(([compId, ld]) => {
+          if (!ld?.recentFixtures) return;
+          ld.recentFixtures.forEach(f => {
+            const sc = f.score;
+            if (!sc || sc.includes("?") || f.status === "NS" || f.status === "upcoming") return;
+            const pts = sc.split(" - ").map(Number);
+            if (pts.length !== 2 || isNaN(pts[0])) return;
+            [[f.home, pts[0], pts[1]], [f.away, pts[1], pts[0]]].forEach(([team, gf, ga]) => {
+              if (!team?.id || !team?.name) return;
+              if (!teamStats.has(team.id)) {
+                teamStats.set(team.id, { id:team.id, name:team.name, logo:logoRegistry[team.id]||team.logo||"", league:ld.league||"", compId, results:[] });
+              }
+              const entry = teamStats.get(team.id);
+              if (entry.results.length < 6) entry.results.push(gf > ga ? "W" : gf < ga ? "L" : "D");
+            });
+          });
+        });
+        const hot = [...teamStats.values()]
+          .filter(t => t.results.length >= 3)
+          .map(t => {
+            const score = t.results.reduce((s, r) => s + (r==="W"?3:r==="D"?1:0), 0);
+            return { ...t, score };
+          })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 6);
+        if (hot.length === 0) return null;
+        return (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+              <span style={{ fontSize:18 }}>🔥</span>
+              <span style={{ fontSize:13, fontWeight:700, color:C.text, textTransform:"uppercase", letterSpacing:.8 }}>Équipes en forme</span>
+              <span style={{ fontSize:11, color:C.muted }}>basé sur les derniers matchs</span>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:10 }}>
+              {hot.map((t, idx) => (
+                <div key={t.id} style={{
+                  background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:"12px 14px",
+                  display:"flex", alignItems:"center", gap:10, position:"relative",
+                }}>
+                  {/* Rang */}
+                  <div style={{
+                    position:"absolute", top:6, right:8, fontSize:9, fontWeight:800,
+                    color: idx===0?"#FFD700":idx===1?"#C0C0C0":idx===2?"#CD7F32":C.muted,
+                  }}>{idx===0?"🥇":idx===1?"🥈":idx===2?"🥉":`#${idx+1}`}</div>
+                  <TeamLogo url={t.logo} size={36} name={t.name} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                    <div style={{ fontSize:9, color:C.dim, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.league}</div>
+                    <FormPills form={t.results.slice(0,5)} />
+                  </div>
+                  {/* Score forme */}
+                  <div style={{ textAlign:"center", flexShrink:0 }}>
+                    <div style={{ fontSize:18, fontWeight:900, color:t.score>=12?C.accent:t.score>=9?C.warn:C.text }}>{t.score}</div>
+                    <div style={{ fontSize:8, color:C.dim }}>pts</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         );
@@ -9749,7 +9959,6 @@ function BetCalculator() {
     { id:"simple",   icon:"🎯", label:"Singles" },
     { id:"combiné",  icon:"🔗", label:"Combiné" },
     { id:"value",    icon:"📊", label:"Value" },
-    { id:"kelly",    icon:"📐", label:"Kelly" },
     { id:"arb",      icon:"⚡", label:"Arbitrage" },
     { id:"poisson",  icon:"📐", label:"Poisson" },
   ];
@@ -9773,7 +9982,7 @@ function BetCalculator() {
       {open && (
         <div style={{
           position:"fixed", bottom:80, left:16, zIndex:199,
-          width:400, maxHeight:"80vh", background:"#182030", border:"1px solid #243548",
+          width:560, maxHeight:"85vh", background:"#182030", border:"1px solid #243548",
           borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,.5)",
           overflow:"hidden", display:"flex", flexDirection:"column",
         }} onClick={e => e.stopPropagation()}>
@@ -9946,18 +10155,16 @@ function BetCalculator() {
                   const impliedP = 1/c;
                   const ev = (p*(c-1)) - ((1-p)*1);
                   const isValue = ev > 0;
-                  const kelly = Math.max(0, p - (1-p)/(c-1));
                   return (
                     <div style={{ background:isValue?"rgba(0,212,170,.1)":"rgba(255,68,68,.1)", border:`1px solid ${isValue?"#00D4AA":"#FF4444"}33`, borderRadius:8, padding:"12px" }}>
                       <div style={{ fontSize:13, fontWeight:700, color:isValue?"#00D4AA":"#FF4444", marginBottom:8 }}>
                         {isValue ? "✅ VALUE BET DÉTECTÉ" : "❌ Pas de valeur"}
                       </div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
                         {[
                           { label:"Prob. implicite", val:`${(impliedP*100).toFixed(1)}%`, col:isValue?"#8AABBD":"#FF4444" },
                           { label:"Ta proba", val:`${prob}%`, col:"#D0E8F4" },
                           { label:"EV par €misé", val:`${ev>=0?"+":""}${(ev*100).toFixed(1)}%`, col:ev>=0?"#00D4AA":"#FF4444" },
-                          { label:"Mise Kelly", val:`${(kelly*100).toFixed(1)}%`, col:"#fbbf24" },
                         ].map(s => (
                           <div key={s.label} style={{ background:"rgba(0,0,0,.2)", borderRadius:6, padding:"6px 8px" }}>
                             <div style={{ fontSize:8, color:"#3A607A", textTransform:"uppercase", marginBottom:2 }}>{s.label}</div>
@@ -9965,72 +10172,12 @@ function BetCalculator() {
                           </div>
                         ))}
                       </div>
-                      {isValue && (
-                        <div style={{ marginTop:8, fontSize:10, color:"#00D4AA", background:"rgba(0,212,170,.1)", borderRadius:6, padding:"6px 8px" }}>
-                          💡 Sur {bankroll.toFixed(0)}€ de bankroll : mise recommandée <strong>{(kelly*bankroll).toFixed(2)}€</strong>
-                        </div>
-                      )}
                     </div>
                   );
                 })()}
               </div>
             )}
 
-            {/* ── MODE KELLY ────────────────────────────────── */}
-            {mode === "kelly" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                <div style={{ fontSize:10, color:"#5A7A8A", lineHeight:1.5 }}>
-                  Le critère de Kelly calcule la mise optimale pour maximiser la croissance à long terme.
-                </div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-                  <div>
-                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Bankroll (€)</div>
-                    <input value={bankroll} onChange={e=>setBankroll(parseFloat(e.target.value)||0)} style={inputStyle} type="number"/>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Cote</div>
-                    <input placeholder="2.10" value={bets[0]?.cote||""} onChange={e=>{const n=[...bets];n[0].cote=e.target.value;setBets(n);}} style={inputStyle} type="number" step="0.01"/>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Probabilité (%)</div>
-                    <input placeholder="55" value={prob} onChange={e=>setProb(e.target.value)} style={inputStyle} type="number"/>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:9, color:"#3A607A", marginBottom:3 }}>Kelly fraction</div>
-                    <select style={{...inputStyle, cursor:"pointer"}} defaultValue="1">
-                      <option value="1">Full Kelly</option>
-                      <option value="0.5">Half Kelly</option>
-                      <option value="0.25">Quarter Kelly</option>
-                    </select>
-                  </div>
-                </div>
-                {bets[0]?.cote && prob && (() => {
-                  const c = parseFloat(bets[0].cote||1);
-                  const p = parseFloat(prob||0)/100;
-                  const k = Math.max(0, p - (1-p)/(c-1));
-                  const mise = k * bankroll;
-                  const retour = mise * c;
-                  return (
-                    <div style={{ background:"rgba(0,212,170,.08)", border:"1px solid rgba(0,212,170,.2)", borderRadius:8, padding:"12px" }}>
-                      <div style={{ fontSize:10, color:"#8AABBD", marginBottom:6 }}>Résultat Kelly</div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
-                        {[
-                          { label:"% à miser", val:`${(k*100).toFixed(1)}%`, col:"#fbbf24" },
-                          { label:"Mise €", val:`${mise.toFixed(2)}€`, col:"#00D4AA" },
-                          { label:"Retour si gagné", val:`${retour.toFixed(2)}€`, col:"#16a34a" },
-                        ].map(s => (
-                          <div key={s.label} style={{ background:"rgba(0,0,0,.2)", borderRadius:6, padding:"6px 8px", textAlign:"center" }}>
-                            <div style={{ fontSize:14, fontWeight:800, color:s.col }}>{s.val}</div>
-                            <div style={{ fontSize:8, color:"#3A607A", textTransform:"uppercase", marginTop:2 }}>{s.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                      {k === 0 && <div style={{ marginTop:6, fontSize:10, color:"#FF4444" }}>⚠️ Ne pas parier — EV négatif selon tes estimations.</div>}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
 
             {/* ── MODE ARBITRAGE ────────────────────────────── */}
             {mode === "arb" && (
@@ -11154,6 +11301,308 @@ function AnalysisZone({ compId, allData, onDataLoaded, logoRegistry = {}, pendin
 }
 
 // ============================================================
+// Comparateur d'équipes 1v1
+// ============================================================
+function TeamPickerSelect({ label, teams, value, onChange, exclude, logoRegistry = {} }) {
+  const available = teams.filter(t => t.id !== exclude);
+  const selected  = teams.find(t => t.id === value);
+  return (
+    <div>
+      <div style={{ fontSize:10, color:C.dim, marginBottom:6, textTransform:"uppercase", letterSpacing:1, fontWeight:600 }}>{label}</div>
+      {selected && (
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, background:C.panel2, borderRadius:8, padding:"8px 10px" }}>
+          <TeamLogo url={logoRegistry[selected.id] || selected.logo || ""} size={32} name={selected.name} />
+          <span style={{ fontSize:13, fontWeight:700, color:C.text }}>{selected.name}</span>
+        </div>
+      )}
+      <select value={value || ""} onChange={e => onChange(e.target.value ? Number(e.target.value) : null)}
+        style={{ width:"100%", background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, color:C.text, padding:"8px 10px", fontSize:12, cursor:"pointer" }}>
+        <option value="">— Choisir une équipe —</option>
+        {available.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function TeamComparatorView({ allData = {}, logoRegistry = {} }) {
+  const leagues = Object.entries(allData).filter(([, d]) => (d?.recentFixtures?.length || 0) > 2);
+  const [selLeague, setSelLeague] = useState(leagues[0]?.[0] || "");
+  const [teamAId,   setTeamAId]   = useState(null);
+  const [teamBId,   setTeamBId]   = useState(null);
+
+  const leagueData = allData[selLeague] || {};
+  const fixtures   = leagueData.recentFixtures || [];
+
+  const teamMap = useMemo(() => {
+    const map = new Map();
+    fixtures.forEach(f => {
+      if (f.home?.id && !map.has(f.home.id)) map.set(f.home.id, { id:f.home.id, name:f.home.name||"", logo: logoRegistry[f.home.id]||f.home.logo||"" });
+      if (f.away?.id && !map.has(f.away.id)) map.set(f.away.id, { id:f.away.id, name:f.away.name||"", logo: logoRegistry[f.away.id]||f.away.logo||"" });
+    });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [fixtures, logoRegistry]);
+
+  function computeStats(teamId) {
+    if (!teamId) return null;
+    const team = teamMap.find(t => t.id === teamId);
+    if (!team) return null;
+    const past = fixtures.filter(f => {
+      const inv = (f.home?.id === teamId || f.away?.id === teamId);
+      const sc  = f.score;
+      return inv && sc && !sc.includes("?") && f.status !== "NS" && f.status !== "upcoming";
+    }).slice(0, 10);
+    if (past.length === 0) return null;
+    let w = 0, d = 0, l = 0, gf = 0, ga = 0;
+    const form = [];
+    past.forEach(f => {
+      const isH  = f.home?.id === teamId;
+      const pts  = (f.score || "").split(" - ").map(Number);
+      if (pts.length !== 2 || isNaN(pts[0])) return;
+      const tGf = isH ? pts[0] : pts[1];
+      const tGa = isH ? pts[1] : pts[0];
+      gf += tGf; ga += tGa;
+      if (tGf > tGa) { w++; form.push("W"); }
+      else if (tGf === tGa) { d++; form.push("D"); }
+      else { l++; form.push("L"); }
+    });
+    const n = past.length;
+    return { ...team, played:n, w, d, l, gf, ga, form:form.slice(0,5),
+      avgFor:(gf/n).toFixed(1), avgAgainst:(ga/n).toFixed(1), winPct:Math.round(w/n*100) };
+  }
+
+  const statsA = useMemo(() => computeStats(teamAId), [teamAId, fixtures, teamMap]);
+  const statsB = useMemo(() => computeStats(teamBId), [teamBId, fixtures, teamMap]);
+
+  const h2h = useMemo(() => {
+    if (!teamAId || !teamBId) return [];
+    return fixtures.filter(f => {
+      const ids = [f.home?.id, f.away?.id];
+      return ids.includes(teamAId) && ids.includes(teamBId) && f.score && !f.score.includes("?") && f.status !== "NS";
+    }).slice(0, 5);
+  }, [teamAId, teamBId, fixtures]);
+
+  const StatRow = ({ label, a, b, aVal, bVal, neutral, inverted }) => {
+    const aWin = !neutral && typeof aVal === "number" && typeof bVal === "number" && (inverted ? aVal < bVal : aVal > bVal);
+    const bWin = !neutral && typeof aVal === "number" && typeof bVal === "number" && (inverted ? bVal < aVal : bVal > aVal);
+    return (
+      <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"11px 16px",
+        display:"grid", gridTemplateColumns:"1fr 160px 1fr", alignItems:"center", gap:8 }}>
+        <div style={{ textAlign:"right", fontSize:15, fontWeight:800, color:aWin?C.accent:bWin?C.muted:C.text }}>{a}</div>
+        <div style={{ fontSize:10, color:C.dim, textAlign:"center", fontWeight:600, letterSpacing:.5 }}>{label}</div>
+        <div style={{ textAlign:"left",  fontSize:15, fontWeight:800, color:bWin?C.accent:aWin?C.muted:C.text }}>{b}</div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ maxWidth:720, width:"100%" }}>
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>⚖️ Comparateur d'équipes</div>
+        <div style={{ fontSize:12, color:C.dim }}>Comparez les statistiques de deux équipes sur les 10 derniers matchs</div>
+      </div>
+
+      {/* Sélecteur championnat */}
+      <div style={{ marginBottom:16, display:"flex", alignItems:"center", gap:10 }}>
+        <span style={{ fontSize:12, color:C.dim }}>Championnat :</span>
+        <select value={selLeague} onChange={e => { setSelLeague(e.target.value); setTeamAId(null); setTeamBId(null); }}
+          style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:8, color:C.text, padding:"7px 12px", fontSize:13, cursor:"pointer" }}>
+          {leagues.map(([id, d]) => <option key={id} value={id}>{d.league || id}</option>)}
+        </select>
+      </div>
+
+      {/* Sélecteurs équipes */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 60px 1fr", alignItems:"center", gap:12, marginBottom:20 }}>
+        <TeamPickerSelect label="Équipe A" teams={teamMap} value={teamAId} onChange={setTeamAId} exclude={teamBId} logoRegistry={logoRegistry} />
+        <div style={{ textAlign:"center", fontSize:16, fontWeight:900, color:C.muted, paddingTop:20 }}>VS</div>
+        <TeamPickerSelect label="Équipe B" teams={teamMap} value={teamBId} onChange={setTeamBId} exclude={teamAId} logoRegistry={logoRegistry} />
+      </div>
+
+      {/* Stats comparées */}
+      {statsA && statsB && (
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          <StatRow label="% Victoires"          a={statsA.winPct+"%"}   b={statsB.winPct+"%"}   aVal={statsA.winPct}            bVal={statsB.winPct} />
+          <StatRow label="Buts marqués / match"  a={statsA.avgFor}       b={statsB.avgFor}       aVal={+statsA.avgFor}           bVal={+statsB.avgFor} />
+          <StatRow label="Buts encaissés / match" a={statsA.avgAgainst}  b={statsB.avgAgainst}   aVal={+statsA.avgAgainst}       bVal={+statsB.avgAgainst} inverted />
+          <StatRow label="V / N / D"             a={`${statsA.w}/${statsA.d}/${statsA.l}`} b={`${statsB.w}/${statsB.d}/${statsB.l}`} neutral />
+          <StatRow label="Buts total / match"    a={(+statsA.avgFor + +statsA.avgAgainst).toFixed(1)} b={(+statsB.avgFor + +statsB.avgAgainst).toFixed(1)} neutral />
+
+          {/* Forme */}
+          <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, padding:"11px 16px",
+            display:"grid", gridTemplateColumns:"1fr 160px 1fr", alignItems:"center", gap:8 }}>
+            <div style={{ display:"flex", justifyContent:"flex-end" }}><FormPills form={statsA.form} /></div>
+            <div style={{ fontSize:10, color:C.dim, textAlign:"center", fontWeight:600, letterSpacing:.5 }}>Forme récente</div>
+            <div style={{ display:"flex", justifyContent:"flex-start" }}><FormPills form={statsB.form} /></div>
+          </div>
+
+          {/* H2H */}
+          {h2h.length > 0 && (
+            <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:10, overflow:"hidden", marginTop:4 }}>
+              <div style={{ padding:"10px 16px", borderBottom:`1px solid ${C.line}`, fontSize:11, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8 }}>
+                Confrontations directes ({h2h.length})
+              </div>
+              {h2h.map(f => {
+                const aIsHome = f.home?.id === teamAId;
+                const pts     = (f.score||"").split(" - ").map(Number);
+                const aG = aIsHome ? pts[0] : pts[1];
+                const bG = aIsHome ? pts[1] : pts[0];
+                return (
+                  <div key={f.id} style={{ padding:"9px 16px", borderBottom:`1px solid ${C.line}44`,
+                    display:"grid", gridTemplateColumns:"1fr 60px 1fr 80px", alignItems:"center", gap:8, fontSize:12 }}>
+                    <span style={{ color:aG>bG?C.accent:C.text, textAlign:"right", fontWeight:aG>bG?700:400 }}>{statsA.name}</span>
+                    <span style={{ fontWeight:800, color:aG>bG?C.accent:bG>aG?C.red:C.dim, textAlign:"center" }}>{aG} – {bG}</span>
+                    <span style={{ color:bG>aG?C.accent:C.text, fontWeight:bG>aG?700:400 }}>{statsB.name}</span>
+                    <span style={{ color:C.muted, fontSize:10, textAlign:"right" }}>{new Date(f.date).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {teamAId && teamBId && !statsA && !statsB && (
+        <div style={{ textAlign:"center", color:C.dim, padding:"40px 0", fontSize:13 }}>Pas assez de données pour comparer ces équipes</div>
+      )}
+
+      {!teamAId && !teamBId && (
+        <div style={{ textAlign:"center", color:C.dim, padding:"48px 0" }}>
+          <div style={{ fontSize:44, marginBottom:14 }}>⚖️</div>
+          <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:6 }}>Comparateur 1v1</div>
+          <div style={{ fontSize:12 }}>Sélectionne deux équipes pour voir leurs stats en face à face</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Classement des ligues européennes
+// ============================================================
+const LEAGUES_RANKING = [
+  { rank: 1,  name: "Premier League", country: "Angleterre", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", color: "#3D195B", compId: "en" },
+  { rank: 2,  name: "Serie A",        country: "Italie",     flag: "🇮🇹", color: "#008C45", compId: "it" },
+  { rank: 3,  name: "LaLiga",         country: "Espagne",    flag: "🇪🇸", color: "#C60B1E", compId: "es" },
+  { rank: 4,  name: "Bundesliga",     country: "Allemagne",  flag: "🇩🇪", color: "#D00027", compId: "de" },
+  { rank: 5,  name: "Ligue 1",        country: "France",     flag: "🇫🇷", color: "#003189", compId: "fr" },
+  { rank: 6,  name: "Eredivisie",     country: "Pays-Bas",   flag: "🇳🇱", color: "#FF4F00", compId: "nl_ere" },
+  { rank: 7,  name: "Liga Portugal",  country: "Portugal",   flag: "🇵🇹", color: "#006600", compId: "pt" },
+  { rank: 8,  name: "Pro League",     country: "Belgique",   flag: "🇧🇪", color: "#000000", compId: "be_pro" },
+  { rank: 9,  name: "Süper Lig",      country: "Turquie",    flag: "🇹🇷", color: "#E30A17", compId: "tr_sup" },
+  { rank: 10, name: "Fortuna Liga",   country: "Tchéquie",   flag: "🇨🇿", color: "#D7141A", compId: "cz_liga" },
+];
+
+function LeaguesRankingView({ onSelectLeague, allData = {}, leagueLogos = {} }) {
+  const scrollTo = (key) => {
+    document.getElementById(`lg-sec-${key}`)?.scrollIntoView({ behavior:"smooth", block:"start" });
+  };
+
+  const Bubble = ({ comp }) => {
+    const data     = allData[comp.id];
+    const logo     = data?.leagueLogo || leagueLogos[comp.id] || getLogoUrl(comp);
+    const hasLive  = data?.recentFixtures?.some(f => ["1H","2H","HT","ET","BT","P"].includes(f.status));
+    const upcoming = data?.recentFixtures?.filter(f => f.status === "NS" || f.status === "upcoming")?.length || 0;
+    const hot      = isHotCompetition(comp);
+    return (
+      <button onClick={() => onSelectLeague(comp.id)} style={{
+        display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+        background: hot ? "linear-gradient(135deg,rgba(220,38,38,.12),rgba(217,119,6,.08))" : C.panel,
+        border:"1px solid " + (hot?"rgba(220,38,38,.5)":hasLive?"rgba(255,68,68,.4)":C.line),
+        borderRadius:14, padding:"14px 8px",
+        cursor:"pointer", transition:"all .15s", position:"relative", minWidth:0,
+      }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.background=C.accentBg; e.currentTarget.style.transform="translateY(-2px)"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor=hot?"rgba(220,38,38,.5)":hasLive?"rgba(255,68,68,.4)":C.line; e.currentTarget.style.background=hot?"linear-gradient(135deg,rgba(220,38,38,.12),rgba(217,119,6,.08))":C.panel; e.currentTarget.style.transform=""; }}
+      >
+        {hot && <div style={{ position:"absolute", top:5, right:5, fontSize:8, background:"linear-gradient(135deg,#DC2626,#f97316)", color:"#fff", borderRadius:8, padding:"1px 4px", fontWeight:900 }}>HOT</div>}
+        {!hot && hasLive && <div style={{ position:"absolute", top:8, right:8, width:7, height:7, borderRadius:"50%", background:"#FF4444", boxShadow:"0 0 6px #FF4444", animation:"verdikt-blink 1.2s infinite" }}/>}
+        <div style={{ width:42, height:42, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {logo ? <img src={logo} style={{ width:"100%", height:"100%", objectFit:"contain" }} onError={e=>{ e.target.style.display="none"; if(e.target.nextSibling)e.target.nextSibling.style.display="flex"; }} alt={comp.name} /> : null}
+          <div style={{ display:logo?"none":"flex", width:"100%", height:"100%", alignItems:"center", justifyContent:"center", fontSize:20 }}>{comp.flag}</div>
+        </div>
+        <div style={{ fontSize:9, fontWeight:600, color:hot?C.warn:C.text, textAlign:"center", lineHeight:1.3, maxWidth:90, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{comp.name}</div>
+        <div style={{ fontSize:8, color:hot?"#f97316":hasLive?"#FF4444":upcoming>0?C.accent:C.muted, fontWeight:700 }}>
+          {hot?"En cours":hasLive?"LIVE":upcoming>0?(upcoming+" à venir"):"Stats"}
+        </div>
+      </button>
+    );
+  };
+
+  const SecTitle = ({ id, label }) => (
+    <div id={`lg-sec-${id}`} style={{ display:"flex", alignItems:"center", gap:10, margin:"24px 0 10px", scrollMarginTop:70 }}>
+      <span style={{ fontSize:12, fontWeight:700, color:C.dim, textTransform:"uppercase", letterSpacing:.8, whiteSpace:"nowrap" }}>{label}</span>
+      <div style={{ flex:1, height:1, background:C.line }}/>
+    </div>
+  );
+
+  const GRID = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(110px, 1fr))", gap:8, marginBottom:4 };
+
+  const ANCHORS = [
+    { key:"top",           label:"Top Ligues" },
+    { key:"coupes_europe", label:"Coupes Europe" },
+    { key:"nationales",    label:"Équipes Nationales" },
+    { key:"europe",        label:"Europe" },
+    { key:"ameriques",     label:"Amériques" },
+    { key:"asie",          label:"Asie" },
+    { key:"afrique",       label:"Afrique" },
+    { key:"jeunes",        label:"Jeunes" },
+    { key:"feminin",       label:"Féminin" },
+  ];
+
+  return (
+    <div style={{ maxWidth:920, width:"100%" }}>
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:20, fontWeight:900, color:C.text }}>Ligues & Compétitions</div>
+        <div style={{ fontSize:12, color:C.dim, marginTop:3 }}>Monde entier — Football masculin, féminin, jeunes</div>
+      </div>
+
+      {/* Navigation par ancres */}
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:24, padding:"12px 14px", background:C.panel, border:"1px solid "+C.line, borderRadius:12 }}>
+        {ANCHORS.map(a => (
+          <button key={a.key} onClick={() => scrollTo(a.key)} style={{
+            background:C.panel2, border:"1px solid "+C.line,
+            borderRadius:20, padding:"5px 13px",
+            cursor:"pointer", color:C.dim, fontSize:11, fontWeight:600,
+            transition:"all .15s",
+          }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; e.currentTarget.style.background=C.accentBg; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.line; e.currentTarget.style.color=C.dim; e.currentTarget.style.background=C.panel2; }}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      <SecTitle id="top" label="Top Ligues Mondiales" />
+      <div style={GRID}>{ALL_LEAGUES.TOP10.map(c => <Bubble key={c.id} comp={c} />)}</div>
+
+      <SecTitle id="coupes_europe" label="Coupes Européennes" />
+      <div style={GRID}>{ALL_LEAGUES.EUROPE_CUPS.map(c => <Bubble key={c.id} comp={c} />)}</div>
+
+      <SecTitle id="nationales" label="Équipes Nationales" />
+      <div style={GRID}>{ALL_LEAGUES.WORLD_CUPS.map(c => <Bubble key={c.id} comp={c} />)}</div>
+
+      <SecTitle id="europe" label="Reste de l'Europe" />
+      <div style={GRID}>{ALL_LEAGUES.EUROPE_REST.map(c => <Bubble key={c.id} comp={c} />)}</div>
+
+      <SecTitle id="ameriques" label="Amériques" />
+      <div style={GRID}>{ALL_LEAGUES.AMERICAS.map(c => <Bubble key={c.id} comp={c} />)}</div>
+
+      <SecTitle id="asie" label="Asie & Océanie" />
+      <div style={GRID}>{ALL_LEAGUES.ASIA.map(c => <Bubble key={c.id} comp={c} />)}</div>
+
+      <SecTitle id="afrique" label="Afrique & Moyen-Orient" />
+      <div style={GRID}>{ALL_LEAGUES.AFRICA.map(c => <Bubble key={c.id} comp={c} />)}</div>
+
+      <SecTitle id="jeunes" label="Jeunes (U17–U23)" />
+      <div style={GRID}>{ALL_LEAGUES.YOUTH.map(c => <Bubble key={c.id} comp={c} />)}</div>
+
+      <SecTitle id="feminin" label="Football Féminin" />
+      <div style={GRID}>{ALL_LEAGUES.WOMEN.map(c => <Bubble key={c.id} comp={c} />)}</div>
+    </div>
+  );
+}
+
+// ============================================================
 // APP
 // ============================================================
 export default function App() {
@@ -11373,6 +11822,18 @@ export default function App() {
     if (allData[cid]) setActiveMatch(mapLeague(allData[cid]));
   }
 
+  // Navigation depuis la fiche club (forme) → résoudre leagueId → compId
+  function handleClubFormMatchClick({ fixtureId, leagueId }) {
+    if (!fixtureId || !leagueId) return;
+    const cid = Object.entries(allData).find(([, d]) => d?.leagueId === leagueId)?.[0];
+    if (!cid) return; // compétition non chargée
+    setGlobalClub(null); // fermer la modal
+    setPendingFixture({ compId: cid, fixtureId });
+    setSport("foot");
+    setCompId(cid);
+    if (allData[cid]) setActiveMatch(mapLeague(allData[cid]));
+  }
+
   function handleAccountLogin(userData, jwtToken) {
     localStorage.setItem("vdk_jwt", jwtToken);
     localStorage.setItem("vdk_user", JSON.stringify(userData));
@@ -11471,8 +11932,8 @@ export default function App() {
                 </button>
               )}
               <div style={{ fontSize:13, color:C.text, fontWeight:500 }}>
-                {allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
-                {" "}{allData[compId]?.league || "FoxLab"}
+                {sport === "foot" && allData[compId]?.leagueLogo && <LeagueLogo url={allData[compId].leagueLogo} size={14} />}
+                {sport === "foot" ? (allData[compId]?.league || "FoxLab") : "FoxLab"}
               </div>
             </div>
           </div>
@@ -11549,40 +12010,45 @@ export default function App() {
             {/* Zone d'analyse — scrollable */}
             <div style={{ flex:1, overflowY:"auto", scrollbarWidth:"thin", scrollbarColor:`${C.line} transparent` }}>
               <div style={{ padding:"20px 24px", maxWidth:860, width:"100%", boxSizing:"border-box" }}>
-                {loading ? (
+                {sport === "pronostics" ? (
+                  <Pronostics userAccount={userAccount} nextFixtures={[]} onLogin={() => { setAuthMode("login"); setShowAuthModal(true); }} />
+                ) : sport === "classements" ? (
+                  <Leaderboards userAccount={userAccount} />
+                ) : sport === "premium" ? (
+                  <Premium userAccount={userAccount} />
+                ) : sport === "quiz" ? (
+                  <QuizView userAccount={userAccount} />
+                ) : sport === "payment_success" ? (
+                  <PaymentSuccess onNavigate={id => setSport(id)} />
+                ) : sport === "payment_cancel" ? (
+                  <PaymentCancel onNavigate={id => setSport(id)} />
+                ) : loading ? (
                   <InfoPanel>Chargement des données football…</InfoPanel>
                 ) : error ? (
                   <InfoPanel tone="error">{error}</InfoPanel>
+                ) : sport === "leagues" ? (
+                  <LeaguesRankingView onSelectLeague={id => { setSport("foot"); setFootHub(false); handleSelectComp(id); }} allData={allData} leagueLogos={leagueLogos} />
+                ) : sport === "compare" ? (
+                  <TeamComparatorView allData={allData} logoRegistry={logoRegistry} />
                 ) : sport === "favs" ? (
                   <FavoritesView favorites={favorites} onToggleFavorite={toggleFavorite} />
                 ) : sport === "leaderboard" ? (
                   <LeaderboardView userAccount={userAccount} />
                 ) : sport === "points_dummy_remove" ? (
                   <div/>
-                ) : sport === "quiz" ? (
-                  <QuizView userAccount={userAccount} />
                 ) : sport === "encyclopedia" ? (
                   <EncyclopediaView />
                 ) : sport === "culture" ? (
                   <CultureFootView onNavigate={id => setSport(id)} />
                 ) : sport === "analyze" ? (
                   <FoxLabAnalyzer userAccount={userAccount} onNavigatePremium={() => setSport("premium")} />
-                ) : sport === "pronostics" ? (
-                  <Pronostics userAccount={userAccount} nextFixtures={[]} onLogin={() => { setAuthMode("login"); setShowAuthModal(true); }} />
-                ) : sport === "classements" ? (
-                  <Leaderboards userAccount={userAccount} />
-                ) : sport === "premium" ? (
-                  <Premium userAccount={userAccount} />
-                ) : sport === "payment_success" ? (
-                  <PaymentSuccess onNavigate={id => setSport(id)} />
-                ) : sport === "payment_cancel" ? (
-                  <PaymentCancel onNavigate={id => setSport(id)} />
                 ) : sport === "home" ? (
                   <HomeView
                     logoRegistry={logoRegistry}
+                    allData={allData}
                     onMatchClick={handleMatchClick}
                     onGoHistory={() => setSport("history")}
-                    onGoWC={() => { setSport("foot"); setCompId("wc"); }}
+                    onGoWC={() => { setSport("leagues"); }}
                   />
                 ) : sport === "conseils" ? (
                   <BettingAdviceView />
@@ -11624,8 +12090,9 @@ export default function App() {
       {/* Calculateur de paris */}
       <BetCalculator />
 
-      {/* Chat IA */}
-      {!loading && <ChatWidget matchContext={activeMatch} teamDatabase={teamDatabase} />}
+      {/* Widget IA encyclopédie football */}
+      <ChatWidget matchContext={activeMatch} teamDatabase={teamDatabase} />
+
 
       {/* Modal joueur global (déclenché depuis la recherche) */}
       {globalPlayer && (
@@ -11645,6 +12112,7 @@ export default function App() {
           isFav={isFavorite(globalClub.id)}
           onToggleFav={club => toggleFavorite({ ...club, leagueId: globalClub.leagueId||"", leagueName: globalClub.leagueName||"" })}
           onClose={() => setGlobalClub(null)}
+          onMatchClick={handleClubFormMatchClick}
         />
       )}
     </div>

@@ -103,7 +103,7 @@ app.get("/api/pronostics/stats", (req, res) => {
 // Admin : résoudre un pronostic (sécurisé par secret)
 app.post("/api/pronostics/resolve", express.json(), (req, res) => {
   const { secret, pronosticId, actualResult, actualScore } = req.body || {};
-  if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: "Accès refusé." });
+  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: "Accès refusé." });
   const p = resolvePronostic(Number(pronosticId), actualResult, actualScore);
   res.json(p || { error: "Pronostic introuvable." });
 });
@@ -142,7 +142,7 @@ app.post("/api/payment/create-checkout-session", express.json(), async (req, res
   };
   // Mapper les plans trimestriels vers le plan Stripe correct pour la DB
   const PLAN_NAME_MAP = { premium_3m: "premium", vip_3m: "vip" };
-  if (!PRICE_IDS[plan]) return res.status(400).json({ error: "Plan invalide." });
+  if (!["premium","vip","premium_3m","vip_3m"].includes(plan)) return res.status(400).json({ error: "Plan invalide." });
   if (!PRICE_IDS[plan]) return res.status(500).json({ error: `STRIPE_${plan.toUpperCase()}_PRICE_ID manquant dans .env` });
 
   try {
@@ -626,7 +626,7 @@ Ne mentionne pas d'événements après août 2025. Réponds directement la biogr
     // Toujours mettre en cache même si partiel (au moins les données de base)
     await writeCache(cacheKey, result);
     res.json(result);
-  } catch (err) { res.json({}); }
+  } catch (err) { console.error("[tennis/player]", err.message); res.json({}); }
 });
 
 // Découverte des tournois depuis l'API (debug)
@@ -873,6 +873,7 @@ app.get("/api/club-card/:teamId", async (req, res) => {
         return {
           id: f.fixture.id, date: f.fixture.date,
           league: f.league?.name||"", leagueLogo: f.league?.logo||"",
+          leagueId: f.league?.id||null,
           opponent: isHome ? { name:f.teams.away.name, logo:f.teams.away.logo||"", side:"ext." }
                            : { name:f.teams.home.name, logo:f.teams.home.logo||"", side:"dom." },
           score: `${gf ?? "?"} - ${ga ?? "?"}`, result: res,
@@ -987,7 +988,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour. Si tu ne sais pas, mets nul
     }
 
     let aiData = {};
-    try { aiData = JSON.parse(aiRecords); } catch {}
+    try { aiData = JSON.parse(aiRecords); } catch(e) { console.warn("[club-card/json-parse]", e.message); }
 
     const result = {
       teamId:    Number(teamId),
