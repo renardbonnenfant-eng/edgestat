@@ -2319,6 +2319,8 @@ const server = app.listen(PORT, () => {
   if (!API.key) {
     console.warn("⚠ API_FOOTBALL_KEY absente : copie backend/.env.example vers backend/.env");
   }
+  const g = process.env.GROQ_KEY;
+  console.log(`GROQ_KEY vue par le serveur : ${g ? `${g.slice(0, 6)}...${g.slice(-4)} (longueur ${g.length})` : "ABSENTE"}`);
 });
 
 // WebSocket quiz multijoueur
