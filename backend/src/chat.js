@@ -1,5 +1,5 @@
 // ============================================================
-// Chatbot IA — Groq (llama-3.3-70b-versatile, gratuit)
+// Chatbot IA — Groq (openai/gpt-oss-120b, gratuit)
 // Contexte enrichi : match actuel + base de toutes les équipes chargées
 // ============================================================
 import Groq from "groq-sdk";
@@ -182,7 +182,7 @@ ${contextStr}${searchSection ? `\n${searchSection}` : ""}`;
   ];
 
   const options = {
-    model:       "llama-3.3-70b-versatile",
+    model:       "openai/gpt-oss-120b",
     messages,
     max_tokens:  structuredOutput ? 1800 : 700,
     temperature: structuredOutput ? 0.3 : 0.5,

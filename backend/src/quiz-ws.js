@@ -268,7 +268,7 @@ class Room {
 Format JSON strict: { "questions": [{ "id":"ai1", "q":"...", "options":["bonne réponse","mauvaise1","mauvaise2","mauvaise3"], "correct":0, "pts":150, "fact":"explication courte" }] }
 IMPORTANT: mélange l'index correct (0,1,2 ou 3 aléatoirement). Réponds UNIQUEMENT avec le JSON.`;
         const completion = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: [{ role:"user", content:prompt }],
           max_tokens: 2000, temperature: 0.85,
           response_format: { type: "json_object" },

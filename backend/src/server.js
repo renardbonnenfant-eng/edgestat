@@ -261,7 +261,7 @@ app.get("/api/news/football", async (req, res) => {
         const groq = new Groq({ apiKey: groqKey });
         const sources = searchResults.map((r,i) => `[${i+1}] ${r.title}\n${r.content}`).join("\n\n");
         const completion = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: [{
             role: "user",
             content: `Tu es un journaliste sportif. Voici des articles récents sur le football:\n\n${sources}\n\nCrée 6 flash infos football CROUSTILLANTES et VARIÉES à partir de ces sources réelles.
@@ -600,7 +600,7 @@ app.get("/api/tennis/player/:playerId", async (req, res) => {
         const context = detail.wikiExtract ? `Contexte Wikipedia disponible : "${detail.wikiExtract.slice(0,200)}"` :
                         detail.tsdbBio ? `Contexte disponible : "${detail.tsdbBio.slice(0,200)}"` : "";
         const completion = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: [{
             role: "user",
             content: `Écris une biographie courte (3-4 phrases, maximum 150 mots) du joueur de tennis ${name} (${country||""}), actuellement classé #${rank||"?"} mondial.
@@ -926,7 +926,7 @@ app.get("/api/club-card/:teamId", async (req, res) => {
         const { default: Groq } = await import("groq-sdk");
         const groq = new Groq({ apiKey: groqKeyLocal });
         const honorsCompletion = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: [{
             role: "user",
             content: `Liste les principaux trophées du club de football "${team.name}" (${team.country || "pays inconnu"}).
@@ -979,7 +979,7 @@ Réponds en JSON strict avec ces clés :
 Réponds UNIQUEMENT avec le JSON, sans texte autour. Si tu ne sais pas, mets null.`;
 
         const completion = await groq.chat.completions.create({
-          model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}],
+          model:"openai/gpt-oss-120b", messages:[{role:"user",content:prompt}],
           max_tokens:400, temperature:0.2,
           response_format: { type:"json_object" },
         });
@@ -1360,7 +1360,7 @@ Génère un résumé structuré en français incluant :
 Sois précis, cite des noms et chiffres. Mentionne si certaines infos datent. Réponds en 300 mots max.`;
 
         const completion = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: [{ role: "user", content: prompt }],
           max_tokens: 600,
           temperature: 0.4,
@@ -1557,7 +1557,7 @@ Mélange l'ordre des réponses correctes (pas toujours en position 0).
 Réponds UNIQUEMENT avec le JSON, sans texte autour.`;
 
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [{ role:"user", content:prompt }],
       max_tokens: 2000,
       temperature: 0.8,
@@ -2161,7 +2161,7 @@ async function fetchTrophies(playerName) {
     const { default: Groq } = await import("groq-sdk");
     const groq = new Groq({ apiKey: groqKey });
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [{
         role: "user",
         content: `Liste les principaux trophées remportés par le footballeur "${playerName}" tout au long de sa carrière.
